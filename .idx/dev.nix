@@ -1,41 +1,58 @@
-# To learn more about how to use Nix to configure your environment
-# see: https://firebase.google.com/docs/studio/customize-workspace
-{pkgs}: {
-  # Which nixpkgs channel to use.
-  channel = "stable-24.11"; # or "unstable"
-  # Use https://search.nixos.org/packages to find packages
+# .idx/dev.nix
+{ pkgs, ... }: {
+  # IMPORTANTE: Es "channel" en singular, y solo una cadena de texto.
+  channel = "stable-24.05";
+
+  # Paquetes del sistema
   packages = [
+    pkgs.php83
+    pkgs.php83Packages.composer
     pkgs.nodejs_20
-    pkgs.zulu
+    pkgs.docker
+    pkgs.mysql84
+    pkgs.redis
+    pkgs.google-cloud-sdk
   ];
-  # Sets environment variables in the workspace
-  env = {};
-  # This adds a file watcher to startup the firebase emulators. The emulators will only start if
-  # a firebase.json file is written into the user's directory
-  services.firebase.emulators = {
-    # Disabling because we are using prod backends right now
-    detect = false;
-    projectId = "demo-app";
-    services = ["auth" "firestore"];
+
+  # Servicios Nativos (Esto asegura la PERSISTENCIA de la Base de Datos)
+  services.mysql = {
+    enable = true;
+    package = pkgs.mysql84;
   };
+
+  services.docker.enable = true;
+
+  # Variables de entorno para conectar Laravel y Next.js
+  env = {
+    PORT = "9003";
+    API_URL = "http://localhost:8000";
+    # Configuración para que Laravel encuentre el MySQL nativo
+    DB_CONNECTION = "mysql";
+    DB_HOST = "127.0.0.1";
+    DB_PORT = "3306";
+    DB_DATABASE = "peepos";
+    DB_USERNAME = "root";
+    DB_PASSWORD = ""; # IDX suele dejar root sin clave en local
+  };
+
+  # Configuración del IDE y Previsualizaciones
   idx = {
-    # Search for the extensions you want on https://open-vsx.org/ and use "publisher.id"
     extensions = [
-      # "vscodevim.vim"
+      "bmewburn.vscode-intelephense-client"
+      "bradlc.vscode-tailwindcss"
+      "ES7.react-js-snippets"
     ];
-    workspace = {
-      onCreate = {
-        default.openFiles = [
-          "src/app/page.tsx"
-        ];
-      };
-    };
-    # Enable previews and customize configuration
+
     previews = {
       enable = true;
       previews = {
         web = {
-          command = ["npm" "run" "dev" "--" "--port" "$PORT" "--hostname" "0.0.0.0"];
+          command = ["npm" "run" "dev" "--prefix" "frontend" "--" "--port" "9003" "--hostname" "0.0.0.0"];
+          manager = "web";
+        };
+        api = {
+          command = ["php" "artisan" "serve" "--host=0.0.0.0" "--port=8000"];
+          cwd = "backend";
           manager = "web";
         };
       };
