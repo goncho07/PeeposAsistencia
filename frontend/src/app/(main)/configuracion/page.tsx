@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Sliders, Building, Phone, User, Clock, Check, Globe } from 'lucide-react';
+import { Settings, Sliders, Building, Phone, User, Clock, Globe } from 'lucide-react';
 import HeroHeader from '@/components/ui/HeroHeader';
 import api from '@/lib/axios';
 
@@ -10,19 +10,18 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState<'school' | 'attendance'>('school');
   const [loading, setLoading] = useState(false);
   
-  // Estados para formularios
   const [schoolForm, setSchoolForm] = useState({ name: '', address: '', director: '', phone: '' });
   const [attendanceForm, setAttendanceForm] = useState({ tardiness_limit: 5, timezone: 'America/Lima' });
 
-  // Cargar configuración
   useEffect(() => {
     const fetchSettings = async () => {
       try {
-        const { data } = await api.get('/settings').catch(() => ({ data: [] }));
-        // Mapear array key-value a objeto
+        const { data } = await api.get('/settings');
         const settingsMap: any = {};
         if (Array.isArray(data)) {
            data.forEach((s: any) => settingsMap[s.key] = s.value);
+        } else if (data.data) {
+           data.data.forEach((s: any) => settingsMap[s.key] = s.value);
         }
         
         setSchoolForm({
@@ -59,7 +58,10 @@ export default function SettingsPage() {
             { key: 'attendance_timezone', value: attendanceForm.timezone }
           ];
 
-      await api.post('/settings/batch', { settings: payload }); // Asumimos endpoint batch update
+      for (const item of payload) {
+           await api.post('/settings', item); 
+      }
+
       alert('Configuración guardada correctamente');
     } catch (error) {
       console.error(error);

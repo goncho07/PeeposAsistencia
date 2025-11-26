@@ -29,26 +29,22 @@ export default function ReportsPage() {
     setLoading(true);
     setProgress(10);
 
-    // Simular progreso visual
     const interval = setInterval(() => {
-       setProgress(prev => (prev < 90 ? prev + 10 : prev));
-    }, 300);
+       setProgress(prev => (prev < 90 ? prev + 5 : prev));
+    }, 200);
 
     try {
-       // Llamada a la API real
-       // const { data } = await api.post('/reports/generate', formData, { responseType: 'blob' });
-       // const url = window.URL.createObjectURL(new Blob([data]));
-       // setReportUrl(url);
-
-       // Simulación para mostrar flujo
-       await new Promise(r => setTimeout(r, 2000));
-       setReportUrl('#'); // URL ficticia
+       const response = await api.post('/reports/generate', formData, { 
+           responseType: 'blob'
+       });
        
+       const url = window.URL.createObjectURL(new Blob([response.data]));
+       setReportUrl(url);
+
        setProgress(100);
-       clearInterval(interval);
     } catch (error) {
-       console.error(error);
-       alert('Error generando reporte');
+       console.error("Error generando reporte:", error);
+       alert('Error generando reporte. Intente nuevamente.');
        setStep(1);
     } finally {
        setLoading(false);
@@ -62,7 +58,6 @@ export default function ReportsPage() {
         <HeroHeader title="Reportes" subtitle="Exportación de datos" icon={BarChart3} gradient="bg-gradient-to-r from-purple-500 to-pink-600" decorativeIcon={FileText} />
         
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 p-8">
-           {/* Stepper Header */}
            <div className="flex justify-center items-center gap-4 mb-12">
               {[1, 2, 3].map((s) => (
                  <React.Fragment key={s}>
@@ -74,7 +69,6 @@ export default function ReportsPage() {
               ))}
            </div>
 
-           {/* Step 1: Config */}
            {step === 1 && (
              <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-xl mx-auto space-y-6">
                 <h3 className="text-lg font-bold text-center dark:text-white">Configura tu reporte</h3>
@@ -101,7 +95,6 @@ export default function ReportsPage() {
              </motion.div>
            )}
 
-           {/* Step 2: Preview (Simulado) */}
            {step === 2 && (
               <motion.div variants={pageVariants} initial="initial" animate="animate" className="max-w-2xl mx-auto text-center space-y-6">
                  <h3 className="text-lg font-bold dark:text-white">Confirmar Generación</h3>
@@ -116,7 +109,6 @@ export default function ReportsPage() {
               </motion.div>
            )}
 
-           {/* Step 3: Result */}
            {step === 3 && (
               <motion.div variants={pageVariants} initial="initial" animate="animate" className="flex flex-col items-center py-12">
                  {loading ? (
@@ -132,7 +124,9 @@ export default function ReportsPage() {
                        <h3 className="text-2xl font-bold mb-2 dark:text-white">¡Reporte Listo!</h3>
                        <p className="text-gray-500 mb-8">Tu archivo ha sido generado exitosamente.</p>
                        <div className="flex gap-4">
-                          <a href={reportUrl!} download className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 flex items-center gap-2 shadow-lg"><Download size={18}/> Descargar</a>
+                          {reportUrl && (
+                              <a href={reportUrl} download={`reporte.${formData.format.toLowerCase()}`} className="px-8 py-3 bg-green-600 text-white rounded-xl font-bold hover:bg-green-700 flex items-center gap-2 shadow-lg"><Download size={18}/> Descargar</a>
+                          )}
                           <button onClick={() => setStep(1)} className="px-6 py-3 border border-gray-200 dark:border-slate-700 rounded-xl font-medium hover:bg-gray-50 dark:text-white dark:hover:bg-slate-800 flex items-center gap-2"><RefreshCcw size={16}/> Nuevo</button>
                        </div>
                     </>

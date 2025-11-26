@@ -44,7 +44,6 @@ const RoleFilterCard: React.FC<RoleFilterCardProps> = ({
       </div>
       <span className={`font-semibold text-sm z-10 mt-2 ${isActive ? 'text-white/90' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-700 dark:group-hover:text-gray-200'}`}>{label}</span>
       
-      {/* Decorative Icon Background */}
       <Icon 
         className={`absolute -right-4 -bottom-4 opacity-10 transform -rotate-12 transition-transform group-hover:scale-110 ${isActive ? 'text-white' : colorClass}`} 
         size={80} 

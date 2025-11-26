@@ -7,7 +7,7 @@ import { LucideIcon } from 'lucide-react';
 interface ActionButtonProps {
   icon: LucideIcon;
   label: string;
-  iconColor?: string; // e.g., 'text-blue-600'
+  iconColor?: string; 
   onClick: () => void;
 }
 

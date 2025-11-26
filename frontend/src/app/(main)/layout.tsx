@@ -19,7 +19,8 @@ import {
   Moon,
   Smartphone
 } from 'lucide-react';
-import NotificationCard, { Notification } from '@/components/ui/NotificationCard';
+import NotificationCard from '@/components/ui/NotificationCard';
+import { Notification } from '@/components/ui/NotificationCard'; // Assuming types are exported there or separately
 
 // Componente SidebarItem interno
 const SidebarItem = ({ icon: Icon, label, active, onClick }: any) => (
@@ -113,7 +114,7 @@ export default function MainLayout({ children }: { children: React.ReactNode }) 
               <div className="p-6 flex flex-col h-full w-[320px]">
                 <div className="flex justify-between items-start mb-8">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-bold text-sm shadow-md">LL</div>
+                    <div className="w-10 h-10 rounded-full bg-linear-to-br from-blue-600 to-indigo-700 flex items-center justify-center text-white font-bold text-sm shadow-md">LL</div>
                     <div><h3 className="font-bold text-gray-800 dark:text-white text-sm">Lisha Lokwani</h3><p className="text-gray-400 text-xs font-medium">Directora General</p></div>
                   </div>
                   <div className="flex items-center gap-1">

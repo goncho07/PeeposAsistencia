@@ -1,13 +1,7 @@
 'use client';
 
 import React from 'react';
-import { 
-  AlertTriangle, 
-  CheckCircle2, 
-  AlertCircle, 
-  Info, 
-  MoreHorizontal 
-} from 'lucide-react';
+import { AlertTriangle, CheckCircle2, AlertCircle, Info, MoreHorizontal } from 'lucide-react';
 
 export interface Notification {
   id: number;

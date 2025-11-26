@@ -25,10 +25,10 @@ export default function NotificationsPage() {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const response = await api.get('/notifications').catch(() => ({ data: [] }));
-        setNotifications(Array.isArray(response.data) ? response.data : []);
+        const response = await api.get('/notifications');
+        setNotifications(Array.isArray(response.data) ? response.data : response.data.data || []);
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching notifications:", error);
         setNotifications([]);
       } finally {
         setLoading(false);

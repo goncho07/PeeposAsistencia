@@ -10,15 +10,13 @@ import {
 import RoleFilterCard from '@/components/ui/RoleFilterCard';
 import api from '@/lib/axios';
 
-// --- COMPONENTS LOCALES (MODALES) PARA INTEGRACIÓN ---
-
 const CreateUserModal: React.FC<{ isOpen: boolean; onClose: () => void; onSuccess: () => void }> = ({ isOpen, onClose, onSuccess }) => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     dni: '',
     role: 'Estudiante',
-    password: 'password123', // Default temporal
+    password: 'password123', 
   });
   const [loading, setLoading] = useState(false);
 
@@ -134,8 +132,6 @@ const UserDetailModal: React.FC<{ user: any | null; onClose: () => void }> = ({ 
   );
 };
 
-// --- PÁGINA PRINCIPAL ---
-
 export default function UsersPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -147,16 +143,13 @@ export default function UsersPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // FETCH DATOS REALES
   const fetchUsers = async () => {
     setLoading(true);
     try {
       const { data } = await api.get('/users');
-      // Soporte para respuesta directa array o paginada de Laravel
       setUsers(Array.isArray(data) ? data : data.data || []); 
     } catch (error) {
       console.error("Error fetching users:", error);
-      // Fallback vacío elegante
       setUsers([]);
     } finally {
       setLoading(false);
@@ -177,18 +170,15 @@ export default function UsersPage() {
     }
   };
 
-  // Lógica de Filtrado (Client Side para MVP)
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
       const matchesSearch = user.name?.toLowerCase().includes(searchQuery.toLowerCase()) || user.dni?.includes(searchQuery);
-      // Mapeo flexible de roles (backend vs frontend labels)
       const type = user.role || 'Estudiante'; 
       const matchesType = selectedUserType === 'Todos' || type === selectedUserType || (selectedUserType === 'Administrativo' && type === 'admin');
       return matchesSearch && matchesType;
     });
   }, [searchQuery, selectedUserType, users]);
 
-  // Paginación
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
@@ -204,8 +194,7 @@ export default function UsersPage() {
     <div className="w-full flex justify-center min-h-full">
       <div className="w-full max-w-[1400px] px-8 py-6 flex flex-col">
         
-        {/* HEADER */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-800 rounded-2xl p-6 text-white shadow-lg mb-8 flex justify-between items-center">
+        <div className="bg-linear-to-r from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-800 rounded-2xl p-6 text-white shadow-lg mb-8 flex justify-between items-center">
           <div>
              <div className="flex items-center gap-3 mb-1">
                 <Users size={28} className="text-white/90"/>
@@ -219,7 +208,6 @@ export default function UsersPage() {
           </div>
         </div>
 
-        {/* TOOLBAR */}
         <div className="flex flex-col md:flex-row justify-between gap-4 mb-6">
            <div className="relative flex-1 max-w-lg">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
@@ -247,7 +235,6 @@ export default function UsersPage() {
            </div>
         </div>
 
-        {/* LOADING STATE */}
         {loading ? (
           <div className="flex justify-center py-20">
              <Loader2 size={40} className="text-blue-600 animate-spin" />
@@ -311,7 +298,6 @@ export default function UsersPage() {
                <div className="text-center py-10 text-gray-400">No se encontraron usuarios.</div>
              )}
 
-             {/* Pagination Simple */}
              {filteredUsers.length > 0 && (
                 <div className="flex justify-end gap-2 mt-6">
                    <button onClick={() => setCurrentPage(p => Math.max(1, p-1))} disabled={currentPage===1} className="p-2 border rounded disabled:opacity-50 dark:border-slate-700 dark:text-white"><ChevronLeft size={20}/></button>

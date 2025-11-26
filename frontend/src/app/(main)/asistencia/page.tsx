@@ -13,14 +13,13 @@ export default function AttendancePage() {
   const [filterStatus, setFilterStatus] = useState('Todos');
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
-  // Cargar datos
   useEffect(() => {
     const fetchAttendance = async () => {
       try {
-        const response = await api.get('/attendance').catch(() => ({ data: [] }));
-        setRecords(Array.isArray(response.data) ? response.data : []);
+        const response = await api.get('/attendance');
+        setRecords(Array.isArray(response.data) ? response.data : response.data.data || []);
       } catch (error) {
-        console.error(error);
+        console.error("Error fetching attendance:", error);
         setRecords([]);
       } finally {
         setLoading(false);
@@ -31,14 +30,10 @@ export default function AttendancePage() {
 
   const filteredRecords = useMemo(() => {
     return records.filter(record => {
-      const studentName = record.user?.name || 'Desconocido';
+      const studentName = record.user?.name || record.student_name || 'Desconocido';
       const matchesSearch = studentName.toLowerCase().includes(searchQuery.toLowerCase());
-      
-      // Mapear status del backend (inglés) a frontend (español) si es necesario, 
-      // o asumir que el backend envía 'present', 'late', 'absent'
       const statusMap: Record<string, string> = { 'present': 'Presente', 'late': 'Tardanza', 'absent': 'Ausente' };
       const recordStatus = statusMap[record.status] || record.status;
-      
       const matchesFilter = filterStatus === 'Todos' || recordStatus === filterStatus;
       return matchesSearch && matchesFilter;
     });
@@ -89,7 +84,7 @@ export default function AttendancePage() {
           ) : filteredRecords.length > 0 ? (
              filteredRecords.map((record, i) => (
                <div key={i} className="flex px-6 py-4 items-center border-b border-gray-50 dark:border-slate-800 last:border-none hover:bg-gray-50 dark:hover:bg-slate-800 transition-colors">
-                  <div className="w-[35%] font-medium text-gray-800 dark:text-gray-200">{record.user?.name}</div>
+                  <div className="w-[35%] font-medium text-gray-800 dark:text-gray-200">{record.user?.name || 'Usuario'}</div>
                   <div className="w-[15%] text-gray-500">{record.section?.grade?.name || '-'}</div>
                   <div className="w-[15%] text-gray-600 dark:text-gray-300">{record.check_in || '--:--'}</div>
                   <div className="w-[15%] text-gray-400">{record.check_out || '--:--'}</div>
