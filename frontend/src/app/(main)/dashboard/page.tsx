@@ -1,46 +1,29 @@
 'use client';
-
-import React from 'react';
+import React, { useState } from 'react';
+import { LayoutDashboard, BarChart3, UserCheck, Clock, AlertTriangle, Smartphone, Zap, FileText, MessageCircle, Users, QrCode, Shield } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { 
-  LayoutDashboard, 
-  BarChart3, 
-  UserCheck, 
-  Clock, 
-  AlertTriangle, 
-  MessageCircle, 
-  Zap, 
-  FileText, 
-  Users, 
-  QrCode, 
-  Shield 
-} from 'lucide-react';
 import HeroHeader from '@/components/ui/HeroHeader';
-import KPICard from '@/components/ui/KPICard';
-
-const containerVariants = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.05 }
-  }
-};
+import DashboardSectionTitle from '@/components/ui/DashboardSectionTitle';
+import AIChatPanel from '@/components/features/AIChatPanel'; // Import used in quick action
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0 }
 };
 
-const DashboardSectionTitle: React.FC<{ title: string; icon?: any }> = ({ title, icon: Icon }) => (
-  <div className="flex items-center gap-2 mb-4 border-b border-gray-100 dark:border-slate-700 pb-2">
-    {Icon && <Icon size={18} className="text-gray-400 dark:text-gray-500" />}
-    <h3 className="text-sm font-bold text-gray-700 dark:text-gray-300 uppercase tracking-wider">{title}</h3>
-  </div>
-);
+const containerVariants = {
+    hidden: { opacity: 0 },
+    show: {
+      opacity: 1,
+      transition: { staggerChildren: 0.05 }
+    }
+  };
 
 export default function DashboardPage() {
+  const [chatOpen, setChatOpen] = useState(false);
+
   return (
-    <div className="w-full flex justify-center min-h-full">
+    <div className="w-full flex justify-center bg-gray-50 dark:bg-slate-950 min-h-full">
       <motion.div variants={containerVariants} initial="hidden" animate="show" className="w-full max-w-[1280px] px-8 py-6 flex flex-col">
         
         <HeroHeader 
@@ -53,34 +36,41 @@ export default function DashboardPage() {
         
         {/* 1. KPIs Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <KPICard 
-             title="Asistencia Hoy" 
-             value="92%" 
-             subtext="Estudiantes Activos" 
-             mainIcon={UserCheck} 
-             gradient="bg-gradient-to-br from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700" 
-          />
-          <KPICard 
-             title="Tardanzas Totales" 
-             value="18" 
-             subtext="Necesitan justificación" 
-             mainIcon={Clock} 
-             gradient="bg-gradient-to-br from-amber-400 to-orange-500 dark:from-amber-500 dark:to-orange-600" 
-          />
-          <KPICard 
-             title="Ausentes" 
-             value="05" 
-             subtext="Sin Justificar" 
-             mainIcon={AlertTriangle} 
-             gradient="bg-gradient-to-br from-red-500 to-rose-600 dark:from-red-600 dark:to-rose-700" 
-          />
-          <KPICard 
-             title="Notificaciones" 
-             value="1,842" 
-             subtext="Enviadas este mes" 
-             mainIcon={MessageCircle} 
-             gradient="bg-gradient-to-br from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-800" 
-          />
+          <motion.div variants={itemVariants} className="bg-linear-to-br from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
+             <div className="relative z-10">
+                <div className="p-2 bg-white/20 rounded-lg text-white w-fit mb-3"><UserCheck size={24} /></div>
+                <h3 className="text-4xl font-bold">92%</h3>
+                <p className="text-sm text-emerald-50 font-medium">Asistencia Hoy</p>
+             </div>
+             <UserCheck className="absolute -right-4 -bottom-4 text-white opacity-10 rotate-12" size={100} />
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="bg-linear-to-br from-amber-400 to-orange-500 dark:from-amber-500 dark:to-orange-600 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
+             <div className="relative z-10">
+                <div className="p-2 bg-white/20 rounded-lg text-white w-fit mb-3"><Clock size={24} /></div>
+                <h3 className="text-4xl font-bold">18</h3>
+                <p className="text-sm text-orange-50 font-medium">Tardanzas Totales</p>
+             </div>
+             <Clock className="absolute -right-4 -bottom-4 text-white opacity-10 rotate-12" size={100} />
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="bg-linear-to-br from-red-500 to-rose-600 dark:from-red-600 dark:to-rose-700 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
+             <div className="relative z-10">
+                <div className="p-2 bg-white/20 rounded-lg text-white w-fit mb-3"><AlertTriangle size={24} /></div>
+                <h3 className="text-4xl font-bold">05</h3>
+                <p className="text-sm text-red-50 font-medium">Ausentes (Sin Justificar)</p>
+             </div>
+             <AlertTriangle className="absolute -right-4 -bottom-4 text-white opacity-10 rotate-12" size={100} />
+          </motion.div>
+
+          <motion.div variants={itemVariants} className="bg-linear-to-br from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-800 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
+             <div className="relative z-10">
+                <div className="p-2 bg-white/20 rounded-lg text-white w-fit mb-3"><Smartphone size={24} /></div>
+                <h3 className="text-4xl font-bold">1,842</h3>
+                <p className="text-sm text-blue-100 font-medium">Notificaciones Enviadas</p>
+             </div>
+             <MessageCircle className="absolute -right-4 -bottom-4 text-white opacity-10 rotate-12" size={100} />
+          </motion.div>
         </div>
 
         {/* 2. Operational Grid */}
@@ -94,7 +84,7 @@ export default function DashboardPage() {
                     <div className="p-3 bg-white dark:bg-slate-800 rounded-full text-blue-600 dark:text-blue-400 shadow-sm group-hover:scale-110 transition-transform"><FileText size={24}/></div>
                     <span className="text-sm font-bold text-blue-800 dark:text-blue-300 text-center">Reporte Diario</span>
                  </button>
-                 <button className="p-5 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 flex flex-col items-center justify-center gap-3 hover:bg-green-100 dark:hover:bg-green-900/40 hover:shadow-md transition-all group h-32">
+                 <button onClick={() => setChatOpen(true)} className="p-5 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 flex flex-col items-center justify-center gap-3 hover:bg-green-100 dark:hover:bg-green-900/40 hover:shadow-md transition-all group h-32">
                     <div className="p-3 bg-white dark:bg-slate-800 rounded-full text-green-600 dark:text-green-400 shadow-sm group-hover:scale-110 transition-transform"><MessageCircle size={24}/></div>
                     <span className="text-sm font-bold text-green-800 dark:text-green-300 text-center">Alerta WhatsApp</span>
                  </button>
@@ -139,6 +129,8 @@ export default function DashboardPage() {
         </div>
 
       </motion.div>
+
+      <AIChatPanel isOpen={chatOpen} onClose={() => setChatOpen(false)} />
     </div>
   );
 }

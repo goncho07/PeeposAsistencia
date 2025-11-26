@@ -4,14 +4,14 @@ import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
 
 const poppins = Poppins({
+  variable: "--font-poppins",
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-poppins",
 });
 
 export const metadata: Metadata = {
-  title: "Peepos Asistencia",
-  description: "Sistema de Control de Asistencia Escolar",
+  title: "Peepos - Gestión Escolar",
+  description: "Plataforma de gestión escolar integral",
 };
 
 export default function RootLayout({
