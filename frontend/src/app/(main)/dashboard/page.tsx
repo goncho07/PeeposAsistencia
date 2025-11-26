@@ -1,10 +1,11 @@
 'use client';
-import React, { useState } from 'react';
-import { LayoutDashboard, BarChart3, UserCheck, Clock, AlertTriangle, Smartphone, Zap, FileText, MessageCircle, Users, QrCode, Shield } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { LayoutDashboard, BarChart3, UserCheck, Clock, AlertTriangle, Smartphone, Zap, FileText, MessageCircle, Users, QrCode, Shield, Loader2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import HeroHeader from '@/components/ui/HeroHeader';
 import DashboardSectionTitle from '@/components/ui/DashboardSectionTitle';
-import AIChatPanel from '@/components/features/AIChatPanel'; // Import used in quick action
+import AIChatPanel from '@/components/features/AIChatPanel';
+import api from '@/lib/axios';
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -17,10 +18,31 @@ const containerVariants = {
       opacity: 1,
       transition: { staggerChildren: 0.05 }
     }
-  };
+};
 
 export default function DashboardPage() {
   const [chatOpen, setChatOpen] = useState(false);
+  const [stats, setStats] = useState({
+    attendance_percentage: 0,
+    late_count: 0,
+    absent_count: 0,
+    notifications_sent: 0
+  });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const { data } = await api.get('/dashboard/stats');
+        setStats(data);
+      } catch (error) {
+        console.error("Error fetching dashboard stats:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchStats();
+  }, []);
 
   return (
     <div className="w-full flex justify-center bg-gray-50 dark:bg-slate-950 min-h-full">
@@ -39,7 +61,7 @@ export default function DashboardPage() {
           <motion.div variants={itemVariants} className="bg-linear-to-br from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
              <div className="relative z-10">
                 <div className="p-2 bg-white/20 rounded-lg text-white w-fit mb-3"><UserCheck size={24} /></div>
-                <h3 className="text-4xl font-bold">92%</h3>
+                <h3 className="text-4xl font-bold">{loading ? '-' : `${stats.attendance_percentage}%`}</h3>
                 <p className="text-sm text-emerald-50 font-medium">Asistencia Hoy</p>
              </div>
              <UserCheck className="absolute -right-4 -bottom-4 text-white opacity-10 rotate-12" size={100} />
@@ -48,7 +70,7 @@ export default function DashboardPage() {
           <motion.div variants={itemVariants} className="bg-linear-to-br from-amber-400 to-orange-500 dark:from-amber-500 dark:to-orange-600 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
              <div className="relative z-10">
                 <div className="p-2 bg-white/20 rounded-lg text-white w-fit mb-3"><Clock size={24} /></div>
-                <h3 className="text-4xl font-bold">18</h3>
+                <h3 className="text-4xl font-bold">{loading ? '-' : stats.late_count}</h3>
                 <p className="text-sm text-orange-50 font-medium">Tardanzas Totales</p>
              </div>
              <Clock className="absolute -right-4 -bottom-4 text-white opacity-10 rotate-12" size={100} />
@@ -57,7 +79,7 @@ export default function DashboardPage() {
           <motion.div variants={itemVariants} className="bg-linear-to-br from-red-500 to-rose-600 dark:from-red-600 dark:to-rose-700 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
              <div className="relative z-10">
                 <div className="p-2 bg-white/20 rounded-lg text-white w-fit mb-3"><AlertTriangle size={24} /></div>
-                <h3 className="text-4xl font-bold">05</h3>
+                <h3 className="text-4xl font-bold">{loading ? '-' : stats.absent_count}</h3>
                 <p className="text-sm text-red-50 font-medium">Ausentes (Sin Justificar)</p>
              </div>
              <AlertTriangle className="absolute -right-4 -bottom-4 text-white opacity-10 rotate-12" size={100} />
@@ -66,7 +88,7 @@ export default function DashboardPage() {
           <motion.div variants={itemVariants} className="bg-linear-to-br from-blue-600 to-indigo-700 dark:from-blue-700 dark:to-indigo-800 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
              <div className="relative z-10">
                 <div className="p-2 bg-white/20 rounded-lg text-white w-fit mb-3"><Smartphone size={24} /></div>
-                <h3 className="text-4xl font-bold">1,842</h3>
+                <h3 className="text-4xl font-bold">{loading ? '-' : stats.notifications_sent}</h3>
                 <p className="text-sm text-blue-100 font-medium">Notificaciones Enviadas</p>
              </div>
              <MessageCircle className="absolute -right-4 -bottom-4 text-white opacity-10 rotate-12" size={100} />

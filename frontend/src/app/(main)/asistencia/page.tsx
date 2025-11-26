@@ -1,8 +1,9 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ClipboardCheck, UserCheck, Search, Filter, Clock, X, Send, LogOut } from 'lucide-react';
+import { ClipboardCheck, UserCheck, Search, Filter, Clock, X, Send, LogOut, Loader2 } from 'lucide-react';
 import HeroHeader from '@/components/ui/HeroHeader';
+import api from '@/lib/axios';
 
 interface Student {
   id: number;
@@ -66,23 +67,42 @@ export default function AttendancePage() {
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [students, setStudents] = useState<Student[]>([]);
+  const [loading, setLoading] = useState(true);
   const itemsPerPage = 5;
 
-  const allStudents: Student[] = [
-    { id: 1, name: "Matías Flores", grade: "5to Grado A", dni: "78901234", timeIn: "07:45 AM", timeOut: "--:--", status: "Presente", avatarColor: "bg-blue-100 text-blue-600" },
-    { id: 2, name: "Sofía Vargas", grade: "4to Grado B", dni: "78901235", timeIn: "08:15 AM", timeOut: "--:--", status: "Tardanza", avatarColor: "bg-pink-100 text-pink-600" },
-    { id: 3, name: "Liam Torres", grade: "6to Grado A", dni: "78901236", timeIn: "--:--", timeOut: "--:--", status: "Ausente", avatarColor: "bg-purple-100 text-purple-600" },
-    { id: 4, name: "Valentina Ruiz", grade: "5to Grado A", dni: "78901237", timeIn: "07:50 AM", timeOut: "--:--", status: "Presente", avatarColor: "bg-teal-100 text-teal-600" },
-    { id: 5, name: "Thiago Castro", grade: "3er Grado C", dni: "78901238", timeIn: "07:55 AM", timeOut: "--:--", status: "Presente", avatarColor: "bg-orange-100 text-orange-600" }
-  ];
+  useEffect(() => {
+    const fetchAttendance = async () => {
+      try {
+        const { data } = await api.get('/attendance');
+        // Map backend data to frontend format
+        const mappedData = data.map((record: any) => ({
+            id: record.id,
+            name: record.user?.name || "Desconocido",
+            grade: record.user?.grade || "Sin Grado",
+            dni: record.user?.dni || "-",
+            timeIn: record.check_in ? new Date(record.check_in).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--",
+            timeOut: record.check_out ? new Date(record.check_out).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : "--:--",
+            status: record.status === 'late' ? 'Tardanza' : record.status === 'absent' ? 'Ausente' : 'Presente',
+            avatarColor: "bg-blue-100 text-blue-600" // Default for now
+        }));
+        setStudents(mappedData);
+      } catch (error) {
+        console.error("Error fetching attendance:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchAttendance();
+  }, []);
 
   const filteredStudents = useMemo(() => {
-    return allStudents.filter(student => {
+    return students.filter(student => {
       const matchesSearch = student.name.toLowerCase().includes(searchQuery.toLowerCase()) || student.dni.includes(searchQuery);
       const matchesFilter = filterStatus === 'Todos' || student.status === filterStatus;
       return matchesSearch && matchesFilter;
     });
-  }, [searchQuery, filterStatus]);
+  }, [searchQuery, filterStatus, students]);
 
   const totalPages = Math.ceil(filteredStudents.length / itemsPerPage);
   const paginatedStudents = filteredStudents.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -97,10 +117,15 @@ export default function AttendancePage() {
           <div className="relative w-[400px]"><Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} /><input type="text" placeholder="Buscar estudiante por nombre o DNI..." value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} className="w-full pl-12 pr-4 h-[48px] bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-[10px] text-[16px] dark:text-white focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none transition-all" /></div>
           <div className="relative"><button onClick={() => setIsFilterOpen(!isFilterOpen)} className="flex items-center gap-2 h-[48px] px-5 bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-[10px] hover:bg-gray-50 dark:hover:bg-slate-700 text-gray-700 dark:text-gray-200 font-medium transition-colors"><Filter size={20} className="text-gray-500" />{filterStatus === 'Todos' ? 'Filtros' : filterStatus}</button>{isFilterOpen && (<div className="absolute right-0 mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-gray-100 dark:border-slate-700 z-20 overflow-hidden">{['Todos', 'Presente', 'Tardanza', 'Ausente'].map((status) => (<button key={status} onClick={() => handleFilterClick(status)} className="w-full text-left px-4 py-3 text-sm hover:bg-blue-50 dark:hover:bg-blue-900/20 hover:text-blue-600 dark:text-gray-200 dark:hover:text-blue-400 transition-colors">{status}</button>))}</div>)}</div>
         </div>
-        <div className="flex justify-between items-center mb-6"><div className="flex flex-col gap-1"><span className="text-lg font-semibold text-gray-800 dark:text-white">Registro de Hoy</span><span className="text-base text-gray-500 dark:text-gray-400">20/11/2025</span></div><div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-2xl text-blue-600 dark:text-blue-400 font-medium text-sm">{filteredStudents.length} registros</div></div>
+        <div className="flex justify-between items-center mb-6"><div className="flex flex-col gap-1"><span className="text-lg font-semibold text-gray-800 dark:text-white">Registro de Hoy</span><span className="text-base text-gray-500 dark:text-gray-400">{new Date().toLocaleDateString()}</span></div><div className="bg-blue-50 dark:bg-blue-900/20 px-4 py-2 rounded-2xl text-blue-600 dark:text-blue-400 font-medium text-sm">{filteredStudents.length} registros</div></div>
         <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-800 overflow-hidden">
           <div className="flex bg-gray-50 dark:bg-slate-800 px-6 py-4 border-b border-gray-100 dark:border-slate-700"><div className="w-[35%] text-sm font-semibold text-gray-500 dark:text-gray-400">Estudiante</div><div className="w-[15%] text-sm font-semibold text-gray-500 dark:text-gray-400">Grado</div><div className="w-[15%] text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2"><Clock size={14}/> Entrada</div><div className="w-[15%] text-sm font-semibold text-gray-500 dark:text-gray-400 flex items-center gap-2"><Clock size={14}/> Salida</div><div className="w-[20%] text-sm font-semibold text-gray-500 dark:text-gray-400 text-center">Estado</div></div>
-          <AnimatePresence mode="wait">{paginatedStudents.length > 0 ? (paginatedStudents.map((student) => (<motion.div key={student.id} variants={itemVariants} initial="hidden" animate="show" exit={{ opacity: 0 }} onClick={() => setSelectedStudent(student)} className="flex px-6 py-4 items-center border-b border-gray-50 dark:border-slate-800 last:border-none hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer transition-colors group"><div className="w-[35%] flex items-center gap-3"><div className={`w-10 h-10 rounded-full ${student.avatarColor} flex items-center justify-center text-sm font-bold`}>{student.name.charAt(0)}{student.name.split(' ')[1]?.charAt(0)}</div><div><p className="text-base font-medium text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{student.name}</p><p className="text-xs text-gray-400 dark:text-gray-500">DNI: {student.dni}</p></div></div><div className="w-[15%] text-base text-gray-500 dark:text-gray-400">{student.grade}</div><div className={`w-[15%] text-base ${student.status === 'Tardanza' ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-gray-800 dark:text-gray-300'}`}>{student.timeIn}</div><div className="w-[15%] text-base text-gray-400 dark:text-gray-500">{student.timeOut}</div><div className="w-[20%] flex justify-center"><span className={`px-4 py-1.5 rounded-full text-sm font-medium ${student.status === 'Presente' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : student.status === 'Tardanza' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{student.status}</span></div></motion.div>))) : (<div className="p-12 text-center flex flex-col items-center text-gray-400"><Search size={48} className="mb-4 opacity-20" /><p>No se encontraron estudiantes</p></div>)}</AnimatePresence>
+          
+          {loading ? (
+             <div className="flex justify-center py-12 text-gray-400"><Loader2 className="animate-spin mb-2" size={32} /></div>
+          ) : (
+            <AnimatePresence mode="wait">{paginatedStudents.length > 0 ? (paginatedStudents.map((student) => (<motion.div key={student.id} variants={itemVariants} initial="hidden" animate="show" exit={{ opacity: 0 }} onClick={() => setSelectedStudent(student)} className="flex px-6 py-4 items-center border-b border-gray-50 dark:border-slate-800 last:border-none hover:bg-gray-50 dark:hover:bg-slate-800 cursor-pointer transition-colors group"><div className="w-[35%] flex items-center gap-3"><div className={`w-10 h-10 rounded-full ${student.avatarColor} flex items-center justify-center text-sm font-bold`}>{student.name.charAt(0)}{student.name.split(' ')[1]?.charAt(0)}</div><div><p className="text-base font-medium text-gray-800 dark:text-gray-200 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">{student.name}</p><p className="text-xs text-gray-400 dark:text-gray-500">DNI: {student.dni}</p></div></div><div className="w-[15%] text-base text-gray-500 dark:text-gray-400">{student.grade}</div><div className={`w-[15%] text-base ${student.status === 'Tardanza' ? 'text-orange-600 dark:text-orange-400 font-medium' : 'text-gray-800 dark:text-gray-300'}`}>{student.timeIn}</div><div className="w-[15%] text-base text-gray-400 dark:text-gray-500">{student.timeOut}</div><div className="w-[20%] flex justify-center"><span className={`px-4 py-1.5 rounded-full text-sm font-medium ${student.status === 'Presente' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : student.status === 'Tardanza' ? 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{student.status}</span></div></motion.div>))) : (<div className="p-12 text-center flex flex-col items-center text-gray-400"><Search size={48} className="mb-4 opacity-20" /><p>No se encontraron estudiantes</p></div>)}</AnimatePresence>
+          )}
         </div>
         <AnimatePresence>{selectedStudent && (<StudentDetailModal student={selectedStudent} onClose={() => setSelectedStudent(null)} />)}</AnimatePresence>
       </motion.div>
