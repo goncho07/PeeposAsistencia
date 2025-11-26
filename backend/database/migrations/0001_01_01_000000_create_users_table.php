@@ -14,27 +14,27 @@ return new class extends Migration
         Schema::create('users', function (Blueprint $table) {
             $table->id();
             $table->string('name');
-            $table->string('lastname')->nullable();
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('role')->default('student'); // student, teacher, admin, parent
+            $table->string('dni')->nullable()->unique();
+            $table->string('code')->nullable()->unique(); // Código estudiante/trabajador
+            $table->string('avatar_url')->nullable();
             
-            // Campos personalizados para Peepos
-            $table->string('dni')->unique()->nullable();
+            // Campos académicos simples para MVP (en producción normalizaría)
+            $table->string('level')->nullable(); // Inicial, Primaria, Secundaria
+            $table->string('grade')->nullable(); // 1ro, 2do...
+            $table->string('section')->nullable(); // A, B, C...
+            $table->string('shift')->default('Mañana'); // Mañana, Tarde
+            
+            // Datos de contacto y estado
             $table->string('phone')->nullable();
             $table->string('address')->nullable();
-            $table->string('avatar')->nullable();
-            $table->enum('role', ['admin', 'teacher', 'student', 'parent'])->default('student');
-            $table->boolean('is_active')->default(true);
+            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
             
-            // Relación con estructura académica (se definirá más adelante como FK si es necesario, 
-            // pero por ahora lo dejamos como nullable integer para evitar conflictos de orden de migración)
-            $table->unsignedBigInteger('section_id')->nullable(); 
-            $table->unsignedBigInteger('parent_id')->nullable(); // Para vincular estudiante con apoderado
-
             $table->rememberToken();
             $table->timestamps();
-            $table->softDeletes();
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

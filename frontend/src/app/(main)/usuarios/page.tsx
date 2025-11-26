@@ -1,10 +1,34 @@
 'use client';
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { GraduationCap, Briefcase, Shield, User, Search, XCircle, Grid3x3, List, Plus, MoreHorizontal, Eye, Edit, Trash2, ChevronLeft, ChevronRight, Users as UsersIcon } from 'lucide-react';
+import { GraduationCap, Briefcase, Shield, User as UserIcon, Search, XCircle, Grid3x3, List, Plus, MoreHorizontal, Eye, Edit, Trash2, ChevronLeft, ChevronRight, Users as UsersIcon, Loader2 } from 'lucide-react';
 import RoleFilterCard from '@/components/ui/RoleFilterCard';
 import UserDetailModal, { UserProfile } from '@/components/modals/UserDetailModal';
 import CreateUserModal from '@/components/modals/CreateUserModal';
+import api from '@/lib/axios';
+
+// Interfaces for API response
+interface ApiUser {
+  id: number;
+  name: string;
+  email: string;
+  role: string;
+  dni: string;
+  level: string | null;
+  grade: string | null;
+  section: string | null;
+  status: string;
+  phone: string | null;
+  // ... other fields from Laravel
+}
+
+// Maps Laravel 'role' to frontend display type
+const ROLE_MAP: Record<string, UserProfile['type']> = {
+  'student': 'Estudiante',
+  'teacher': 'Docente',
+  'admin': 'Administrativo',
+  'parent': 'Apoderado'
+};
 
 const SECTIONS_INICIAL = [
   'MARGARITAS_3AÑOS', 'CRISANTEMOS_3AÑOS', 
@@ -44,88 +68,85 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  
+  // Real Data State
+  const [users, setUsers] = useState<UserProfile[]>([]);
+  const [loading, setLoading] = useState(true);
   const itemsPerPage = 10;
 
-  const mockUsers: UserProfile[] = useMemo(() => {
-    const users: UserProfile[] = [];
-    const names = ['Matías Flores', 'Sofía Vargas', 'Liam Torres', 'Valentina Ruiz', 'Thiago Castro', 'Camila Rojas', 'Mateo Cruz', 'Luciana Pavez', 'Gabriel Soto', 'Isabella Mendoza'];
-    for (let i = 0; i < 80; i++) {
-      let type: UserProfile['type'];
-      if (i < 40) type = 'Estudiante';
-      else if (i < 55) type = 'Docente';
-      else if (i < 65) type = 'Administrativo';
-      else type = 'Apoderado';
-
-      const name = `${names[i % names.length]} ${String.fromCharCode(65 + i%26)}.`;
-      const level = i % 3 === 0 ? 'Inicial' : i % 3 === 1 ? 'Primaria' : 'Secundaria';
+  // Fetch Users from API
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get<ApiUser[]>('/users');
       
-      let academicLocation = '-';
-      let gradeText = '-';
-      let avatarGradient = 'bg-gray-500';
-      let section = '-';
+      const mappedUsers: UserProfile[] = data.map(u => {
+        const type = ROLE_MAP[u.role] || 'Estudiante';
+        
+        // Determine gradients based on type/level similar to mock logic
+        let avatarGradient = 'bg-gray-500';
+        let roleOrGrade = '-';
+        let academicLocation = '-';
 
-      if (type === 'Estudiante') {
-         if (level === 'Inicial') {
-            gradeText = '5 Años';
-            section = SECTIONS_INICIAL[i % SECTIONS_INICIAL.length];
-            avatarGradient = 'bg-gradient-to-br from-pink-400 to-rose-500';
-         } else if (level === 'Primaria') {
-            gradeText = '5to Grado';
-            section = SECTIONS_PRIMARIA[i % SECTIONS_PRIMARIA.length];
-            avatarGradient = 'bg-gradient-to-br from-blue-400 to-indigo-500';
-         } else {
-            gradeText = '3ro Año';
-            section = SECTIONS_SECUNDARIA[i % SECTIONS_SECUNDARIA.length];
-            avatarGradient = 'bg-gradient-to-br from-emerald-400 to-teal-500';
-         }
-         academicLocation = level; 
-      } else if (type === 'Docente') {
-         gradeText = 'Docente';
-         avatarGradient = 'bg-gradient-to-br from-violet-500 to-purple-600';
-         academicLocation = '-';
-      } else if (type === 'Administrativo') {
-         gradeText = 'Admin';
-         avatarGradient = 'bg-gradient-to-br from-slate-500 to-slate-700';
-         academicLocation = '-';
-      } else {
-         gradeText = 'Apoderado';
-         avatarGradient = 'bg-gradient-to-br from-amber-400 to-orange-500';
-         academicLocation = '-';
-      }
+        if (type === 'Estudiante') {
+           roleOrGrade = u.grade || 'Sin Grado';
+           academicLocation = u.level || '-';
+           if (u.level === 'Inicial') avatarGradient = 'bg-gradient-to-br from-pink-400 to-rose-500';
+           else if (u.level === 'Primaria') avatarGradient = 'bg-gradient-to-br from-blue-400 to-indigo-500';
+           else avatarGradient = 'bg-gradient-to-br from-emerald-400 to-teal-500';
+        } else if (type === 'Docente') {
+           roleOrGrade = 'Docente';
+           avatarGradient = 'bg-gradient-to-br from-violet-500 to-purple-600';
+        } else if (type === 'Administrativo') {
+           roleOrGrade = 'Admin';
+           avatarGradient = 'bg-gradient-to-br from-slate-500 to-slate-700';
+        } else {
+           roleOrGrade = 'Apoderado';
+           avatarGradient = 'bg-gradient-to-br from-amber-400 to-orange-500';
+        }
 
-      users.push({
-        id: i + 1,
-        type,
-        name,
-        dni: `7${Math.floor(Math.random()*10000000)}`,
-        avatarGradient,
-        roleOrGrade: type === 'Estudiante' ? gradeText : (type === 'Apoderado' ? 'Padre de Familia' : gradeText),
-        email: `user${i}@peepos.edu.pe`,
-        phone: `9${Math.floor(Math.random()*100000000)}`,
-        status: Math.random() > 0.1 ? 'Activo' : 'Inactivo',
-        level: type === 'Estudiante' ? level : undefined,
-        academicLocation,
-        section: section,
-        grade: gradeText
+        return {
+          id: u.id,
+          type,
+          name: u.name,
+          dni: u.dni || '-',
+          email: u.email,
+          phone: u.phone || undefined,
+          status: (u.status === 'active' ? 'Activo' : u.status === 'suspended' ? 'Suspendido' : 'Inactivo') as any,
+          section: u.section || '-',
+          level: u.level || undefined,
+          grade: u.grade || undefined,
+          avatarGradient,
+          roleOrGrade,
+          academicLocation
+        };
       });
+      setUsers(mappedUsers);
+    } catch (error) {
+      console.error("Error fetching users:", error);
+    } finally {
+      setLoading(false);
     }
-    return users;
+  };
+
+  useEffect(() => {
+    fetchUsers();
   }, []);
 
   const counts = useMemo(() => ({
-    Estudiante: mockUsers.filter(u => u.type === 'Estudiante').length,
-    Docente: mockUsers.filter(u => u.type === 'Docente').length,
-    Administrativo: mockUsers.filter(u => u.type === 'Administrativo').length,
-    Apoderado: mockUsers.filter(u => u.type === 'Apoderado').length,
-  }), [mockUsers]);
+    Estudiante: users.filter(u => u.type === 'Estudiante').length,
+    Docente: users.filter(u => u.type === 'Docente').length,
+    Administrativo: users.filter(u => u.type === 'Administrativo').length,
+    Apoderado: users.filter(u => u.type === 'Apoderado').length,
+  }), [users]);
 
   const filteredUsers = useMemo(() => {
-    return mockUsers.filter(user => {
+    return users.filter(user => {
       const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) || user.dni.includes(searchQuery);
       const matchesType = selectedUserType === 'Todos' || user.type === selectedUserType;
       return matchesSearch && matchesType;
     });
-  }, [searchQuery, selectedUserType, mockUsers]);
+  }, [searchQuery, selectedUserType, users]);
 
   const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
   const paginatedUsers = filteredUsers.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
@@ -146,7 +167,7 @@ export default function UsersPage() {
           
           <div className="bg-white/10 backdrop-blur-sm px-6 py-3 rounded-xl border border-white/20 shadow-inner flex flex-col items-end">
              <p className="text-xs text-blue-100 uppercase font-bold tracking-wider mb-0.5">Total Usuarios</p>
-             <p className="text-3xl font-bold leading-none">{mockUsers.length}</p>
+             <p className="text-3xl font-bold leading-none">{loading ? '...' : users.length}</p>
           </div>
         </div>
 
@@ -185,7 +206,7 @@ export default function UsersPage() {
            <RoleFilterCard 
              type="Apoderado" 
              label="Apoderados" 
-             icon={User} 
+             icon={UserIcon} 
              colorClass="text-orange-500" 
              activeColorClass="bg-orange-500" 
              count={counts.Apoderado}
@@ -228,7 +249,12 @@ export default function UsersPage() {
 
         {/* 4. Content Area */}
         <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-sm border border-gray-200 dark:border-slate-800 overflow-hidden flex-1 flex flex-col min-h-[400px]">
-           {filteredUsers.length > 0 ? (
+           {loading ? (
+             <div className="flex-1 flex flex-col items-center justify-center py-12 text-gray-400">
+               <Loader2 className="animate-spin text-blue-600 mb-2" size={32} />
+               <p className="text-sm font-medium">Cargando usuarios...</p>
+             </div>
+           ) : filteredUsers.length > 0 ? (
              <>
                {viewMode === 'grid' ? (
                   <div className="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -300,7 +326,7 @@ export default function UsersPage() {
                                     {user.type === 'Estudiante' && <GraduationCap size={16} className="text-blue-500"/>}
                                     {user.type === 'Docente' && <Briefcase size={16} className="text-purple-500"/>}
                                     {user.type === 'Administrativo' && <Shield size={16} className="text-slate-500"/>}
-                                    {user.type === 'Apoderado' && <User size={16} className="text-orange-500"/>}
+                                    {user.type === 'Apoderado' && <UserIcon size={16} className="text-orange-500"/>}
                                     <span className="text-gray-700 dark:text-gray-300 font-medium">{user.type}</span>
                                 </div>
                             </td>
@@ -346,7 +372,7 @@ export default function UsersPage() {
            )}
 
            {/* Pagination */}
-           {filteredUsers.length > 0 && (
+           {filteredUsers.length > 0 && !loading && (
              <div className="border-t border-gray-200 dark:border-slate-800 p-4 flex justify-between items-center bg-gray-50/50 dark:bg-slate-800/50 mt-auto">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Mostrando {Math.min((currentPage - 1) * itemsPerPage + 1, filteredUsers.length)} - {Math.min(currentPage * itemsPerPage, filteredUsers.length)} de {filteredUsers.length} usuarios</span>
                 <div className="flex gap-2">
@@ -379,7 +405,7 @@ export default function UsersPage() {
         </div>
 
         <AnimatePresence>{selectedUser && <UserDetailModal user={selectedUser} onClose={() => setSelectedUser(null)} />}</AnimatePresence>
-        <AnimatePresence>{isCreateModalOpen && <CreateUserModal isOpen={isCreateModalOpen} onClose={() => setIsCreateModalOpen(false)} />}</AnimatePresence>
+        <AnimatePresence>{isCreateModalOpen && <CreateUserModal isOpen={isCreateModalOpen} onClose={() => { setIsCreateModalOpen(false); fetchUsers(); }} />}</AnimatePresence>
       </motion.div>
     </div>
   );
