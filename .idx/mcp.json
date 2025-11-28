@@ -1,5 +1,18 @@
 {
   "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-filesystem",
+        "/home/user/peepos-pro-2-25110039/backend/app",
+        "/home/user/peepos-pro-2-25110039/backend/resources",
+        "/home/user/peepos-pro-2-25110039/backend/routes",
+        "/home/user/peepos-pro-2-25110039/backend/config",
+        "/home/user/peepos-pro-2-25110039/backend/database",
+        "/home/user/peepos-pro-2-25110039/frontend/src"
+      ]
+    },
     "cloud-run": {
       "command": "npx",
       "args": [
@@ -7,47 +20,16 @@
         "@google-cloud/cloud-run-mcp"
       ]
     },
-    "mysql": {
-      "command": "uvx",
-      "args": [
-        "--from",
-        "mysql-mcp-server",
-        "mysql_mcp_server"
-      ],
-      "env": {
-        "MYSQL_HOST": "127.0.0.1",
-        "MYSQL_PORT": "3306",
-        "MYSQL_USER": "root",
-        "MYSQL_PASSWORD": "",
-        "MYSQL_DATABASE": "peepos"
-      }
-    },
-    "docker": {
-      "command": "uvx",
-      "args": [
-        "docker-mcp"
-      ]
-    },
-    "filesystem": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@modelcontextprotocol/server-filesystem",
-        "."
-      ]
-    },
     "context7": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "@upstash/context7-mcp"
-      ],
-      "env": {
-        "DEFAULT_MINIMUM_TOKENS": "1000",
-        "UPSTASH_VECTOR_REST_URL": "http://fake-url-to-bypass-error",
-        "UPSTASH_VECTOR_REST_TOKEN": "fake-token"
-      },
-      "disabled": true
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "CONTEXT7_API_KEY": "ctx7sk-29a5646c-40ca-4b62-807f-756dfb645b6a"
+      }
     }
+  },
+  "enabledTools": {
+    "filesystem": [],
+    "cloud-run": [],
+    "context7": []
   }
 }

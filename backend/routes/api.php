@@ -3,17 +3,22 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\UserController;
-use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\AttendanceController;
+use App\Http\Controllers\SettingController;
 use App\Http\Controllers\NotificationController;
 
-Route::get('/users', [UserController::class, 'index']);
-Route::post('/users', [UserController::class, 'store']);
+// Ruta de prueba para ver si funciona
+Route::get('/ping', function () {
+    return response()->json(['message' => 'Pong!']);
+});
 
-Route::get('/dashboard/stats', [DashboardController::class, 'stats']);
-Route::get('/attendance', [AttendanceController::class, 'index']);
-Route::get('/notifications', [NotificationController::class, 'index']);
+Route::middleware(['auth:sanctum'])->group(function () {
+    Route::get('/user', function (Request $request) {
+        return $request->user();
+    });
 
-Route::get('/user', function (Request $request) {
-    return $request->user();
-})->middleware('auth:sanctum');
+    Route::apiResource('users', UserController::class);
+    Route::apiResource('attendance', AttendanceController::class);
+    Route::apiResource('settings', SettingController::class);
+    Route::apiResource('notifications', NotificationController::class);
+});
