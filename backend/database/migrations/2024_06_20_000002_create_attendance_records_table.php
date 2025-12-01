@@ -8,32 +8,24 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::create('attendance_records', function (Blueprint $table) {
+        Schema::create('asistencias', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained()->onDelete('cascade'); // Estudiante
-            $table->foreignId('section_id')->constrained()->onDelete('cascade'); // Sección en ese momento
+            $table->foreignId('student_id')->constrained('estudiantes')->onDelete('cascade'); 
+            $table->foreignId('scanner_user_id')->constrained('users')->onDelete('restrict');
             
-            $table->date('date');
-            $table->time('check_in')->nullable();
-            $table->time('check_out')->nullable();
+            $table->dateTime('scanned_at'); 
+            $table->enum('record_type', ['ENTRADA', 'SALIDA'])->default('ENTRADA');
             
-            // Estado: present, late, absent, excused
-            $table->enum('status', ['present', 'late', 'absent', 'excused'])->default('absent');
-            
-            $table->text('remarks')->nullable(); // Justificaciones u observaciones
-            $table->string('recorded_by_type')->nullable(); // 'system' (QR), 'manual' (Profesor/Auxiliar)
-            $table->unsignedBigInteger('recorded_by_id')->nullable(); // ID del usuario que registró manualmente
+            $table->text('observation')->nullable(); 
             
             $table->timestamps();
             
-            // Índices para búsquedas rápidas
-            $table->index(['user_id', 'date']);
-            $table->index(['section_id', 'date']);
+            $table->index(['student_id', 'scanned_at']);
         });
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('attendance_records');
+        Schema::dropIfExists('asistencias');
     }
 };

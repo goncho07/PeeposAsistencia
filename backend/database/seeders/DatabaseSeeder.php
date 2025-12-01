@@ -11,7 +11,7 @@ class DatabaseSeeder extends Seeder
     public function run(): void
     {
         // Admin Principal
-        User::create([
+        User::updateorcreate([
             'name' => 'Lisha Lokwani',
             'email' => 'admin@peepos.edu.pe',
             'password' => Hash::make('password'),
@@ -29,7 +29,7 @@ class DatabaseSeeder extends Seeder
                 'email' => strtolower(str_replace(' ', '.', $name)) . '@peepos.edu.pe',
                 'password' => Hash::make('password'),
                 'role' => 'teacher',
-                'dni' => '1000000' . $i,
+                'dni' => '10000000' . $i,
                 'phone' => '90000000' . $i,
                 'status' => 'active'
             ]);

@@ -13,25 +13,18 @@ return new class extends Migration
     {
         Schema::create('users', function (Blueprint $table) {
             $table->id();
-            $table->string('name');
+            $table->string('name', 100);
+            $table->string('paternal_surname', 50);
+            $table->string('maternal_surname', 50);
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
-            $table->string('role')->default('student'); // student, teacher, admin, parent
-            $table->string('dni')->nullable()->unique();
-            $table->string('code')->nullable()->unique(); // Código estudiante/trabajador
+            $table->enum('rol', ['DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO', 'ESCANER'])->default('ESCANER');
+            $table->string('dni', 8)->nullable()->unique();
             $table->string('avatar_url')->nullable();
             
-            // Campos académicos simples para MVP (en producción normalizaría)
-            $table->string('level')->nullable(); // Inicial, Primaria, Secundaria
-            $table->string('grade')->nullable(); // 1ro, 2do...
-            $table->string('section')->nullable(); // A, B, C...
-            $table->string('shift')->default('Mañana'); // Mañana, Tarde
-            
-            // Datos de contacto y estado
-            $table->string('phone')->nullable();
-            $table->string('address')->nullable();
-            $table->enum('status', ['active', 'inactive', 'suspended'])->default('active');
+            $table->string('phone_number', 15)->nullable();
+            $table->enum('status', ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'])->default('ACTIVO');
             
             $table->rememberToken();
             $table->timestamps();

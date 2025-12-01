@@ -56,7 +56,7 @@ export default function LoginPage() {
                   className="w-full flex items-center justify-center gap-3 bg-white dark:bg-slate-800 border border-gray-300 dark:border-slate-700 rounded-xl p-3 hover:bg-gray-50 dark:hover:bg-slate-700 transition-all text-gray-700 dark:text-gray-200 font-medium"
                 >
                   <img src="https://www.svgrepo.com/show/475656/google-color.svg" alt="Google" className="w-5 h-5" />
-                  Continuar con Google
+                  Continuar con Googleeee
                 </button>
                 
                 <div className="relative flex items-center py-2">

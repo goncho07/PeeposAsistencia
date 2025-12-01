@@ -17,6 +17,7 @@
     pkgs.redis         # Para caché y colas
     pkgs.google-cloud-sdk # <--- ¡ESTO AGREGA SOPORTE PARA CLOUD
     unstable.uv
+    pkgs.firebase-tools
   ];
 
   # Servicios Nativos (Base de datos persistente)
