@@ -67,10 +67,9 @@ export default function MainLayout({
   return (
     <div className="h-screen w-screen bg-gray-50 dark:bg-slate-950 font-['Poppins'] overflow-hidden flex relative text-gray-800 dark:text-gray-100 transition-colors duration-300">
       
-      {/* Sidebar Navigation */}
       <div className="w-20 md:w-24 flex flex-col items-center py-6 border-r border-gray-200 dark:border-slate-800 bg-white dark:bg-slate-900 z-20 shrink-0 h-full transition-colors duration-300">
-        <div className="mb-8 w-16 h-16 rounded-full overflow-hidden border-2 border-blue-100 dark:border-blue-900 shadow-sm">
-           <img src="https://media.discordapp.net/attachments/1383264716536680462/1425322396478607410/image_4.png?ex=69227dec&is=69212c6c&hm=036843954144dbc970762b423da8ab79ff65edf955c979734653a0b3e8272857&=&format=webp&quality=lossless&width=864&height=864" alt="School Logo" className="w-full h-full object-cover" />
+        <div className="mb-8 w-16 h-16 overflow-hidden">
+          <img src="/images/logo_palma.png" alt="School Logo" className="w-full h-full object-cover" />
         </div>
         
         <nav className="flex flex-col gap-2 w-full flex-1 overflow-y-auto scrollbar-hide">

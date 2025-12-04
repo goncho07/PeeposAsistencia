@@ -7,21 +7,35 @@ export interface UserProfile {
   type: 'Estudiante' | 'Docente' | 'Administrativo' | 'Apoderado';
   name: string;
   dni: string;
+  email: string;
+  phone?: string;
+  status: 'ACTIVO' | 'INACTIVO' | 'Suspendido';
+  section: string;
+  level?: string;
+  grade?: string;
   avatarGradient: string;
   roleOrGrade: string;
-  email?: string;
-  phone?: string;
-  status: 'Activo' | 'Inactivo' | 'Suspendido'; 
-  address?: string;
-  district?: string;
-  age?: number;
-  guardian?: string;
-  guardianPhone?: string;
-  section?: string; 
-  level?: string;
-  shift?: string;
-  academicLocation?: string; 
-  grade?: string; 
+  academicLocation: string;
+  avatarUrl?: string;
+
+  aulaInfo?: {
+    id: number;
+    codigo: string;
+    nombre_completo: string;
+    docente_tutor?: string;
+  } | null;
+  studentCode?: string;
+  edad?: number;
+  aulasTutorizadas?: Array<{
+    id: number;
+    codigo: string;
+    nombre_completo: string;
+  }>;
+  hijos?: Array<{
+    id: number;
+    nombre: string;
+    aula: string;
+  }>;
 }
 
 const modalVariants = {
@@ -55,7 +69,7 @@ const UserDetailModal: React.FC<{ user: UserProfile | null; onClose: () => void 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div><p className="text-xs text-gray-400 uppercase font-bold mb-1">DNI</p><p className="text-gray-800 dark:text-gray-200 font-medium">{user.dni}</p></div>
                     <div><p className="text-xs text-gray-400 uppercase font-bold mb-1">Email</p><p className="text-gray-800 dark:text-gray-200 font-medium flex items-center gap-1"><Mail size={14} className="text-gray-400"/> {user.email}</p></div>
-                    <div className="md:col-span-2 pt-4 border-t border-gray-100 dark:border-slate-800"><p className="text-xs text-gray-400 uppercase font-bold mb-1">Estado</p><span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${user.status === 'Activo' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{user.status}</span></div>
+              <div className="md:col-span-2 pt-4 border-t border-gray-100 dark:border-slate-800"><p className="text-xs text-gray-400 uppercase font-bold mb-1">Estado</p><span className={`inline-block px-3 py-1 rounded-full text-xs font-bold ${user.status === 'ACTIVO' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'}`}>{user.status}</span></div>
                 </div>
             )}
             {activeTab === 'qr' && (

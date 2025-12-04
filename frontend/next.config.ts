@@ -22,10 +22,6 @@ const nextConfig: NextConfig = {
   trailingSlash: true,
 
   // Ignorar errores de build para asegurar que se genere la carpeta 'out'
-  // @ts-expect-error: La propiedad eslint puede no estar en la definición de tipos de esta versión
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
