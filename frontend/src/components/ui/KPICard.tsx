@@ -8,7 +8,7 @@ const itemVariants = {
 
 const KPICard: React.FC<{ title: string; value: string; subtext: string; trendIcon?: any; mainIcon: any; gradient: string }> = ({ title, value, subtext, trendIcon: TrendIcon, mainIcon: MainIcon, gradient }) => (
   <motion.div variants={itemVariants} whileHover={{ y: -4, boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.1)" }} className={`${gradient} rounded-xl p-6 h-[140px] relative overflow-hidden shadow-sm transition-all duration-300`}>
-    <div className="absolute right-[-10px] bottom-[-10px] opacity-10 rotate-12"><MainIcon size={100} className="text-white" /></div>
+    <div className="absolute -right-2.5 -bottom-2.5 opacity-10 rotate-12"><MainIcon size={100} className="text-white" /></div>
     <div className="relative z-10 h-full flex flex-col justify-between">
       <div className="flex justify-between items-start"><MainIcon size={32} className="text-white opacity-90" /></div>
       <div className="flex flex-col gap-1">

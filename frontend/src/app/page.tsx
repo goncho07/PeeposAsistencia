@@ -58,8 +58,8 @@ export default function LoginPage() {
                 } else if (status === 403 && errorCode === 'ACCOUNT_INACTIVE') {
                     showAlert('error', 'Tu cuenta está inactiva. Contacta al administrador.');
                 } else if (status === 429) {
-                    const retryAfter = error.response.data?.retry_after || 60;
-                    showAlert('error', `Demasiados intentos. Espere ${retryAfter} segundos.`);
+                    const message = error.response.data?.errors?.email?.[0] ?? 'Demasiados intentos. Intenta nuevamente más tarde.';
+                    showAlert('error', message);
                 } else {
                     showAlert('error', 'Error al iniciar sesión. Intenta nuevamente.');
                 }
