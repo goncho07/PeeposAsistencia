@@ -1,20 +1,23 @@
 'use client';
-import { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import UserDetailModal from '@/components/modals/UserDetailModal';
-import CreateUserModal from '@/components/modals/CreateUserModal';
-import UpdateUserModal from '@/components/modals/UpdateUserModal';
-import GenerateCarnetModal from '@/components/modals/GenerateCarnetModal';
 import Toast from '@/components/ui/Toast';
 import ErrorMessage from '@/components/ui/ErrorMessage';
-import UsersHeader from '@/components/users/UserHeader';
+import UsersHeader from '@/components/users/UsersHeader';
 import UsersToolbar from '@/components/users/UsersToolbar';
 import UsersContent from '@/components/users/UsersContent';
-import UsersFilters from '@/components/users/UserFilters';
+import UsersFilters from '@/components/users/UsersFilters';
 import AlertModal from '@/components/ui/AlertModal';
-import { useUsers } from '@/hooks/useUsers';
 import { UserProfile } from '@/types/userTypes';
 import { useAuth } from '@/context/AuthContext';
+import { useToast } from '@/hooks/useToast';
+import { useUsers } from '@/hooks/useUsers';
+import { useCarnets } from '@/hooks/useCarnets';
+import { useUserModals } from '@/hooks/useUserModals';  
+import { useUserFilters } from '@/hooks/useUserFilters';
+import { CreateUserFormModal } from '@/components/modals/CreateUserFormModal';
+import { UpdateUserFormModal } from '@/components/modals/UpdateUserFormModal';
+import { CarnetFormModal } from '@/components/modals/CarnetFormModal';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -25,60 +28,47 @@ const containerVariants = {
 };
 
 export default function UsersPage() {
-  const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
-  const [selectedUserType, setSelectedUserType] = useState<string>('Estudiante');
-  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
-  const [userToEdit, setUserToEdit] = useState<UserProfile | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-  const [isUpdateModalOpen, setIsUpdateModalOpen] = useState(false);
-  const [isCarnetModalOpen, setIsCarnetModalOpen] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState<{ id: number; type: string } | null>(null);
-  const [toastMessage, setToastMessage] = useState('');
-  const [toastType, setToastType] = useState<'success' | 'error'>('success');
-  const [showToast, setShowToast] = useState(false);
-  const { user: currentUser } = useAuth();
+  const { user: session } = useAuth();
+  const { message, type, isVisible, showToast, hideToast } = useToast();
+  const { users, loading, error, counts, fetchUsers, createUser, updateUser, deleteUser } = useUsers();
+  const { generateCarnet } = useCarnets();
 
-  const { users, loading, error, counts, fetchUsers, deleteUser } = useUsers();
+  const {
+    selectedUser,
+    setSelectedUser,
+    userToEdit,
+    setUserToEdit,
+    confirmDelete,
+    setConfirmDelete,
+    isCreateOpen,
+    setIsCreateOpen,
+    isUpdateOpen,
+    setIsUpdateOpen,
+    isCarnetOpen,
+    setIsCarnetOpen,
+  } = useUserModals();
 
-  const itemsPerPage = 12;
+  const {
+    searchQuery,
+    setSearchQuery,
+    viewMode,
+    setViewMode,
+    selectedUserType,
+    setSelectedUserType,
+    currentPage,
+    setCurrentPage,
+    paginatedUsers,
+    totalPages,
+  } = useUserFilters(users, 12);
 
-  const filteredUsers = useMemo(() => {
-    return users.filter(user => {
-      const matchesSearch = (user.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-        user.dni.includes(searchQuery) ||
-        (user.email && user.email.toLowerCase().includes(searchQuery.toLowerCase()));
-
-      const matchesStudentCode = user.type === 'Estudiante' && 'studentCode' in user
-        ? user.studentCode.includes(searchQuery)
-        : false;
-
-      const matchesType = selectedUserType === 'Todos' || user.type === selectedUserType;
-      return (matchesSearch || matchesStudentCode) && matchesType;
-    });
-  }, [searchQuery, selectedUserType, users]);
-
-  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
-
-  const paginatedUsers = filteredUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [searchQuery, selectedUserType]);
-
-  const showToastMessage = (message: string, type: 'success' | 'error' = 'success') => {
-    setToastMessage(message);
-    setToastType(type);
-    setShowToast(true);
+  const handleEditUser = (user: UserProfile) => {
+    setUserToEdit(user);
+    setIsUpdateOpen(true);
   };
 
   const handleDeleteUser = (userId: number, userType: string) => {
-    if (currentUser?.id === userId) {
-      showToastMessage('No puedes eliminar tu propio usuario.', 'error');
+    if (session?.id === userId) {
+      showToast('No puedes eliminar tu propio usuario.', 'error');
       return;
     }
 
@@ -90,19 +80,14 @@ export default function UsersPage() {
 
     try {
       await deleteUser(confirmDelete.id, confirmDelete.type);
-      showToastMessage('Usuario eliminado exitosamente', 'success');
+      showToast('Usuario eliminado exitosamente', 'success');
       setConfirmDelete(null);
       fetchUsers();
     } catch (error: any) {
       console.error('Error al eliminar usuario:', error);
-      showToastMessage(error.response?.data?.message || 'Error al eliminar usuario', 'error');
+      showToast(error.response?.data?.message || 'Error al eliminar usuario', 'error');
       setConfirmDelete(null);
     }
-  };
-
-  const handleEditUser = (user: UserProfile) => {
-    setUserToEdit(user);
-    setIsUpdateModalOpen(true);
   };
 
   return (
@@ -128,8 +113,8 @@ export default function UsersPage() {
           onSearchChange={setSearchQuery}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
-          onCreateUser={() => setIsCreateModalOpen(true)}
-          onGenerateCarnets={() => setIsCarnetModalOpen(true)}
+          onCreateUser={() => setIsCreateOpen(true)}
+          onGenerateCarnets={() => setIsCarnetOpen(true)}
         />
 
         <UsersContent
@@ -138,7 +123,7 @@ export default function UsersPage() {
           viewMode={viewMode}
           currentPage={currentPage}
           totalPages={totalPages}
-          itemsPerPage={itemsPerPage}
+          itemsPerPage={12}
           onPageChange={setCurrentPage}
           onViewUser={setSelectedUser}
           onEditUser={handleEditUser}
@@ -152,43 +137,58 @@ export default function UsersPage() {
         </AnimatePresence>
 
         <AnimatePresence>
-          {isCreateModalOpen && (
-            <CreateUserModal
-              isOpen={isCreateModalOpen}
-              onClose={() => setIsCreateModalOpen(false)}
-              onSuccess={(message) => {
+          {isCreateOpen && (
+            <CreateUserFormModal  
+              isOpen={isCreateOpen}
+              onClose={() => setIsCreateOpen(false)}
+              onSubmit={async (formData) => {
+                await createUser(formData, formData.type || 'student');
                 fetchUsers();
-                showToastMessage(message, 'success');
+                showToast('Usuario creado exitosamente', 'success');
               }}
-            />
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isUpdateModalOpen && (
-            <UpdateUserModal
-              isOpen={isUpdateModalOpen}
-              user={userToEdit}
-              onClose={() => {
-                setIsUpdateModalOpen(false);
-                setUserToEdit(null);
-              }}
-              onSuccess={(message) => {
-                fetchUsers();
-                showToastMessage(message, 'success');
-              }}
-            />
-          )}
-        </AnimatePresence>
-
-        <AnimatePresence>
-          {isCarnetModalOpen && (
-            <GenerateCarnetModal
-              isOpen={isCarnetModalOpen}
               users={users}
-              onClose={() => setIsCarnetModalOpen(false)}
-              onSuccess={(message) => {
-                showToastMessage(message, 'success');
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isUpdateOpen && userToEdit && (
+            <UpdateUserFormModal
+              isOpen={isUpdateOpen}
+              onClose={() => setIsUpdateOpen(false)}
+              user={userToEdit}
+              users={users}
+              onSubmit={async (id, data, type) => {
+                await updateUser(id, data, type);
+                showToast('Usuario actualizado exitosamente', 'success');
+                fetchUsers();
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isCarnetOpen && (
+            <CarnetFormModal
+              isOpen={isCarnetOpen}
+              onClose={() => setIsCarnetOpen(false)}
+              users={users}
+              onSubmit={async (data) => {
+                try {
+                  setIsCarnetOpen(false);
+                  showToast('Generando carnets, por favor espere…', 'info');
+
+                  await generateCarnet({
+                    type: data.type,
+                    level: data.level as 'INICIAL' | 'PRIMARIA' | 'SECUNDARIA' | undefined,
+                    grade: data.grade,
+                    section: data.section,
+                  });
+
+                  showToast('Carnets generados correctamente', 'success');
+                } catch {
+                  showToast('Error al generar carnets', 'error');
+                }
               }}
             />
           )}
@@ -207,10 +207,10 @@ export default function UsersPage() {
         )}
 
         <Toast
-          message={toastMessage}
-          type={toastType}
-          isVisible={showToast}
-          onClose={() => setShowToast(false)}
+          message={message}
+          type={type}
+          isVisible={isVisible}
+          onClose={hideToast}
         />
       </motion.div>
     </div>

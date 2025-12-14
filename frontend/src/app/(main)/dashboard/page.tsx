@@ -1,11 +1,15 @@
 'use client';
-import React, { useState, useEffect } from 'react';
-import { LayoutDashboard, BarChart3, UserCheck, Clock, AlertTriangle, Smartphone, Zap, FileText, MessageCircle, Users, QrCode, Shield, Loader2 } from 'lucide-react';
+import api from '@/lib/axios';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
+import { LayoutDashboard, BarChart3, UserCheck, Clock, AlertTriangle, Smartphone, MessageCircle, Shield, PieChartIcon, PieChart } from 'lucide-react'
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Doughnut } from 'react-chartjs-2';
 import HeroHeader from '@/components/ui/HeroHeader';
 import DashboardSectionTitle from '@/components/ui/DashboardSectionTitle';
 import AIChatPanel from '@/components/features/AIChatPanel';
-import api from '@/lib/axios';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const itemVariants = {
   hidden: { opacity: 0, y: 10 },
@@ -20,6 +24,13 @@ const containerVariants = {
     }
 };
 
+const pieColors = {
+   Presente: '#22c55e',
+   Tardanza: '#f97316',
+   Ausente: '#ef4444',
+   Justificado: '#3b82f6'
+};
+
 export default function DashboardPage() {
   const [chatOpen, setChatOpen] = useState(false);
   const [stats, setStats] = useState({
@@ -28,15 +39,53 @@ export default function DashboardPage() {
     absent_count: 0,
     notifications_sent: 0
   });
+  const [pieData, setPieData] = useState<{ name: string; value: number; color: string }[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-   
-  }, []);
+   useEffect(() => {
+      const fetchStats = async () => {
+         try {
+            setLoading(true);
+            const response = await api.get('/attendance/daily-stats');
+            const data = response.data;
+
+            const totalPresent = data.students.present + data.teachers.present;
+            const totalLate = data.students.late + data.teachers.late;
+            const totalAbsent = data.students.absent + data.teachers.absent;
+            const totalJustified = data.students.justified;
+            
+            const totalRegistered = data.students.total_registered + data.teachers.total_registered;
+            const attendance_percentage = totalRegistered > 0
+               ? Math.round((totalPresent / totalRegistered) * 100)
+               : 0;
+
+            setStats({
+               attendance_percentage,
+               late_count: totalLate,
+               absent_count: totalAbsent,
+               notifications_sent: data.notifications_sent
+            });
+
+            setPieData([
+               { name: 'Presente', value: totalPresent, color: pieColors.Presente },
+               { name: 'Tardanza', value: totalLate, color: pieColors.Tardanza },
+               { name: 'Ausente', value: totalAbsent, color: pieColors.Ausente },
+               { name: 'Justificado', value: totalJustified, color: pieColors.Justificado }
+            ]);
+         } catch (error) {
+            console.error('Error fetching daily stats:', error);
+         } finally {
+            setLoading(false);
+         }
+      };
+
+      fetchStats();
+   }, []);
+
 
   return (
     <div className="w-full flex justify-center bg-gray-50 dark:bg-slate-950 min-h-full">
-      <motion.div variants={containerVariants} initial="hidden" animate="show" className="w-full max-w-[1280px] px-8 py-6 flex flex-col">
+      <motion.div variants={containerVariants} initial="hidden" animate="show" className="w-full max-w-7xl px-8 py-6 flex flex-col">
         
         <HeroHeader 
           title="Dashboard Ejecutivo" 
@@ -46,7 +95,6 @@ export default function DashboardPage() {
           decorativeIcon={BarChart3} 
         />
         
-        {/* 1. KPIs Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <motion.div variants={itemVariants} className="bg-linear-to-br from-emerald-500 to-teal-600 dark:from-emerald-600 dark:to-teal-700 rounded-2xl p-6 shadow-md text-white relative overflow-hidden h-36 flex flex-col justify-between">
              <div className="relative z-10">
@@ -85,33 +133,78 @@ export default function DashboardPage() {
           </motion.div>
         </div>
 
-        {/* 2. Operational Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-           
-           {/* Quick Actions Box */}
-           <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-slate-800 h-full">
-              <DashboardSectionTitle title="Acciones Rápidas" icon={Zap} />
-              <div className="grid grid-cols-2 gap-4 h-[calc(100%-2rem)] content-start">
-                 <button className="p-5 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 flex flex-col items-center justify-center gap-3 hover:bg-blue-100 dark:hover:bg-blue-900/40 hover:shadow-md transition-all group h-32">
-                    <div className="p-3 bg-white dark:bg-slate-800 rounded-full text-blue-600 dark:text-blue-400 shadow-sm group-hover:scale-110 transition-transform"><FileText size={24}/></div>
-                    <span className="text-sm font-bold text-blue-800 dark:text-blue-300 text-center">Reporte Diario</span>
-                 </button>
-                 <button onClick={() => setChatOpen(true)} className="p-5 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 flex flex-col items-center justify-center gap-3 hover:bg-green-100 dark:hover:bg-green-900/40 hover:shadow-md transition-all group h-32">
-                    <div className="p-3 bg-white dark:bg-slate-800 rounded-full text-green-600 dark:text-green-400 shadow-sm group-hover:scale-110 transition-transform"><MessageCircle size={24}/></div>
-                    <span className="text-sm font-bold text-green-800 dark:text-green-300 text-center">Alerta WhatsApp</span>
-                 </button>
-                 <button className="p-5 rounded-xl bg-purple-50 dark:bg-purple-900/20 border border-purple-100 dark:border-purple-800 flex flex-col items-center justify-center gap-3 hover:bg-purple-100 dark:hover:bg-purple-900/40 hover:shadow-md transition-all group h-32">
-                    <div className="p-3 bg-white dark:bg-slate-800 rounded-full text-purple-600 dark:text-purple-400 shadow-sm group-hover:scale-110 transition-transform"><Users size={24}/></div>
-                    <span className="text-sm font-bold text-purple-800 dark:text-purple-300 text-center">Nuevo Docente</span>
-                 </button>
-                 <button className="p-5 rounded-xl bg-gray-50 dark:bg-slate-800 border border-gray-200 dark:border-slate-700 flex flex-col items-center justify-center gap-3 hover:bg-gray-100 dark:hover:bg-slate-700 hover:shadow-md transition-all group h-32">
-                    <div className="p-3 bg-white dark:bg-slate-700 rounded-full text-gray-600 dark:text-gray-300 shadow-sm group-hover:scale-110 transition-transform"><QrCode size={24}/></div>
-                    <span className="text-sm font-bold text-gray-700 dark:text-gray-300 text-center">Escanear QR</span>
-                 </button>
-              </div>
-           </div>
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-slate-800 h-full min-h-[400px]">
+               <DashboardSectionTitle title="Asistencia Global (Hoy)" icon={PieChartIcon} />
+                 <div className="relative w-full h-80 flex items-center justify-center">
+                    {pieData.length > 0 ? (
+                       <Doughnut
+                          data={{
+                             labels: pieData.map((d) => d.name),
+                             datasets: [
+                                {
+                                   data: pieData.map((d) => d.value),
+                                   backgroundColor: pieData.map((d) => d.color),
+                                   borderWidth: 2,
+                                   borderColor: '#fff',
+                                   hoverOffset: 12,
+                                },
+                             ],
+                          }}
+                          options={{
+                             responsive: true,
+                             maintainAspectRatio: false,
+                             cutout: '70%',
+                             layout: { padding: 20 },
+                             plugins: {
+                                legend: {
+                                   position: 'bottom' as const,
+                                   labels: {
+                                      color: '#6b7280',
+                                      usePointStyle: true,
+                                      pointStyle: 'circle',
+                                      padding: 20,
+                                      font: {
+                                         size: 13,
+                                          weight: 'bold',
+                                      },
+                                   },
+                                },
+                                tooltip: {
+                                   backgroundColor: 'rgba(17,24,39,0.9)',
+                                   cornerRadius: 10,
+                                   padding: 12,
+                                   titleFont: { size: 14 },
+                                   bodyFont: { size: 13 },
+                                },
+                             },
+                             animation: {
+                                animateScale: true,
+                                animateRotate: true,
+                                duration: 1200,
+                                easing: 'easeOutQuart',
+                             },
+                          }}
+                       />
+                    ) : (
+                       <div className="text-gray-400 dark:text-gray-500 text-sm italic">
+                          Cargando datos...
+                       </div>
+                    )}
 
-           {/* System Status Box */}
+                    {pieData.length > 0 && (
+                       <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-11 text-center pointer-events-none">
+                          <span className="text-4xl font-bold text-gray-800 dark:text-white tracking-tight">
+                             {loading ? '-' : `${stats.attendance_percentage}%`}
+                          </span>
+                          <span className="text-xs text-gray-400 block uppercase tracking-wider font-semibold mt-1">
+                             Asistencia
+                          </span>
+                       </div>
+                    )}
+                 </div>
+            </div>
+
            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 shadow-sm border border-gray-200 dark:border-slate-800 h-full">
               <DashboardSectionTitle title="Estado del Sistema" icon={Shield} />
               <div className="flex flex-col justify-between h-[calc(100%-3rem)] gap-4">

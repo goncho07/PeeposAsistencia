@@ -25,13 +25,13 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const TOKEN_KEY = 'auth_token';
 const USER_KEY = 'user_data';
 const TOKEN_EXPIRY_KEY = 'token_expiry';
-const TOKEN_VALIDATION_INTERVAL = 4 * 60 * 1000; // 4 minutos
-const TOKEN_REFRESH_THRESHOLD = 30 * 60 * 1000; // 30 minutos antes de expirar
+const TOKEN_VALIDATION_INTERVAL = 4 * 60 * 1000;
 
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
+    
     const router = useRouter();
     const validationIntervalRef = useRef<NodeJS.Timeout | null>(null);
     const isValidatingRef = useRef(false);

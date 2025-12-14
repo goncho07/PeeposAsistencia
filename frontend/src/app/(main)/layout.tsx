@@ -13,7 +13,8 @@ import {
   Bot, 
   Sun,
   Moon,
-  Menu
+  Menu,
+  QrCode
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import AIChatPanel from '@/components/features/AIChatPanel';
@@ -57,10 +58,8 @@ export default function MainLayout({
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dash', path: '/dashboard' },
     { icon: Users, label: 'Users', path: '/usuarios' },
-    { icon: ClipboardCheck, label: 'Asist', path: '/asistencia' },
+    { icon: QrCode, label: 'Scanner', path: '/scanner' },
     { icon: BarChart3, label: 'Report', path: '/reportes' },
-    { icon: MessageSquare, label: 'Msj', path: '/mensajeria' }, // Ruta corregida
-    { icon: Bell, label: 'Alert', path: '/notificaciones' },
     { icon: Settings, label: 'Config', path: '/configuracion' },
   ];
 

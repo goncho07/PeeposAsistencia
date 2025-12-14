@@ -1,7 +1,8 @@
-import { useState, useEffect, useMemo } from 'react';
 import api from '@/lib/axios';
-import { ApiUserResponse, UserProfile } from '@/types/userTypes';
-import { mapUserData } from '@/lib/mappers/apiToUserMapper';
+import { useState, useEffect, useMemo } from 'react';
+import { ApiUserResponse, UserProfile } from '@/types/userTypes'
+import { mapUserData } from '@/lib/mappers/userMapper';
+import { UserType } from '@/config/userFormConfig';
 
 export const useUsers = () => {
     const [users, setUsers] = useState<UserProfile[]>([]);
@@ -32,6 +33,33 @@ export const useUsers = () => {
         }
     };
 
+    const createUser = async (data: Record<string, any>, userType: string) => {
+        try {
+            const typeMap: Record<string, string> = {
+                student: 'student',
+                teacher: 'teacher',
+                admin: 'admin',
+                parent: 'parent',
+            };
+
+            const endpoint = `/users/${typeMap[userType]}`;
+            await api.post(endpoint, data);
+        } catch (err: any) {
+            console.error('Error creating user:', err);
+            throw err;
+        }
+    };
+
+    const updateUser = async (id: number, payload: Record<string, any>, type: UserType) => {
+        try {
+            const endpoint = `/users/${type}/${id}`;
+
+            await api.put(endpoint, payload);
+        } catch (error: any) {
+            console.error('Error updating user:', error);
+            throw error;
+        }
+    };
 
     const deleteUser = async (userId: number, userType: string) => {
         const typeMap: Record<string, string> = {
@@ -59,12 +87,5 @@ export const useUsers = () => {
         fetchUsers();
     }, []);
 
-    return {
-        users,
-        loading,
-        error,
-        counts,
-        fetchUsers,
-        deleteUser
-    };
+    return { users, loading, error, counts, fetchUsers, createUser, updateUser, deleteUser };
 };
