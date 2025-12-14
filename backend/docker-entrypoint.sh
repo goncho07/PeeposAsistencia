@@ -17,5 +17,5 @@ php artisan config:clear
 php artisan cache:clear
 php artisan route:clear
 
-echo "Iniciando Apache...jejeje"
+echo "Iniciando Apache..."
 apache2-foreground

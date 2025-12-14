@@ -32,6 +32,10 @@ class Aula extends Model
 
     public function getNombreCompletoAttribute(): string
     {
+        if (strtoupper($this->nivel) === 'INICIAL') {
+            return "{$this->seccion} - {$this->grado} AÑOS";
+        }
+
         $nivelFormateado = ucfirst(strtolower($this->nivel));
         $gradoOrdinal = $this->getGradoOrdinal();
 
@@ -40,14 +44,17 @@ class Aula extends Model
 
     public function getCodigoAttribute(): string
     {
-        $nivelAbreviado = $this->getNivelAbreviado();
-        return "{$nivelAbreviado}-{$this->grado}-{$this->seccion}";
+        return "{$this->grado}-{$this->seccion}";
     }
 
     private function getGradoOrdinal(): string
     {
+        if (strtoupper($this->nivel) === 'INICIAL') {
+            return "{$this->grado} años";
+        }
+
         $ordinales = [
-            1 => '1er',
+            1 => '1ro',
             2 => '2do',
             3 => '3er',
             4 => '4to',
@@ -56,17 +63,6 @@ class Aula extends Model
         ];
 
         return $ordinales[$this->grado] ?? "{$this->grado}°";
-    }
-
-    private function getNivelAbreviado(): string
-    {
-        $abreviaturas = [
-            'INICIAL' => 'INIC',
-            'PRIMARIA' => 'PRIM',
-            'SECUNDARIA' => 'SEC',
-        ];
-
-        return $abreviaturas[$this->nivel] ?? 'N/A';
     }
 
     public function scopeNivel($query, string $nivel)
@@ -90,11 +86,6 @@ class Aula extends Model
         ")->orderBy('grado')->orderBy('seccion');
     }
 
-    public function getCantidadEstudiantesAttribute(): int
-    {
-        return $this->estudiantes()->count();
-    }
-
     public function estaCompleta(int $capacidadMaxima = 35): bool
     {
         return $this->cantidad_estudiantes >= $capacidadMaxima;
@@ -107,19 +98,6 @@ class Aula extends Model
             ->orderBy('maternal_surname')
             ->orderBy('name')
             ->get();
-    }
-
-    public function getResumenAttribute(): array
-    {
-        return [
-            'codigo' => $this->codigo,
-            'nombre_completo' => $this->nombre_completo,
-            'nivel' => $this->nivel,
-            'grado' => $this->grado,
-            'seccion' => $this->seccion,
-            'docente' => $this->docente ? $this->docente->full_name : 'Sin asignar',
-            'cantidad_estudiantes' => $this->cantidad_estudiantes,
-        ];
     }
 
     protected static function boot()

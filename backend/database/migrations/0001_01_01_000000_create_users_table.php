@@ -28,6 +28,10 @@ return new class extends Migration
             
             $table->rememberToken();
             $table->timestamps();
+
+            $table->index(['name', 'paternal_surname', 'maternal_surname'], 'idx_users_search');
+            $table->index('dni', 'idx_users_dni');
+            $table->index('rol', 'idx_users_rol');
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

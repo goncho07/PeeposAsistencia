@@ -34,5 +34,9 @@ return [
             'channel' => env('SLACK_BOT_USER_DEFAULT_CHANNEL'),
         ],
     ],
-
+    'whatsapp' => [
+        'api_url' => env('WAPI_API_URL', 'https://wapiapp.com/api/v1'),
+        'token' => env('WAPI_TOKEN'),
+        'instance_id' => env('WAPI_INSTANCE_ID'),
+    ],
 ];

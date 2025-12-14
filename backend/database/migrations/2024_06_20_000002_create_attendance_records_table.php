@@ -10,17 +10,38 @@ return new class extends Migration
     {
         Schema::create('asistencias', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('student_id')->constrained('estudiantes')->onDelete('cascade'); 
-            $table->foreignId('scanner_user_id')->constrained('users')->onDelete('restrict');
             
-            $table->dateTime('scanned_at'); 
-            $table->enum('record_type', ['ENTRADA', 'SALIDA'])->default('ENTRADA');
+            $table->morphs('attendable');
             
-            $table->text('observation')->nullable(); 
+            $table->date('date');
+            $table->time('entry_time')->nullable();
+            $table->time('exit_time')->nullable();
+            
+            $table->enum('entry_status', [
+                'ASISTIO',
+                'TARDANZA', 
+                'FALTA',
+                'FALTA_JUSTIFICADA'
+            ])->default('FALTA');
+            
+            $table->enum('exit_status', [
+                'COMPLETO',
+                'SALIDA_ANTICIPADA',
+                'SALIDA_ANTICIPADA_JUSTIFICADA',
+                'SIN_SALIDA'
+            ])->default('SIN_SALIDA');
+            
+            $table->text('entry_observation')->nullable();
+            $table->text('exit_observation')->nullable();
+            
+            $table->boolean('whatsapp_sent')->default(false);
+            $table->timestamp('whatsapp_sent_at')->nullable();
             
             $table->timestamps();
             
-            $table->index(['student_id', 'scanned_at']);
+            $table->index(['attendable_type', 'attendable_id', 'date']);
+            $table->index('date');
+            $table->index(['date', 'entry_status']);
         });
     }
 

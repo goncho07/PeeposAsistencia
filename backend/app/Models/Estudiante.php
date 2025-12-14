@@ -2,12 +2,13 @@
 
 namespace App\Models;
 
+use App\Traits\HasFullName;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class Estudiante extends Model
 {
-    use HasFactory;
+    use HasFactory, HasFullName;
 
     protected $fillable = [
         'qr_code',
@@ -27,11 +28,6 @@ class Estudiante extends Model
         'date_of_birth' => 'date',
     ];
 
-    public function getFullNameAttribute(): string
-    {
-        return "{$this->name} {$this->paternal_surname} {$this->maternal_surname}";
-    }
-
     public function aula()
     {
         return $this->belongsTo(Aula::class);
@@ -40,6 +36,16 @@ class Estudiante extends Model
     public function padre()
     {
         return $this->belongsTo(Padre::class);
+    }
+
+    public function asistencias()
+    {
+        return $this->morphMany(Asistencia::class, 'attendable');
+    }
+
+    public function justificaciones()
+    {
+        return $this->morphMany(Justificacion::class, 'justifiable');
     }
 
     public function getEdadAttribute(): int

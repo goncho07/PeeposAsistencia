@@ -24,15 +24,18 @@ return new class extends Migration
             $table->enum('relationship_type', ['PADRE', 'MADRE', 'APODERADO', 'TUTOR'])->default('TUTOR');
 
             $table->timestamps();
-            
-            $table->index(['paternal_surname', 'maternal_surname']);
-            $table->index('name');
+
+            $table->index(['name', 'paternal_surname', 'maternal_surname'], 'idx_padres_search');
+            $table->index('document_number', 'idx_padres_document');
+            $table->index('email', 'idx_padres_email');
         });
 
         Schema::create('docentes', function (Blueprint $table) {
             $table->id();
             $table->string('dni', 8)->unique();
+            $table->string('qr_code', 50)->unique();
             $table->string('name', 100);
+            $table->enum('nivel', ['INICIAL', 'PRIMARIA', 'SECUNDARIA']);
             $table->string('area', 30);
             $table->string('paternal_surname', 50);
             $table->string('maternal_surname', 50);
@@ -41,15 +44,16 @@ return new class extends Migration
             
             $table->timestamps();
             
-            $table->index(['paternal_surname', 'maternal_surname']);
-            $table->index('name');
+            $table->index(['name', 'paternal_surname', 'maternal_surname'], 'idx_docentes_search');
+            $table->index('dni', 'idx_docentes_dni');
         });
 
         Schema::create('aulas', function (Blueprint $table) {
             $table->id();
             $table->foreignId('docente_id')
-                  ->constrained('docentes')
-                  ->onDelete('restrict'); 
+                ->nullable() 
+                ->constrained('docentes')
+                ->onDelete('restrict');
 
             $table->enum('nivel', ['INICIAL', 'PRIMARIA', 'SECUNDARIA']);
             $table->unsignedTinyInteger('grado');
@@ -58,13 +62,14 @@ return new class extends Migration
             $table->unique(['nivel', 'grado', 'seccion']);
             
             $table->timestamps();
-            $table->index('docente_id');
+            $table->index('docente_id', 'idx_aulas_docente');
+            $table->index(['nivel', 'grado', 'seccion'], 'idx_aulas_nivel_grado');
         });
 
         Schema::create('estudiantes', function (Blueprint $table) {
             $table->id();
             
-            $table->string('qr_code', 100)->unique(); 
+            $table->string('qr_code', 50)->unique(); 
             $table->string('student_code', 20)->unique();
             
             $table->string('name', 100);
@@ -82,9 +87,11 @@ return new class extends Migration
             $table->foreignId('padre_id')->constrained('padres_apoderados')->nullable(); 
 
             $table->timestamps();
-            
-            $table->index(['paternal_surname', 'maternal_surname']);
-            $table->index('name');
+
+            $table->index(['name', 'paternal_surname', 'maternal_surname'], 'idx_estudiantes_search');
+            $table->index('aula_id', 'idx_estudiantes_aula');
+            $table->index('padre_id', 'idx_estudiantes_padre');
+            $table->index('student_code', 'idx_estudiantes_code');
         });
     }
 
