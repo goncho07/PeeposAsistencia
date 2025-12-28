@@ -1,0 +1,16 @@
+{
+  "buildCommand": "npm run build",
+  "devCommand": "npm run dev",
+  "installCommand": "npm install",
+  "framework": "nextjs",
+  "rewrites": [
+    {
+      "source": "/:tenant/login",
+      "destination": "/[tenant]/login"
+    },
+    {
+      "source": "/:tenant/dashboard",
+      "destination": "/[tenant]/dashboard"
+    }
+  ]
+}

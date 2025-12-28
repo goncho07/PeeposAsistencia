@@ -1,36 +1,49 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Peepos Asistencia - Frontend
 
-## Getting Started
+Sistema de control de asistencia escolar multi-tenant.
 
-First, run the development server:
+## Stack
+
+- **Next.js 16** (App Router)
+- **TypeScript**  
+- **Vercel** (Deployment)
+
+## Desarrollo Local
 
 ```bash
+# Instalar dependencias
+npm install
+
+# Copiar .env
+cp .env.example .env.local
+
+# Iniciar dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Accede en: `http://localhost:3000/iee-6049-ricardo-palma/login`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Arquitectura Multi-Tenant
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+El frontend usa rutas dinámicas `[tenant]` para identificar la institución.
 
-## Learn More
+**Flujo:**
+1. Usuario visita `/iee-6049-ricardo-palma/login`
+2. Frontend llama `GET /api/tenants/iee-6049-ricardo-palma` para logo/banner
+3. Usuario hace login → backend retorna token con `tenant_id`
+4. Requests autenticadas → backend scope automático por `tenant_id`
 
-To learn more about Next.js, take a look at the following resources:
+## Deploy en Vercel
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm i -g vercel
+vercel login
+vercel
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+O conecta tu repo de GitHub en [vercel.com](https://vercel.com).
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Environment Variable:**
+```
+NEXT_PUBLIC_API_URL=https://api.tudominio.com/api
+```
