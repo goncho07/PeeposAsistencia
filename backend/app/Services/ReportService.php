@@ -2,12 +2,13 @@
 
 namespace App\Services;
 
-use App\Models\Asistencia;
-use App\Models\Estudiante;
-use App\Models\Docente;
-use App\Models\Aula;
+use App\Models\Attendance;
+use App\Models\Student;
+use App\Models\Teacher;
+use App\Models\Classroom;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class ReportService
 {
@@ -15,39 +16,47 @@ class ReportService
 
     public function generateReport(array $filters): array
     {
-        [$from, $to] = $this->getPeriodDates($filters);
+        $tenantId = Auth::user()->tenant_id;
+        [$from, $to] = $this->getPeriodDates($filters, $tenantId);
 
-        $query = Asistencia::query()->forPeriod($from, $to);
+        $query = Attendance::where('tenant_id', $tenantId)
+            ->whereBetween('date', [$from, $to]);
 
         if ($filters['type'] === 'student') {
             $query->students();
 
-            if (isset($filters['nivel'])) {
-                $query->whereHasMorph('attendable', [Estudiante::class], function ($q) use ($filters) {
-                    $q->whereHas('aula', function ($aulaQuery) use ($filters) {
-                        $aulaQuery->where('nivel', $filters['nivel']);
+            if (isset($filters['level'])) {
+                $query->whereHasMorph('attendable', [Student::class], function ($q) use ($filters, $tenantId) {
+                    $q->where('tenant_id', $tenantId)
+                        ->whereHas('classroom', function ($classroomQuery) use ($filters) {
+                            $classroomQuery->where('level', $filters['level']);
 
-                        if (isset($filters['grado'])) {
-                            $aulaQuery->where('grado', $filters['grado']);
-                        }
+                            if (isset($filters['grade'])) {
+                                $classroomQuery->where('grade', $filters['grade']);
+                            }
 
-                        if (isset($filters['seccion'])) {
-                            $aulaQuery->where('seccion', $filters['seccion']);
-                        }
-                    });
+                            if (isset($filters['section'])) {
+                                $classroomQuery->where('section', $filters['section']);
+                            }
+
+                            if (isset($filters['shift'])) {
+                                $classroomQuery->where('shift', $filters['shift']);
+                            }
+                        });
                 });
             }
         } elseif ($filters['type'] === 'teacher') {
             $query->teachers();
 
-            if (isset($filters['nivel'])) {
-                $query->whereHasMorph('attendable', [Docente::class], function ($q) use ($filters) {
-                    $q->where('nivel', $filters['nivel']);
+            if (isset($filters['level'])) {
+                $query->whereHasMorph('attendable', [Teacher::class], function ($q) use ($filters, $tenantId) {
+                    $q->where('tenant_id', $tenantId)
+                        ->where('level', $filters['level']);
                 });
             }
         }
 
-        $attendances = $query->with('attendable')->get();
+        $attendances = $query->with(['attendable'])->get();
 
         return [
             'period' => [
@@ -61,7 +70,7 @@ class ReportService
         ];
     }
 
-    private function getPeriodDates(array $filters): array
+    private function getPeriodDates(array $filters, int $tenantId): array
     {
         if (isset($filters['from']) && isset($filters['to'])) {
             return [
@@ -76,14 +85,14 @@ class ReportService
             'daily' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
             'weekly' => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
             'monthly' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
-            'bimester' => $this->getBimesterPeriod($filters['bimester'] ?? $this->settingService->getCurrentBimester()),
+            'bimester' => $this->getBimesterPeriod($filters['bimester'] ?? $this->settingService->getCurrentBimester(null, $tenantId), $tenantId),
             default => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
         };
     }
 
-    private function getBimesterPeriod(int $bimester): array
+    private function getBimesterPeriod(int $bimester, int $tenantId): array
     {
-        $dates = $this->settingService->getBimesterDates($bimester);
+        $dates = $this->settingService->getBimesterDates($bimester, $tenantId);
         return [
             Carbon::parse($dates['inicio']),
             Carbon::parse($dates['fin'])
@@ -94,7 +103,7 @@ class ReportService
     {
         return [
             'total_records' => $attendances->count(),
-            'present' => $attendances->whereIn('entry_status', ['ASISTIO', 'TARDANZA'])->count(),
+            'present' => $attendances->whereIn('entry_status', ['COMPLETO', 'TARDANZA'])->count(),
             'late' => $attendances->where('entry_status', 'TARDANZA')->count(),
             'absent' => $attendances->where('entry_status', 'FALTA')->count(),
             'justified_absences' => $attendances->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
@@ -116,7 +125,7 @@ class ReportService
                     'document' => $person->dni ?? $person->document_number,
                     'statistics' => [
                         'total_days' => $group->count(),
-                        'present' => $group->whereIn('entry_status', ['ASISTIO', 'TARDANZA'])->count(),
+                        'present' => $group->whereIn('entry_status', ['COMPLETO', 'TARDANZA'])->count(),
                         'late' => $group->where('entry_status', 'TARDANZA')->count(),
                         'absent' => $group->where('entry_status', 'FALTA')->count(),
                         'justified' => $group->where('entry_status', 'FALTA_JUSTIFICADA')->count(),

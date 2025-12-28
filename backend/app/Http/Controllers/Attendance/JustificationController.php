@@ -3,107 +3,106 @@
 namespace App\Http\Controllers\Attendance;
 
 use App\Http\Controllers\Controller;
-use App\Models\Justificacion;
-use App\Models\Estudiante;
-use App\Models\Docente;
+use App\Models\Justification;
+use App\Models\Student;
+use App\Models\Teacher;
+use App\Http\Requests\Justifications\JustificationStoreRequest;
+use App\Http\Resources\JustificationResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\DB;
 
 class JustificationController extends Controller
 {
     public function index(Request $request): JsonResponse
     {
-        $query = Justificacion::with(['justifiable', 'creator', 'reviewer']);
+        try {
+            $query = Justification::with(['justifiable', 'creator']);
 
-        if ($request->query('status')) {
-            $query->where('status', $request->query('status'));
-        }
-
-        if ($request->query('type')) {
-            if ($request->query('type') === 'student') {
-                $query->where('justifiable_type', Estudiante::class);
-            } elseif ($request->query('type') === 'teacher') {
-                $query->where('justifiable_type', Docente::class);
+            if ($request->query('type')) {
+                if ($request->query('type') === 'student') {
+                    $query->where('justifiable_type', Student::class);
+                } elseif ($request->query('type') === 'teacher') {
+                    $query->where('justifiable_type', Teacher::class);
+                }
             }
+
+            if ($request->query('date_from')) {
+                $query->where('date_from', '>=', $request->query('date_from'));
+            }
+
+            if ($request->query('date_to')) {
+                $query->where('date_to', '<=', $request->query('date_to'));
+            }
+
+            $justifications = $query->latest()->paginate(20);
+
+            return $this->success(JustificationResource::collection($justifications)->response()->getData(true));
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener justificaciones: ' . $e->getMessage(), null, 500);
         }
-
-        $justifications = $query->latest()->paginate(20);
-
-        return response()->json($justifications);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(JustificationStoreRequest $request): JsonResponse
     {
-        $request->validate([
-            'type' => 'required|in:student,teacher',
-            'person_id' => 'required|integer',
-            'justification_type' => 'required|in:FALTA,SALIDA_ANTICIPADA',
-            'date_from' => 'required|date',
-            'date_to' => 'required|date|after_or_equal:date_from',
-            'reason' => 'required|string|max:1000',
-            'document' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
-        ]);
+        try {
+            $data = $request->validated();
 
-        $justifiableType = $request->type === 'student' ? Estudiante::class : Docente::class;
-        $justifiable = $justifiableType::findOrFail($request->person_id);
+            $documentPath = null;
+            if ($request->hasFile('document')) {
+                $documentPath = $request->file('document')->store('justifications', 'public');
+                $data['document_path'] = $documentPath;
+            }
 
-        $documentPath = null;
-        if ($request->hasFile('document')) {
-            $documentPath = $request->file('document')->store('justifications', 'public');
+            $data['tenant_id'] = $request->user()->tenant_id;
+            $data['created_by'] = $request->user()->id;
+
+            $justification = DB::transaction(function () use ($data) {
+                return Justification::create($data);
+            });
+
+            $justification->load(['justifiable', 'creator']);
+
+            return $this->created(
+                new JustificationResource($justification),
+                'Justificación creada y aplicada exitosamente'
+            );
+        } catch (\Exception $e) {
+            if (isset($documentPath)) {
+                Storage::disk('public')->delete($documentPath);
+            }
+            return $this->error('Error al crear justificación: ' . $e->getMessage(), null, 500);
         }
-
-        $justification = Justificacion::create([
-            'justifiable_type' => $justifiableType,
-            'justifiable_id' => $justifiable->id,
-            'type' => $request->justification_type,
-            'date_from' => $request->date_from,
-            'date_to' => $request->date_to,
-            'reason' => $request->reason,
-            'document_path' => $documentPath,
-            'created_by' => $request->user()->id,
-        ]);
-
-        return response()->json([
-            'message' => 'Justificación creada exitosamente',
-            'justification' => $justification->load(['justifiable', 'creator']),
-        ], 201);
     }
 
-    public function approve(int $id, Request $request): JsonResponse
+    public function show(int $id): JsonResponse
     {
-        $justification = Justificacion::findOrFail($id);
-        $justification->approve($request->user());
+        try {
+            $justification = Justification::with(['justifiable', 'creator'])->findOrFail($id);
 
-        return response()->json([
-            'message' => 'Justificación aprobada',
-            'justification' => $justification->fresh(['justifiable', 'reviewer']),
-        ]);
-    }
-
-    public function reject(int $id, Request $request): JsonResponse
-    {
-        $justification = Justificacion::findOrFail($id);
-        $justification->reject($request->user());
-
-        return response()->json([
-            'message' => 'Justificación rechazada',
-            'justification' => $justification->fresh(['justifiable', 'reviewer']),
-        ]);
+            return $this->success(new JustificationResource($justification));
+        } catch (\Exception $e) {
+            return $this->error('Justificación no encontrada', null, 404);
+        }
     }
 
     public function destroy(int $id): JsonResponse
     {
-        $justification = Justificacion::findOrFail($id);
+        try {
+            $justification = Justification::findOrFail($id);
 
-        if ($justification->document_path) {
-            Storage::disk('public')->delete($justification->document_path);
+            DB::transaction(function () use ($justification) {
+                if ($justification->document_path) {
+                    Storage::disk('public')->delete($justification->document_path);
+                }
+
+                $justification->delete();
+            });
+
+            return $this->success(null, 'Justificación eliminada exitosamente');
+        } catch (\Exception $e) {
+            return $this->error('Error al eliminar justificación: ' . $e->getMessage(), null, 500);
         }
-
-        $justification->delete();
-
-        return response()->json([
-            'message' => 'Justificación eliminada',
-        ]);
     }
 }

@@ -2,69 +2,177 @@
 
 namespace App\Services;
 
-use App\Models\Ajuste;
+use App\Models\Setting;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
 
 class SettingService
 {
+    /**
+     * Get all settings grouped by category
+     */
     public function getAllSettings(): array
     {
+        $tenantId = Auth::user()->tenant_id;
+
         return [
-            'general' => Ajuste::getGroup('general'),
-            'horarios' => Ajuste::getGroup('horarios'),
-            'whatsapp' => Ajuste::getGroup('whatsapp'),
-            'bimestres' => Ajuste::getGroup('bimestres'),
+            'general' => $this->getGroup('general', $tenantId),
+            'horarios' => $this->getGroup('horarios', $tenantId),
+            'whatsapp' => $this->getGroup('whatsapp', $tenantId),
+            'bimestres' => $this->getGroup('bimestres', $tenantId),
         ];
     }
 
-    public function updateSettings(array $settings): void
+    /**
+     * Get settings by group
+     */
+    public function getGroup(string $group, ?int $tenantId = null): array
     {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+
+        $cacheKey = "settings.{$tenantId}.{$group}";
+
+        return Cache::remember($cacheKey, 3600, function () use ($group, $tenantId) {
+            $settings = Setting::where('tenant_id', $tenantId)
+                ->byGroup($group)
+                ->get();
+
+            $result = [];
+            foreach ($settings as $setting) {
+                $result[$setting->key] = $setting->getTypedValue();
+            }
+
+            return $result;
+        });
+    }
+
+    /**
+     * Get a single setting value
+     */
+    public function get(string $key, mixed $default = null, ?int $tenantId = null): mixed
+    {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+
+        $cacheKey = "setting.{$tenantId}.{$key}";
+
+        return Cache::remember($cacheKey, 3600, function () use ($key, $default, $tenantId) {
+            $setting = Setting::where('tenant_id', $tenantId)
+                ->byKey($key)
+                ->first();
+
+            return $setting ? $setting->getTypedValue() : $default;
+        });
+    }
+
+    /**
+     * Set a single setting value
+     */
+    public function set(string $key, mixed $value, string $type = 'string', string $group = 'general', ?int $tenantId = null): Setting
+    {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+
+        $storedValue = match ($type) {
+            'boolean' => $value ? 'true' : 'false',
+            'json', 'array' => is_string($value) ? $value : json_encode($value),
+            default => (string) $value,
+        };
+
+        $setting = Setting::updateOrCreate(
+            [
+                'tenant_id' => $tenantId,
+                'key' => $key,
+            ],
+            [
+                'value' => $storedValue,
+                'type' => $type,
+                'group' => $group,
+            ]
+        );
+
+        $this->clearCache($tenantId, $key, $group);
+
+        return $setting;
+    }
+
+    /**
+     * Update multiple settings
+     */
+    public function updateSettings(array $settings, ?int $tenantId = null): void
+    {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+
         foreach ($settings as $key => $value) {
-            $setting = Ajuste::where('key', $key)->first();
+            $setting = Setting::where('tenant_id', $tenantId)
+                ->byKey($key)
+                ->first();
 
             if ($setting) {
-                Ajuste::set($key, $value, $setting->type, $setting->group);
-            }
-        
-            elseif (is_array($value)) {
-                $this->updateSettings($value);
+                $this->set($key, $value, $setting->type, $setting->group, $tenantId);
+            } elseif (is_array($value)) {
+                // Handle nested arrays
+                $this->updateSettings($value, $tenantId);
             }
         }
     }
 
-    public function getScheduleForLevel(string $nivel): array
+    /**
+     * Get schedule for a specific level and shift
+     */
+    public function getScheduleForLevel(string $level, string $shift = 'MAÑANA', ?int $tenantId = null): array
     {
-        $nivelLower = strtolower($nivel);
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $levelLower = strtolower($level);
+        $shiftLower = strtolower($shift);
+
+        $entryKey = "horario_{$levelLower}_{$shiftLower}_entrada";
+        $exitKey = "horario_{$levelLower}_{$shiftLower}_salida";
 
         return [
-            'entrada' => Ajuste::get("horario_{$nivelLower}_entrada", '08:00'),
-            'salida' => Ajuste::get("horario_{$nivelLower}_salida", '13:00'),
+            'entrada' => $this->get($entryKey, '08:00', $tenantId),
+            'salida' => $this->get($exitKey, '13:00', $tenantId),
         ];
     }
 
-    public function getToleranceMinutes(): int
+    /**
+     * Get tolerance minutes for tardiness
+     */
+    public function getToleranceMinutes(?int $tenantId = null): int
     {
-        return Ajuste::get('tardiness_tolerance_minutes', 5);
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        return (int) $this->get('tardiness_tolerance_minutes', 5, $tenantId);
     }
 
-    public function getWhatsAppPhone(string $nivel): ?string
+    /**
+     * Get WhatsApp phone number for a specific level
+     */
+    public function getWhatsAppPhone(string $level, ?int $tenantId = null): ?string
     {
-        $nivelLower = strtolower($nivel);
-        return Ajuste::get("whatsapp_{$nivelLower}_phone");
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $levelLower = strtolower($level);
+        return $this->get("whatsapp_{$levelLower}_phone", null, $tenantId);
     }
 
-    public function isWhatsAppEnabled(): bool
+    /**
+     * Check if WhatsApp notifications are enabled
+     */
+    public function isWhatsAppEnabled(?int $tenantId = null): bool
     {
-        return Ajuste::get('whatsapp_notifications_enabled', true);
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        return (bool) $this->get('whatsapp_notifications_enabled', true, $tenantId);
     }
 
-    public function getCurrentBimester(?Carbon $date = null): ?int
+    /**
+     * Get current bimester based on date
+     */
+    public function getCurrentBimester(?Carbon $date = null, ?int $tenantId = null): ?int
     {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
         $date = $date ?? now();
 
         for ($i = 1; $i <= 4; $i++) {
-            $inicio = Carbon::parse(Ajuste::get("bimestre_{$i}_inicio"));
-            $fin = Carbon::parse(Ajuste::get("bimestre_{$i}_fin"));
+            $inicio = Carbon::parse($this->get("bimestre_{$i}_inicio", null, $tenantId));
+            $fin = Carbon::parse($this->get("bimestre_{$i}_fin", null, $tenantId));
 
             if ($date->between($inicio, $fin)) {
                 return $i;
@@ -74,17 +182,76 @@ class SettingService
         return null;
     }
 
-    public function getBimesterDates(int $bimester): array
+    /**
+     * Get bimester dates
+     */
+    public function getBimesterDates(int $bimester, ?int $tenantId = null): array
     {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+
         return [
-            'inicio' => Ajuste::get("bimestre_{$bimester}_inicio"),
-            'fin' => Ajuste::get("bimestre_{$bimester}_fin"),
+            'inicio' => $this->get("bimestre_{$bimester}_inicio", null, $tenantId),
+            'fin' => $this->get("bimestre_{$bimester}_fin", null, $tenantId),
         ];
     }
 
-    public function isAttendanceDay(string $day): bool
+    /**
+     * Check if a day is an attendance day
+     */
+    public function isAttendanceDay(string $day, ?int $tenantId = null): bool
     {
-        $attendanceDays = Ajuste::get('attendance_days', ['lunes', 'martes', 'miercoles', 'jueves', 'viernes']);
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $attendanceDays = $this->get('attendance_days', ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'], $tenantId);
+
         return in_array(strtolower($day), $attendanceDays);
+    }
+
+    /**
+     * Check if auto-mark absences is enabled
+     */
+    public function shouldAutoMarkAbsences(?int $tenantId = null): bool
+    {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        return (bool) $this->get('auto_mark_absences', true, $tenantId);
+    }
+
+    /**
+     * Get auto-mark absences time
+     */
+    public function getAutoMarkAbsencesTime(?int $tenantId = null): string
+    {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        return $this->get('auto_mark_absences_time', '10:00', $tenantId);
+    }
+
+    /**
+     * Clear cache for specific setting
+     */
+    private function clearCache(?int $tenantId, string $key, string $group): void
+    {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+
+        Cache::forget("setting.{$tenantId}.{$key}");
+
+        Cache::forget("settings.{$tenantId}.{$group}");
+    }
+
+    /**
+     * Clear all settings cache for a tenant
+     */
+    public function clearAllCache(?int $tenantId = null): void
+    {
+        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+
+        $groups = ['general', 'horarios', 'whatsapp', 'bimestres'];
+
+        foreach ($groups as $group) {
+            Cache::forget("settings.{$tenantId}.{$group}");
+        }
+
+        $settings = Setting::where('tenant_id', $tenantId)->get();
+        foreach ($settings as $setting) {
+            Cache::forget("setting.{$tenantId}.{$setting->key}");
+        }
     }
 }

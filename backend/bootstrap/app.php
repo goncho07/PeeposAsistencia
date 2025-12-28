@@ -3,9 +3,8 @@
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
-use Illuminate\Http\Middleware\HandleCors;
 use Illuminate\Console\Scheduling\Schedule;
-use App\Http\Middleware\ForceJsonResponse;
+use Illuminate\Http\Request;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -15,17 +14,20 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware) {
-        $middleware->api(prepend: [
-            HandleCors::class,
-            ForceJsonResponse::class,
+        $middleware->alias([
+            'tenant.context' => \App\Http\Middleware\Tenant\SetTenantContext::class,
+            'tenant.verify' => \App\Http\Middleware\Tenant\VerifyTenantAccess::class,
+            'tenant.active' => \App\Http\Middleware\Tenant\EnsureTenantIsActive::class,
+            'role' => \App\Http\Middleware\Tenant\CheckRole::class,
         ]);
-
-        $middleware->statefulApi();
     })
     ->withExceptions(function (Exceptions $exceptions) {
-        //
+        $exceptions->shouldRenderJsonWhen(function (Request $request) {
+            return $request->is('api/*');
+        });
     })
     ->withSchedule(function (Schedule $schedule) {
         $schedule->command('attendance:generate-absences')->dailyAt('23:59');
+        $schedule->command('carnets:cleanup')->daily();
     })
     ->create();

@@ -3,73 +3,126 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Students\StudentController;
+use App\Http\Controllers\Teachers\TeacherController;
+use App\Http\Controllers\Parents\ParentController;
 use App\Http\Controllers\Users\UserController;
+use App\Http\Controllers\Classrooms\ClassroomController;
 use App\Http\Controllers\Attendance\ScannerController;
 use App\Http\Controllers\Attendance\AttendanceController;
 use App\Http\Controllers\Attendance\JustificationController;
-use App\Http\Controllers\AulaController;
-use App\Http\Controllers\CarnetController;
+use App\Http\Controllers\Carnets\CarnetController;
 use App\Http\Controllers\SettingController;
+use App\Http\Controllers\TenantController;
 
 Route::get('/ping', function () {
     return response()->json(['message' => 'Pong!']);
 });
 
-Route::post('/login', [AuthenticatedSessionController::class, 'store']);
+Route::get('/tenants/{slug}', [TenantController::class, 'getBySlug'])
+    ->name('tenants.show');
 
-Route::middleware(['auth:sanctum'])->group(function () {
-    Route::get('/user', function (Request $request) {
-        return response()->json([
-            'user' => [
-                'id' => $request->user()->id,
-                'name' => $request->user()->name,
-                'email' => $request->user()->email,
-                'rol' => $request->user()->rol,
-                'avatar_url' => $request->user()->avatar_url,
-            ],
-        ]);
+Route::prefix('auth')->group(function () {
+    Route::post('/login', [AuthenticatedSessionController::class, 'login'])
+        ->name('auth.login')
+        ->middleware('throttle:7,1');
+});
+
+Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.active'])->group(function () {
+    Route::prefix('auth')->group(function () {
+        Route::get('/user', [AuthenticatedSessionController::class, 'user'])
+            ->name('auth.user');
+
+        Route::post('/logout', [AuthenticatedSessionController::class, 'logout'])
+            ->name('auth.logout');
+
+        Route::post('/logout-all', [AuthenticatedSessionController::class, 'logoutAll'])
+            ->name('auth.logout-all');
+
+        Route::post('/refresh', [AuthenticatedSessionController::class, 'refresh'])
+            ->name('auth.refresh');
+
+        Route::get('/sessions', [AuthenticatedSessionController::class, 'sessions'])
+            ->name('auth.sessions');
+
+        Route::delete('/sessions/{tokenId}', [AuthenticatedSessionController::class, 'revokeSession'])
+            ->name('auth.sessions.revoke');
     });
 
-    Route::get('/validate-token', [AuthenticatedSessionController::class, 'show']);
-    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy']);
-    Route::post('/logout-all', [AuthenticatedSessionController::class, 'destroyAll']);
+    Route::prefix('carnets')->group(function () {
+        Route::post('/generate', [CarnetController::class, 'generate'])
+            ->name('carnets.generate');
+        Route::get('/status/{jobId}', [CarnetController::class, 'status'])
+            ->name('carnets.status');
+        Route::get('/download/{jobId}', [CarnetController::class, 'download'])
+            ->name('carnets.download');
+        Route::delete('/{jobId}', [CarnetController::class, 'cancel'])
+            ->name('carnets.cancel');
+    });
 
-    Route::post('/carnets/generate', [CarnetController::class, 'generate']);
+    Route::prefix('students')->middleware(['role:DIRECTOR,SUBDIRECTOR,SECRETARIO'])->group(function () {
+        Route::get('/', [StudentController::class, 'index']);
+        Route::get('/{id}', [StudentController::class, 'show']);
+        Route::post('/', [StudentController::class, 'store']);
+        Route::put('/{id}', [StudentController::class, 'update']);
+        Route::patch('/{id}', [StudentController::class, 'update']);
+        Route::delete('/{id}', [StudentController::class, 'destroy']);
+    });
 
-    Route::prefix('users')->group(function () {
+    Route::prefix('teachers')->middleware(['role:DIRECTOR,SUBDIRECTOR'])->group(function () {
+        Route::get('/', [TeacherController::class, 'index']);
+        Route::get('/{id}', [TeacherController::class, 'show']);
+        Route::post('/', [TeacherController::class, 'store']);
+        Route::put('/{id}', [TeacherController::class, 'update']);
+        Route::patch('/{id}', [TeacherController::class, 'update']);
+        Route::delete('/{id}', [TeacherController::class, 'destroy']);
+    });
+
+    Route::prefix('parents')->middleware(['role:DIRECTOR,SUBDIRECTOR,SECRETARIO'])->group(function () {
+        Route::get('/', [ParentController::class, 'index']);
+        Route::get('/{id}', [ParentController::class, 'show']);
+        Route::post('/', [ParentController::class, 'store']);
+        Route::put('/{id}', [ParentController::class, 'update']);
+        Route::patch('/{id}', [ParentController::class, 'update']);
+        Route::delete('/{id}', [ParentController::class, 'destroy']);
+    });
+
+    Route::prefix('users')->middleware(['role:DIRECTOR'])->group(function () {
         Route::get('/', [UserController::class, 'index']);
         Route::get('/{id}', [UserController::class, 'show']);
-
-        Route::post('/admin',   [UserController::class, 'storeUser']);
-        Route::post('/student', [UserController::class, 'storeStudent']);
-        Route::post('/teacher', [UserController::class, 'storeTeacher']);
-        Route::post('/parent',  [UserController::class, 'storeParent']);
-
-        Route::put('/admin/{id}',   [UserController::class, 'updateUser']);
-        Route::put('/student/{id}', [UserController::class, 'updateStudent']);
-        Route::put('/teacher/{id}', [UserController::class, 'updateTeacher']);
-        Route::put('/parent/{id}',  [UserController::class, 'updateParent']);
-
+        Route::post('/', [UserController::class, 'store']);
+        Route::put('/{id}', [UserController::class, 'update']);
+        Route::patch('/{id}', [UserController::class, 'update']);
         Route::delete('/{id}', [UserController::class, 'destroy']);
     });
 
-    Route::apiResource('aulas', AulaController::class)->only(['index', 'show']);
+    Route::prefix('classrooms')->middleware(['role:DIRECTOR,SUBDIRECTOR'])->group(function () {
+        Route::get('/', [ClassroomController::class, 'index']);
+        Route::get('/{id}', [ClassroomController::class, 'show']);
+        Route::post('/', [ClassroomController::class, 'store']);
+        Route::put('/{id}', [ClassroomController::class, 'update']);
+        Route::patch('/{id}', [ClassroomController::class, 'update']);
+        Route::delete('/{id}', [ClassroomController::class, 'destroy']);
+
+        Route::get('/by-level/{level}', [ClassroomController::class, 'byLevel']);
+        Route::get('/by-teacher/{teacherId}', [ClassroomController::class, 'byTeacher']);
+    });
 
     Route::prefix('scanner')->group(function () {
         Route::post('/entry', [ScannerController::class, 'scanEntry']);
         Route::post('/exit', [ScannerController::class, 'scanExit']);
     });
 
-    Route::prefix('attendance')->group(function () {
+    Route::prefix('attendance')->middleware(['role:DIRECTOR,SUBDIRECTOR,SECRETARIO'])->group(function () {
+        Route::get('/', [AttendanceController::class, 'index']);
         Route::get('/daily-stats', [AttendanceController::class, 'getDailyStats']);
         Route::post('/report', [AttendanceController::class, 'generateReport']);
     });
 
-    Route::prefix('justifications')->group(function () {
+    Route::prefix('justifications')->middleware(['role:DIRECTOR,SUBDIRECTOR,SECRETARIO'])->group(function () {
         Route::get('/', [JustificationController::class, 'index']);
+        Route::get('/{id}', [JustificationController::class, 'show']);
         Route::post('/', [JustificationController::class, 'store']);
-        Route::post('/{id}/approve', [JustificationController::class, 'approve']);
-        Route::post('/{id}/reject', [JustificationController::class, 'reject']);
         Route::delete('/{id}', [JustificationController::class, 'destroy']);
     });
 
@@ -77,10 +130,4 @@ Route::middleware(['auth:sanctum'])->group(function () {
         Route::get('/', [SettingController::class, 'index']);
         Route::put('/', [SettingController::class, 'update']);
     });
-});
-
-Route::fallback(function () {
-    return response()->json([
-        'message' => 'Ruta no encontrada.',
-    ], 404);
 });

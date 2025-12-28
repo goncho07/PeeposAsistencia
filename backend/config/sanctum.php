@@ -15,7 +15,7 @@ return [
     |
     */
 
-    'stateful' => [],
+    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', '')),
 
     /*
     |--------------------------------------------------------------------------
@@ -29,7 +29,7 @@ return [
     |
     */
 
-    'guard' => 'web',
+    'guard' => ['web'],
 
     /*
     |--------------------------------------------------------------------------
@@ -42,7 +42,7 @@ return [
     |
     */
 
-    'expiration' => 480,
+    'expiration' => null,
 
     /*
     |--------------------------------------------------------------------------
@@ -69,7 +69,8 @@ return [
     */
 
     'middleware' => [
-        'authenticate_session' => Laravel\Sanctum\Http\Middleware\AuthenticateSession::class,
+        // 'authenticate_session' => Laravel\Sanctum\Http\Middleware\AuthenticateSession::class,
+        // 'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
+        // 'validate_csrf_token' => App\Http\Middleware\VerifyCsrfToken::class,
     ],
-
 ];

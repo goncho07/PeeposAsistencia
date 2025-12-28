@@ -2,8 +2,9 @@
 
 namespace App\Services;
 
-use App\Models\Estudiante;
-use App\Models\Asistencia;
+use App\Models\Student;
+use App\Models\Attendance;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -22,71 +23,83 @@ class WhatsAppService
         $this->settingService = $settingService;
     }
 
-    public function sendAttendanceNotification(Estudiante $estudiante, Asistencia $asistencia, string $type = 'ENTRADA'): bool
+    public function sendAttendanceNotification(Student $student, Attendance $attendance, string $type = 'ENTRADA'): bool
     {
-        if (!$this->settingService->isWhatsAppEnabled()) {
+        $tenantId = Auth::user()->tenant_id;
+
+        if (!$this->settingService->isWhatsAppEnabled($tenantId)) {
             return false;
         }
 
-        if (!$estudiante->padre || !$estudiante->padre->phone_number) {
-            Log::warning("Estudiante {$estudiante->id} no tiene padre o teléfono registrado");
+        $parents = $student->parents()->wherePivot('is_primary_contact', true)->get();
+
+        if ($parents->isEmpty()) {
+            $parents = $student->parents;
+        }
+
+        if ($parents->isEmpty()) {
+            Log::warning("Estudiante {$student->id} no tiene padres o tutores registrados");
             return false;
         }
 
-        //$phone = $this->settingService->getWhatsAppPhone($estudiante->aula->nivel);
-        $phone = $this->formatPhone($estudiante->padre->phone_number);
+        $message = $this->buildMessage($student, $attendance, $type);
+        $sentCount = 0;
 
-         /*if (!$phone) {
-            Log::warning("No hay teléfono WhatsApp configurado para nivel {$estudiante->aula->nivel}");
-            return false;
-        }*/
-
-        $message = $this->buildMessage($estudiante, $asistencia, $type);
-
-        try {
-            $response = Http::get("{$this->apiUrl}/send-text", [
-                'token' => $this->token,
-                'instance_id' => $this->instanceId,
-                'jid' => $phone,
-                'msg' => $message,
-            ]);
-
-            $body = $response->json();
-
-            if (isset($body['success']) && $body['success'] === true) {
-                $asistencia->update([
-                    'whatsapp_sent' => true,
-                    'whatsapp_sent_at' => now(),
-                ]);
-                return true;
+        foreach ($parents as $parent) {
+            if (!$parent->phone_number) {
+                continue;
             }
 
-            Log::error('Error enviando WhatsApp', [
-                'response' => $body,
-                'estudiante_id' => $estudiante->id,
-            ]); 
+            $phone = $this->formatPhone($parent->phone_number);
 
-            return false;
-        } catch (\Exception $e) {
-            Log::error('Excepción enviando WhatsApp', [
-                'error' => $e->getMessage(),
-                'estudiante_id' => $estudiante->id,
-            ]);
+            try {
+                $response = Http::get("{$this->apiUrl}/send-text", [
+                    'token' => $this->token,
+                    'instance_id' => $this->instanceId,
+                    'jid' => $phone,
+                    'msg' => $message,
+                ]);
 
-            return false;
+                $body = $response->json();
+
+                if (isset($body['success']) && $body['success'] === true) {
+                    $sentCount++;
+                } else {
+                    Log::error('Error enviando WhatsApp', [
+                        'response' => $body,
+                        'student_id' => $student->id,
+                        'parent_id' => $parent->id,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Excepción enviando WhatsApp', [
+                    'error' => $e->getMessage(),
+                    'student_id' => $student->id,
+                    'parent_id' => $parent->id,
+                ]);
+            }
         }
+
+        if ($sentCount > 0) {
+            $attendance->update([
+                'whatsapp_sent' => true,
+            ]);
+            return true;
+        }
+
+        return false;
     }
 
-    private function buildMessage(Estudiante $estudiante, Asistencia $asistencia, string $type): string
+    private function buildMessage(Student $student, Attendance $attendance, string $type): string
     {
-        $nombreEstudiante = $estudiante->full_name;
-        $aula = $estudiante->aula->nombre_completo;
-        $fecha = $asistencia->date->format('d/m/Y');
+        $nombreEstudiante = $student->full_name;
+        $aula = $student->classroom->full_name ?? 'Sin aula';
+        $fecha = $attendance->date->format('d/m/Y');
         $colegio = '*I.E.E 6049 Ricardo Palma*';
 
         if ($type === 'ENTRADA') {
-            $hora = $asistencia->entry_time ? $asistencia->entry_time->format('h:i A') : 'N/A';
-            $status = $asistencia->entry_status;
+            $hora = $attendance->entry_time ? $attendance->entry_time->format('h:i A') : 'N/A';
+            $status = $attendance->entry_status;
 
             return match ($status) {
                 'ASISTIO' => "✅ *INGRESO REGISTRADO*\n\n" .
@@ -111,8 +124,8 @@ class WhatsAppService
                     "{$colegio}",
             };
         } else {
-            $hora = $asistencia->exit_time ? $asistencia->exit_time->format('h:i A') : 'N/A';
-            $status = $asistencia->exit_status;
+            $hora = $attendance->exit_time ? $attendance->exit_time->format('h:i A') : 'N/A';
+            $status = $attendance->exit_status;
 
             return match ($status) {
                 'COMPLETO' => "🏠 *SALIDA DEL COLEGIO*\n\n" .

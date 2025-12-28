@@ -3,10 +3,13 @@
 namespace App\Http\Controllers\Attendance;
 
 use App\Http\Controllers\Controller;
+use App\Models\Attendance;
 use App\Services\AttendanceService;
 use App\Services\ReportService;
+use App\Http\Resources\AttendanceResource;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Carbon\Carbon;
 
 class AttendanceController extends Controller
 {
@@ -15,12 +18,49 @@ class AttendanceController extends Controller
         private ReportService $reportService
     ) {}
 
+    public function index(Request $request): JsonResponse
+    {
+        try {
+            $query = Attendance::with(['attendable']);
+
+            if ($request->query('date')) {
+                $query->forDate(Carbon::parse($request->query('date')));
+            }
+
+            if ($request->query('type')) {
+                if ($request->query('type') === 'student') {
+                    $query->students();
+                } elseif ($request->query('type') === 'teacher') {
+                    $query->teachers();
+                }
+            }
+
+            if ($request->query('shift')) {
+                $query->byShift($request->query('shift'));
+            }
+
+            if ($request->query('status')) {
+                $query->byStatus($request->query('status'));
+            }
+
+            $attendances = $query->latest('date')->latest('entry_time')->paginate(20);
+
+            return $this->success(AttendanceResource::collection($attendances)->response()->getData(true));
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener asistencias: ' . $e->getMessage(), null, 500);
+        }
+    }
+
     public function getDailyStats(Request $request): JsonResponse
     {
-        $date = $request->query('date') ? \Carbon\Carbon::parse($request->query('date')) : now();
-        $stats = $this->attendanceService->getDailyStats($date);
+        try {
+            $date = $request->query('date') ? Carbon::parse($request->query('date')) : now();
+            $stats = $this->attendanceService->getDailyStats($date);
 
-        return response()->json($stats);
+            return $this->success($stats);
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener estadísticas: ' . $e->getMessage(), null, 500);
+        }
     }
 
     public function generateReport(Request $request): JsonResponse
@@ -31,13 +71,18 @@ class AttendanceController extends Controller
             'from' => 'required_if:period,custom|date',
             'to' => 'required_if:period,custom|date|after_or_equal:from',
             'bimester' => 'required_if:period,bimester|integer|between:1,4',
-            'nivel' => 'nullable|in:INICIAL,PRIMARIA,SECUNDARIA',
-            'grado' => 'nullable|integer|between:1,6',
-            'seccion' => 'nullable|string',
+            'level' => 'nullable|in:INICIAL,PRIMARIA,SECUNDARIA',
+            'grade' => 'nullable|integer|between:1,6',
+            'section' => 'nullable|string',
+            'shift' => 'nullable|in:MAÑANA,TARDE,NOCHE',
         ]);
 
-        $report = $this->reportService->generateReport($request->all());
+        try {
+            $report = $this->reportService->generateReport($request->all());
 
-        return response()->json($report);
+            return $this->success($report);
+        } catch (\Exception $e) {
+            return $this->error('Error al generar reporte: ' . $e->getMessage(), null, 500);
+        }
     }
 }

@@ -2,7 +2,6 @@
 
 namespace App\Http\Resources;
 
-use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class UserResource extends JsonResource
@@ -12,7 +11,7 @@ class UserResource extends JsonResource
      *
      * @return array<string, mixed>
      */
-    public function toArray($request)
+    public function toArray($request): array
     {
         return [
             'id' => $this->id,
@@ -20,12 +19,14 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'paternal_surname' => $this->paternal_surname,
             'maternal_surname' => $this->maternal_surname,
-            'email' => $this->email,
             'dni' => $this->dni,
+            'email' => $this->email,
+            'role' => $this->role,
             'phone_number' => $this->phone_number,
-            'rol' => $this->rol,
+            'photo_url' => $this->photo_url,
             'status' => $this->status,
-            'avatar_url' => $this->avatar_url ?? null,
+            'last_login_at' => $this->last_login_at?->toISOString(),
+            'last_login_ip' => $this->when($request->user()->id === $this->id || $request->user()->isSuperAdmin(), $this->last_login_ip),
         ];
     }
 }

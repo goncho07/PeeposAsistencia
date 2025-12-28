@@ -3,9 +3,10 @@
 namespace Database\Seeders;
 
 use App\Models\User;
-use App\Models\Docente;
-use App\Models\Estudiante;
-use App\Models\Aula;
+use App\Models\Teacher;
+use App\Models\Student;
+use App\Models\Classroom;
+use App\Models\Tenant;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -14,12 +15,23 @@ use Carbon\Carbon;
 
 class PeeposSeeder extends Seeder
 {
+    private $tenant;
+
     /**
      * Run the database seeds.
      */
     public function run(): void
     {
-        $filePath = database_path('seeders/data/peepos.csv');
+        // Cambiar el Tenante según sea necesario
+        $this->tenant = Tenant::where('code', '0325265')->first();
+
+        if (!$this->tenant) {
+            $this->command->error('Tenant con código 0325265 no encontrado. Ejecuta TenantSeeder primero.');
+            return;
+        }
+
+        // Cambiar la ruta según sea necesario
+        $filePath = database_path('seeders/data/bolognesi.csv');
 
         if (!file_exists($filePath)) {
             $this->command->error("Archivo CSV no encontrado: {$filePath}");
@@ -35,18 +47,20 @@ class PeeposSeeder extends Seeder
         $warnings = 0;
         $errors = 0;
 
-        $this->command->info("📘 Iniciando carga desde {$filePath}");
+        $this->command->info("Iniciando carga desde {$filePath}");
+        $this->command->info("Tenant: {$this->tenant->name} ({$this->tenant->code})");
+        $this->command->info('');
 
         foreach ($records as $index => $row) {
             try {
                 $rol = trim($row['ROL'] ?? '');
 
                 match (strtolower($rol)) {
-                    'administrador' => $this->createAdmin($row),
                     'docente' => $this->createTeacher($row),
                     'estudiante' => $this->createStudent($row),
-                    default => function () use ($rol, &$warnings) {
-                        $this->command->warn("⚠️ Fila omitida (#{$warnings}): Rol desconocido '{$rol}'");
+                    'apoderado' => $this->command->warn("Fila #{$index}: Rol 'Apoderado' en proceso, se omite."),
+                    default => function () use ($rol, &$warnings, $index) {
+                        $this->command->warn("Fila #{$index}: Rol desconocido '{$rol}'");
                         $warnings++;
                     },
                 };
@@ -54,50 +68,39 @@ class PeeposSeeder extends Seeder
                 $count++;
             } catch (\Throwable $e) {
                 $errors++;
-                $this->command->error("❌ Error en fila {$index}: " . $e->getMessage());
+                $this->command->error("Error en fila {$index}: " . $e->getMessage());
             }
         }
 
-        $this->command->info("Peepos - Seed completado.");
+        $this->command->info('');
+        $this->command->info(" Peepos - Seed completado.");
         $this->command->line("   - Registros procesados: {$count}");
         $this->command->line("   - Advertencias: {$warnings}");
         $this->command->line("   - Errores: {$errors}");
     }
 
-    private function createAdmin(array $row): void
-    {
-        $dni = $this->resolveDocumentNumber($row);
-        $email = strtolower(Str::slug($row['NOMBRES'] . '.' . $dni)) . '@ricardopalma.edu.pe';
-
-        User::updateOrCreate(
-            ['dni' => $dni],
-            [
-                'name' => trim($row['NOMBRES'] ?? ''),
-                'paternal_surname' => trim($row['APELLIDO PATERNO'] ?? ''),
-                'maternal_surname' => trim($row['APELLIDO MATERNO'] ?? ''),
-                'email' => $email,
-                'password' => Hash::make('RicardoPalma123!'),
-                'rol' => 'ADMINISTRADOR',
-                'status' => 'ACTIVO',
-            ]
-        );
-    }
-
     private function createTeacher(array $row): void
     {
         $dni = $this->resolveDocumentNumber($row);
+        $nivel = strtoupper(trim($row['ETAPA'] ?? ''));
 
-        Docente::updateOrCreate(
-            ['dni' => $dni],
+        Teacher::updateOrCreate(
+            [
+                'tenant_id' => $this->tenant->id,
+                'dni' => $dni
+            ],
             [
                 'qr_code' => $this->generateQRCode($dni),
                 'name' => trim($row['NOMBRES'] ?? ''),
                 'paternal_surname' => trim($row['APELLIDO PATERNO'] ?? ''),
                 'maternal_surname' => trim($row['APELLIDO MATERNO'] ?? ''),
+                'birth_date' => $this->parseDate($row['FECHA DE NACIMIENTO'] ?? null),
+                'gender' => $this->normalizeGender($row['SEXO'] ?? null),
+                'level' => $nivel ?: null,
+                'area' => trim($row['AREÁ CURRICULAR'] ?? '') ?: null,
                 'email' => null,
                 'phone_number' => null,
-                'area' => trim($row['AREÁ CURRICULAR'] ?? ''),
-                'nivel' => strtoupper(trim($row['ETAPA'] ?? '')),
+                'status' => 'ACTIVO',
             ]
         );
     }
@@ -108,44 +111,57 @@ class PeeposSeeder extends Seeder
         $nivel = strtoupper(trim($row['ETAPA'] ?? ''));
         [$grado, $seccion] = $this->parseSection($row['SECCIÓN'] ?? '', $nivel);
 
-        $aula = Aula::where('nivel', $nivel)
-            ->where('grado', $grado)
-            ->where('seccion', strtoupper($seccion))
+        $classroom = Classroom::where('tenant_id', $this->tenant->id)
+            ->where('level', $nivel)
+            ->where('grade', $grado)
+            ->where('section', strtoupper($seccion))
             ->first();
 
-        if (!$aula) {
-            $this->command->warn("Aula no encontrada para {$nivel} {$grado}{$seccion}");
+        if (!$classroom) {
+            $this->command->warn("Aula no encontrada para {$nivel} {$grado}° '{$seccion}'");
             return;
         }
 
         $gender = $this->normalizeGender($row['SEXO'] ?? null);
-        if (!$gender) {
+        if (!$gender && !empty($row['SEXO'])) {
             $this->command->warn("Sexo no reconocido: '{$row['SEXO']}' (usando NULL)");
         }
 
-        Estudiante::updateOrCreate(
-            ['document_number' => $dni],
+        $studentCode = trim($row['CÓDIGO DEL ESTUDIANTE'] ?? '');
+
+        Student::updateOrCreate(
             [
+                'tenant_id' => $this->tenant->id,
+                'document_number' => $dni
+            ],
+            [
+                'qr_code' => $this->generateQRCode($dni),
+                'student_code' => $studentCode ?: null,
                 'name' => trim($row['NOMBRES'] ?? ''),
                 'paternal_surname' => trim($row['APELLIDO PATERNO'] ?? ''),
                 'maternal_surname' => trim($row['APELLIDO MATERNO'] ?? ''),
-                'document_type' => $row['TIPO DE DOCUMENTO'] ?: 'DNI',
-                'student_code' => trim($row['CÓDIGO DEL ESTUDIANTE'] ?? ''),
+                'document_type' => trim($row['TIPO DE DOCUMENTO'] ?? '') ?: 'DNI',
                 'gender' => $gender,
-                'date_of_birth' => $this->parseDate($row['FECHA DE NACIMIENTO'] ?? null),
-                'aula_id' => $aula->id,
-                'qr_code' => $this->generateQRCode($dni),
+                'birth_date' => $this->parseDate($row['FECHA DE NACIMIENTO'] ?? null),
+                'classroom_id' => $classroom->id,
+                'academic_year' => now()->year,
+                'enrollment_status' => 'MATRICULADO',
+                'photo_url' => null,
             ]
         );
     }
 
     private function normalizeGender(?string $value): ?string
     {
-        $value = strtolower(trim($value ?? ''));
+        if (empty($value)) {
+            return null;
+        }
+
+        $value = strtolower(trim($value));
 
         return match ($value) {
-            'mujer' => 'F',
-            'hombre' => 'M',
+            'mujer', 'femenino', 'f' => 'F',
+            'hombre', 'masculino', 'm' => 'M',
             default => null,
         };
     }
@@ -157,7 +173,12 @@ class PeeposSeeder extends Seeder
         if (empty($dni)) {
             $fallback = trim($row['CÓDIGO DEL ESTUDIANTE'] ?? '');
             $dni = substr(preg_replace('/[^A-Za-z0-9]/', '', $fallback), 0, 20);
-            $this->command->warn("DNI vacío, usando código del estudiante '{$dni}' como fallback.");
+
+            if (empty($dni)) {
+                $dni = 'TEMP' . time() . rand(1000, 9999);
+            }
+
+            $this->command->warn("DNI vacío, usando '{$dni}' como fallback.");
         }
 
         return $dni;
@@ -167,14 +188,26 @@ class PeeposSeeder extends Seeder
     {
         $value = trim($value);
 
+        if (empty($value)) {
+            return [null, null];
+        }
+
         if ($nivel === 'INICIAL') {
-            if (preg_match('/^([A-ZÁÉÍÓÚÑ]+)_?(\d+)/iu', $value, $matches)) {
-                return [$matches[2] ?? null, strtoupper($matches[1] ?? '')];
+            if (preg_match('/^([A-ZÁÉÍÓÚÑ\s]+)_?(\d+)/iu', $value, $matches)) {
+                return [(int)($matches[2] ?? null), strtoupper(trim($matches[1] ?? ''))];
+            }
+
+            if (preg_match('/^(\d+)_?([A-ZÁÉÍÓÚÑ\s]+)/iu', $value, $matches)) {
+                return [(int)($matches[1] ?? null), strtoupper(trim($matches[2] ?? ''))];
             }
         }
 
-        if (preg_match('/^(\d+)([A-Z])$/i', $value, $matches)) {
-            return [(int) $matches[1], strtoupper($matches[2])];
+        if (preg_match('/^(\d+)\s*([A-Z])\s*$/i', $value, $matches)) {
+            return [(int)$matches[1], strtoupper($matches[2])];
+        }
+
+        if (preg_match('/^(\d+)\s+([A-Z])\s*$/i', $value, $matches)) {
+            return [(int)$matches[1], strtoupper($matches[2])];
         }
 
         $this->command->warn("Sección no reconocida: '{$value}' (nivel {$nivel})");
@@ -184,11 +217,24 @@ class PeeposSeeder extends Seeder
 
     private function parseDate(?string $value): ?string
     {
-        if (!$value) return null;
+        if (!$value || trim($value) === '') {
+            return null;
+        }
 
         try {
             $value = trim($value);
-            $date = Carbon::createFromFormat('d/m/Y', $value);
+
+            if (preg_match('/^\d{1,2}\/\d{1,2}\/\d{4}$/', $value)) {
+                $date = Carbon::createFromFormat('d/m/Y', $value);
+                return $date->format('Y-m-d');
+            }
+
+            if (preg_match('/^\d{4}-\d{1,2}-\d{1,2}$/', $value)) {
+                $date = Carbon::createFromFormat('Y-m-d', $value);
+                return $date->format('Y-m-d');
+            }
+
+            $date = Carbon::parse($value);
             return $date->format('Y-m-d');
         } catch (\Throwable $e) {
             $this->command->warn("Fecha inválida: '{$value}'");
@@ -198,7 +244,8 @@ class PeeposSeeder extends Seeder
 
     private function generateQRCode(string $dni): string
     {
-        $hash = strtoupper(substr(hash('crc32', $dni), 0, 8));
-        return 'RP000' . $hash;
+        $hash = strtoupper(substr(hash('crc32', $dni . $this->tenant->code), 0, 8));
+        // Cambiar prefijo según sea necesario
+        return 'FB' . $this->tenant->code . $hash;
     }
 }

@@ -2,13 +2,14 @@
 
 namespace App\Services;
 
-use App\Models\Asistencia;
-use App\Models\Estudiante;
-use App\Models\Docente;
-use App\Models\Justificacion;
+use App\Models\Attendance;
+use App\Models\Student;
+use App\Models\Teacher;
+use App\Models\Justification;
 use App\Exceptions\BusinessException;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Auth;
 
 class AttendanceService
 {
@@ -27,8 +28,10 @@ class AttendanceService
             }
 
             $today = now()->startOfDay();
+            $tenantId = Auth::user()->tenant_id;
 
-            $existing = Asistencia::where('attendable_type', get_class($attendable))
+            $existing = Attendance::where('tenant_id', $tenantId)
+                ->where('attendable_type', get_class($attendable))
                 ->where('attendable_id', $attendable->id)
                 ->where('date', $today)
                 ->first();
@@ -41,38 +44,41 @@ class AttendanceService
             }
 
             $now = now();
-            $nivel = $attendable instanceof Estudiante ? $attendable->aula->nivel : $attendable->nivel;
-            $schedule = $this->settingService->getScheduleForLevel($nivel);
-            $toleranceMinutes = $this->settingService->getToleranceMinutes();
+            $nivel = $attendable instanceof Student ? $attendable->classroom->level : $attendable->level;
+            $shift = $attendable instanceof Student ? $attendable->classroom->shift : 'MAÑANA';
+            $schedule = $this->settingService->getScheduleForLevel($nivel, $shift, $tenantId);
+            $toleranceMinutes = $this->settingService->getToleranceMinutes($tenantId);
 
             $entryTimeLimit = Carbon::parse($schedule['entrada'])->addMinutes($toleranceMinutes);
-            $status = $now->format('H:i') <= $entryTimeLimit->format('H:i') ? 'ASISTIO' : 'TARDANZA';
+            $status = $now->format('H:i') <= $entryTimeLimit->format('H:i') ? 'COMPLETO' : 'TARDANZA';
 
             if ($existing) {
                 $existing->update([
                     'entry_time' => $now,
                     'entry_status' => $status,
                 ]);
-                $asistencia = $existing;
+                $attendance = $existing;
             } else {
-                $asistencia = Asistencia::create([
+                $attendance = Attendance::create([
+                    'tenant_id' => $tenantId,
                     'attendable_type' => get_class($attendable),
                     'attendable_id' => $attendable->id,
                     'date' => $today,
+                    'shift' => $shift,
                     'entry_time' => $now,
                     'entry_status' => $status,
                     'whatsapp_sent' => false,
                 ]);
             }
 
-            if ($attendable instanceof Estudiante) {
-                $this->whatsAppService->sendAttendanceNotification($attendable, $asistencia, 'ENTRADA');
+            if ($attendable instanceof Student) {
+                $this->whatsAppService->sendAttendanceNotification($attendable, $attendance, 'ENTRADA');
             }
 
             return [
                 'success' => true,
                 'message' => $this->getEntryMessage($attendable, $status, $now),
-                'attendance' => $asistencia,
+                'attendance' => $attendance,
                 'person' => $attendable,
             ];
         });
@@ -88,47 +94,50 @@ class AttendanceService
             }
 
             $today = now()->startOfDay();
+            $tenantId = Auth::user()->tenant_id;
 
-            $asistencia = Asistencia::where('attendable_type', get_class($attendable))
+            $attendance = Attendance::where('tenant_id', $tenantId)
+                ->where('attendable_type', get_class($attendable))
                 ->where('attendable_id', $attendable->id)
                 ->where('date', $today)
                 ->first();
 
-            if (!$asistencia || !$asistencia->entry_time) {
+            if (!$attendance || !$attendance->entry_time) {
                 throw new BusinessException(
                     'No se puede registrar salida sin entrada previa para ' . $attendable->full_name
                 );
             }
 
-            if ($asistencia->exit_time) {
+            if ($attendance->exit_time) {
                 throw new BusinessException(
                     'Ya se registró la salida de ' . $attendable->full_name .
-                        ' a las ' . $asistencia->exit_time->format('H:i')
+                        ' a las ' . $attendance->exit_time->format('H:i')
                 );
             }
 
             $now = now();
-            $nivel = $attendable instanceof Estudiante ? $attendable->aula->nivel : $attendable->nivel;
-            $schedule = $this->settingService->getScheduleForLevel($nivel);
+            $nivel = $attendable instanceof Student ? $attendable->classroom->level : $attendable->level;
+            $shift = $attendable instanceof Student ? $attendable->classroom->shift : 'MAÑANA';
+            $schedule = $this->settingService->getScheduleForLevel($nivel, $shift, $tenantId);
 
             $exitTimeLimit = Carbon::parse($schedule['salida']);
             $status = $now->format('H:i') >= $exitTimeLimit->format('H:i')
                 ? 'COMPLETO'
                 : 'SALIDA_ANTICIPADA';
 
-            $asistencia->update([
+            $attendance->update([
                 'exit_time' => $now,
                 'exit_status' => $status,
             ]);
 
-            if ($attendable instanceof Estudiante) {
-                $this->whatsAppService->sendAttendanceNotification($attendable, $asistencia, 'SALIDA');
+            if ($attendable instanceof Student) {
+                $this->whatsAppService->sendAttendanceNotification($attendable, $attendance, 'SALIDA');
             }
 
             return [
                 'success' => true,
                 'message' => $this->getExitMessage($attendable, $status, $now),
-                'attendance' => $asistencia,
+                'attendance' => $attendance,
                 'person' => $attendable,
             ];
         });
@@ -137,52 +146,61 @@ class AttendanceService
     public function getDailyStats(?Carbon $date = null): array
     {
         $date = $date ?? now();
+        $tenantId = Auth::user()->tenant_id;
 
-        $students = Asistencia::students()
+        $students = Attendance::where('tenant_id', $tenantId)
+            ->students()
             ->forDate($date)
             ->get();
 
-        $teachers = Asistencia::teachers()
+        $teachers = Attendance::where('tenant_id', $tenantId)
+            ->teachers()
             ->forDate($date)
             ->get();
 
         return [
             'date' => $date->format('Y-m-d'),
             'students' => [
-                'total_registered' => Estudiante::count(),
-                'present' => $students->whereIn('entry_status', ['ASISTIO', 'TARDANZA'])->count(),
+                'total_registered' => Student::where('tenant_id', $tenantId)->count(),
+                'present' => $students->whereIn('entry_status', ['COMPLETO', 'TARDANZA'])->count(),
                 'late' => $students->where('entry_status', 'TARDANZA')->count(),
                 'absent' => $students->whereIn('entry_status', 'FALTA')->count(),
                 'justified' => $students->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
             ],
             'teachers' => [
-                'total_registered' => Docente::count(),
-                'present' => $teachers->whereIn('entry_status', ['ASISTIO', 'TARDANZA'])->count(),
+                'total_registered' => Teacher::where('tenant_id', $tenantId)->count(),
+                'present' => $teachers->whereIn('entry_status', ['COMPLETO', 'TARDANZA'])->count(),
                 'late' => $teachers->where('entry_status', 'TARDANZA')->count(),
                 'absent' => $teachers->whereIn('entry_status', 'FALTA')->count(),
             ],
-            'notifications_sent' => Asistencia::forDate($date)->where('whatsapp_sent', true)->count(),
+            'notifications_sent' => Attendance::where('tenant_id', $tenantId)
+                ->forDate($date)
+                ->where('whatsapp_sent', true)
+                ->count(),
         ];
     }
 
     public function applyJustifications(Carbon $date): void
     {
-        $justifications = Justificacion::approved()
+        $tenantId = Auth::user()->tenant_id;
+
+        $justifications = Justification::where('tenant_id', $tenantId)
             ->where('date_from', '<=', $date)
             ->where('date_to', '>=', $date)
             ->get();
 
         foreach ($justifications as $justification) {
-            $asistencia = Asistencia::where('attendable_type', $justification->justifiable_type)
+            $attendance = Attendance::where('tenant_id', $tenantId)
+                ->where('attendable_type', $justification->justifiable_type)
                 ->where('attendable_id', $justification->justifiable_id)
                 ->where('date', $date)
                 ->first();
 
-            if ($asistencia) {
+            if ($attendance) {
                 if ($justification->type === 'FALTA') {
-                    $asistencia->update(['entry_status' => 'FALTA_JUSTIFICADA']);
+                    $attendance->update(['entry_status' => 'FALTA_JUSTIFICADA']);
                 } elseif ($justification->type === 'SALIDA_ANTICIPADA') {
-                    $asistencia->update(['exit_status' => 'SALIDA_ANTICIPADA_JUSTIFICADA']);
+                    $attendance->update(['exit_status' => 'SALIDA_ANTICIPADA_JUSTIFICADA']);
                 }
             }
         }
@@ -190,37 +208,49 @@ class AttendanceService
 
     public function generateAbsences(Carbon $date): void
     {
-        if (!$this->settingService->isAttendanceDay(strtolower($date->locale('es')->dayName))) {
+        $tenantId = Auth::user()->tenant_id;
+
+        if (!$this->settingService->isAttendanceDay(strtolower($date->locale('es')->dayName), $tenantId)) {
             return;
         }
 
-        $studentIds = Asistencia::students()
+        $studentIds = Attendance::where('tenant_id', $tenantId)
+            ->students()
             ->forDate($date)
             ->pluck('attendable_id');
 
-        $absentStudents = Estudiante::whereNotIn('id', $studentIds)->get();
+        $absentStudents = Student::where('tenant_id', $tenantId)
+            ->whereNotIn('id', $studentIds)
+            ->get();
 
         foreach ($absentStudents as $student) {
-            Asistencia::create([
-                'attendable_type' => Estudiante::class,
+            Attendance::create([
+                'tenant_id' => $tenantId,
+                'attendable_type' => Student::class,
                 'attendable_id' => $student->id,
                 'date' => $date,
+                'shift' => $student->classroom->shift ?? 'MAÑANA',
                 'entry_status' => 'FALTA',
                 'exit_status' => 'SIN_SALIDA',
             ]);
         }
 
-        $teacherIds = Asistencia::teachers()
+        $teacherIds = Attendance::where('tenant_id', $tenantId)
+            ->teachers()
             ->forDate($date)
             ->pluck('attendable_id');
 
-        $absentTeachers = Docente::whereNotIn('id', $teacherIds)->get();
+        $absentTeachers = Teacher::where('tenant_id', $tenantId)
+            ->whereNotIn('id', $teacherIds)
+            ->get();
 
         foreach ($absentTeachers as $teacher) {
-            Asistencia::create([
-                'attendable_type' => Docente::class,
+            Attendance::create([
+                'tenant_id' => $tenantId,
+                'attendable_type' => Teacher::class,
                 'attendable_id' => $teacher->id,
                 'date' => $date,
+                'shift' => 'MAÑANA',
                 'entry_status' => 'FALTA',
                 'exit_status' => 'SIN_SALIDA',
                 'whatsapp_sent' => false,
@@ -232,17 +262,24 @@ class AttendanceService
 
     private function findByQRCode(string $qrCode)
     {
-        $student = Estudiante::where('qr_code', $qrCode)->first();
+        $tenantId = Auth::user()->tenant_id;
+
+        $student = Student::where('tenant_id', $tenantId)
+            ->where('qr_code', $qrCode)
+            ->first();
+
         if ($student) return $student;
 
-        return Docente::where('qr_code', $qrCode)->first();
+        return Teacher::where('tenant_id', $tenantId)
+            ->where('qr_code', $qrCode)
+            ->first();
     }
 
     private function getEntryMessage($attendable, string $status, Carbon $time): string
     {
         $name = $attendable->full_name;
         $hora = $time->format('h:i A');
-        $type = $attendable instanceof Estudiante ? 'Estudiante' : 'Docente';
+        $type = $attendable instanceof Student ? 'Estudiante' : 'Docente';
 
         return match ($status) {
             'ASISTIO' => "✅ {$type}: {$name} - Entrada registrada a las {$hora}",
@@ -255,7 +292,7 @@ class AttendanceService
     {
         $name = $attendable->full_name;
         $hora = $time->format('h:i A');
-        $type = $attendable instanceof Estudiante ? 'Estudiante' : 'Docente';
+        $type = $attendable instanceof Student ? 'Estudiante' : 'Docente';
 
         return match ($status) {
             'COMPLETO' => "✅ {$type}: {$name} - Salida registrada a las {$hora}",

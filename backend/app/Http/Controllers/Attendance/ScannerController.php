@@ -24,12 +24,11 @@ class ScannerController extends Controller
                 $request->user()->id
             );
 
-            return response()->json($result);
+            return $this->success($result, $result['message']);
         } catch (BusinessException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 422);
+            return $this->error($e->getMessage(), null, 422);
+        } catch (\Exception $e) {
+            return $this->error('Error al registrar entrada: ' . $e->getMessage(), null, 500);
         }
     }
 
@@ -45,12 +44,11 @@ class ScannerController extends Controller
                 $request->user()->id
             );
 
-            return response()->json($result);
+            return $this->success($result, $result['message']);
         } catch (BusinessException $e) {
-            return response()->json([
-                'success' => false,
-                'message' => $e->getMessage(),
-            ], 422);
+            return $this->error($e->getMessage(), null, 422);
+        } catch (\Exception $e) {
+            return $this->error('Error al registrar salida: ' . $e->getMessage(), null, 500);
         }
     }
 }

@@ -2,15 +2,10 @@
 
 namespace App\Http\Requests\Auth;
 
-use App\Traits\ValidationMessages;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Facades\RateLimiter;
-use Illuminate\Validation\ValidationException;
 
 class LoginRequest extends FormRequest
 {
-    use ValidationMessages;
-
     /**
      * Determine if the user is authorized to make this request.
      */
@@ -27,53 +22,44 @@ class LoginRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'email' => ['bail', 'required', 'string', 'email', 'max:255'],
-            'password' => ['required', 'string', 'min:8'],
+            'email' => [
+                'bail',
+                'required',
+                'string',
+                'email',
+                'max:255',
+            ],
+            'password' => [
+                'required',
+                'string',
+                'min:8',
+            ],
+            'device_name' => [
+                'nullable',
+                'string',
+                'max:255',
+            ],
+            'remember_me' => [
+                'nullable',
+                'boolean',
+            ],
         ];
     }
 
+    /**
+     * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
+     */
     public function messages(): array
     {
-        return array_merge($this->defaultMessages(), [
+        return [
             'email.required' => 'El correo electrónico es obligatorio.',
-            'email.email' => 'El formato del correo electrónico no es válido.',
+            'email.email' => 'Debes proporcionar un correo electrónico válido.',
+            'email.max' => 'El correo electrónico no puede tener más de :max caracteres.',
             'password.required' => 'La contraseña es obligatoria.',
-            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
-        ]);
-    }
-
-    public function authenticate(): void
-    {
-        $this->ensureIsNotRateLimited();
-    }
-
-    public function ensureIsNotRateLimited(): void
-    {
-        if (! RateLimiter::tooManyAttempts($this->throttleKey(), 5)) {
-            return;
-        }
-
-        $seconds = RateLimiter::availableIn($this->throttleKey());
-
-        throw ValidationException::withMessages([
-            'email' => [
-                "Demasiados intentos. Intenta nuevamente en {$seconds} segundos."
-            ],
-        ])->status(429);
-    }
-
-    public function throttleKey(): string
-    {
-        return 'login-attempts:' . sha1($this->ip() . '|' . $this->input('email'));
-    }
-
-    public function hitRateLimit(): void
-    {
-        RateLimiter::hit($this->throttleKey(), 60);
-    }
-
-    public function clearRateLimit(): void
-    {
-        RateLimiter::clear($this->throttleKey());
+            'password.min' => 'La contraseña debe tener al menos :min caracteres.',
+            'device_name.max' => 'El nombre del dispositivo no puede tener más de :max caracteres.',
+        ];
     }
 }

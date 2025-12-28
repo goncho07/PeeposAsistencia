@@ -2,145 +2,119 @@
 
 namespace App\Services;
 
-use App\Repositories\Contracts\UserRepositoryInterface;
-use App\Repositories\Contracts\EstudianteRepositoryInterface;
-use App\Repositories\Contracts\DocenteRepositoryInterface;
-use App\Repositories\Contracts\PadreRepositoryInterface;
-use App\Http\Resources\UserTypeResource;
-use App\Exceptions\BusinessException;
-use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Hash;
+use App\Models\User;
+use App\Traits\LogsActivity;
+use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 
 class UserService
 {
-    public function __construct(
-        private UserRepositoryInterface $userRepo,
-        private EstudianteRepositoryInterface $estudianteRepo,
-        private DocenteRepositoryInterface $docenteRepo,
-        private PadreRepositoryInterface $padreRepo,
-    ) {}
+    use LogsActivity;
 
-    public function createAdmin(array $data)
+    /**
+     * Get all admin users with optional search and filters
+     */
+    public function getAllAdminUsers(?string $search = null, ?string $role = null, ?string $status = null): Collection
     {
-        $data['password'] = Hash::make($data['password']);
-        $data['status'] = 'ACTIVO';
+        $query = User::query()
+            ->whereIn('role', ['ADMIN', 'DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO'])
+            ->when($search, function ($q) use ($search) {
+                $q->where(function ($query) use ($search) {
+                    $query->where('dni', 'like', "%{$search}%")
+                        ->orWhere('name', 'like', "%{$search}%")
+                        ->orWhere('paternal_surname', 'like', "%{$search}%")
+                        ->orWhere('maternal_surname', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
+                });
+            })
+            ->when($role, fn($q) => $q->where('role', $role))
+            ->when($status, fn($q) => $q->where('status', $status))
+            ->orderBy('paternal_surname')
+            ->orderBy('maternal_surname')
+            ->orderBy('name');
 
-        return $this->userRepo->create($data);
+        return $query->get();
     }
 
-    public function createStudent(array $data)
+    /**
+     * Find admin user by ID
+     */
+    public function findById(int $id): User
     {
-        $this->validateAulaCapacity($data['aula_id']);
-
-        $data['qr_code'] = $this->generateQRCode($data['document_number']);
-
-        return $this->estudianteRepo->create($data);
+        return User::whereIn('role', ['ADMIN', 'DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO'])
+            ->findOrFail($id);
     }
 
-    public function createTeacher(array $data)
+    /**
+     * Create a new admin user
+     */
+    public function create(array $data): User
     {
-        return $this->docenteRepo->create($data);
-    }
+        return DB::transaction(function () use ($data) {
+            $data['password'] = Hash::make($data['password']);
 
-    public function createParent(array $data)
-    {
-        return $this->padreRepo->create($data);
-    }
+            $data['status'] = $data['status'] ?? 'ACTIVO';
 
-    public function updateUser(string $type, int $id, array $data)
-    {
-        return DB::transaction(function () use ($type, $id, $data) {
-            $user = $this->findUserByType($type, $id);
+            $user = User::create($data);
 
-            if ($type === 'student' && isset($data['aula_id']) && $data['aula_id'] !== $user->aula_id) {
-                $this->validateAulaCapacity($data['aula_id']);
-            }
+            $this->logActivity('user_created', $user, [
+                'dni' => $user->dni,
+                'full_name' => $user->full_name,
+                'role' => $user->role,
+            ]);
 
-            $updated = match ($type) {
-                'admin'   => $this->userRepo->update($id, $data),
-                'student' => $this->estudianteRepo->update($id, $data),
-                'teacher' => $this->docenteRepo->update($id, $data),
-                'parent'  => $this->padreRepo->update($id, $data),
-                default   => throw new \InvalidArgumentException("Tipo de usuario inválido: {$type}"),
-            };
-
-            return new UserTypeResource($updated, $type);
+            return $user;
         });
     }
 
-    public function deleteUser(string $type, int $id): void
+    /**
+     * Update an existing admin user
+     */
+    public function update(int $id, array $data): User
     {
-        DB::transaction(function () use ($type, $id) {
-            $user = $this->findUserByType($type, $id);
+        return DB::transaction(function () use ($id, $data) {
+            $user = User::whereIn('role', ['ADMIN', 'DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO'])
+                ->findOrFail($id);
 
-            if ($type === 'teacher' && $user->aulas()->exists()) {
-                throw new BusinessException('No se puede eliminar el docente porque tiene aulas asignadas');
+            $oldValues = $user->only(['dni', 'name', 'email', 'role', 'status']);
+
+            if (isset($data['password'])) {
+                $data['password'] = Hash::make($data['password']);
             }
 
-            if ($type === 'parent' && $user->estudiantes()->exists()) {
-                throw new BusinessException('No se puede eliminar el apoderado porque tiene estudiantes asociados');
-            }
+            $user->update($data);
 
-            match ($type) {
-                'admin'   => $this->userRepo->delete($id),
-                'student' => $this->estudianteRepo->delete($id),
-                'teacher' => $this->docenteRepo->delete($id),
-                'parent'  => $this->padreRepo->delete($id),
-                default   => throw new \InvalidArgumentException("Tipo de usuario inválido: {$type}"),
-            };
+            $newValues = $user->only(array_keys($oldValues));
+            $this->logActivityWithChanges('user_updated', $user, $oldValues, $newValues);
+
+            return $user;
         });
     }
 
-    public function getAllUsers(?string $search = null): Collection
+    /**
+     * Delete an admin user
+     */
+    public function delete(int $id): void
     {
-        $admins   = $this->userRepo->getAll($search)->map(fn($u) => new UserTypeResource($u, 'admin'));
-        $students = $this->estudianteRepo->getAll($search)->map(fn($u) => new UserTypeResource($u, 'student'));
-        $teachers = $this->docenteRepo->getAll($search)->map(fn($u) => new UserTypeResource($u, 'teacher'));
-        $parents  = $this->padreRepo->getAll($search)->map(fn($u) => new UserTypeResource($u, 'parent'));
+        DB::transaction(function () use ($id) {
+            $user = User::whereIn('role', ['DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO'])
+                ->findOrFail($id);
 
-        return collect()
-            ->merge($admins)
-            ->merge($students)
-            ->merge($teachers)
-            ->merge($parents);
-    }
+            if ($user->id === Auth::id()) {
+                throw new \Exception('No puedes eliminar tu propia cuenta.');
+            }
 
-    public function findUserByType(string $type, int $id)
-    {
-        return match ($type) {
-            'admin' => $this->userRepo->findById($id),
-            'student' => $this->estudianteRepo->findById($id),
-            'teacher' => $this->docenteRepo->findById($id),
-            'parent' => $this->padreRepo->findById($id),
-            default => throw new \InvalidArgumentException("Tipo de usuario inválido: {$type}"),
-        };
-    }
+            $this->logActivity('user_deleted', $user, [
+                'dni' => $user->dni,
+                'full_name' => $user->full_name,
+                'role' => $user->role,
+            ]);
 
-    private function formatUserCollection(Collection $collection, string $type): Collection
-    {
-        return $collection->map(fn($user) => [
-            'type' => $type,
-            'data' => $user,
-        ]);
-    }
-    
-    private function validateAulaCapacity(int $aulaId): void
-    {
-        $aula = \App\Models\Aula::find($aulaId);
+            $user->tokens()->delete();
 
-        if (!$aula) {
-            throw new BusinessException('El aula no existe');
-        }
-
-        if ($aula->esta_completa) {
-            throw new BusinessException('El aula seleccionada está completa');
-        }
-    }
-
-    private function generateQRCode(string $dni): string
-    {
-        $hash = strtoupper(substr(hash('crc32', $dni), 0, 8));
-        return 'RP000' . $hash;
+            $user->delete();
+        });
     }
 }

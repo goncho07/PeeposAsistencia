@@ -14,7 +14,7 @@
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.10.1",
         "league/csv": "*",
-        "spatie/browsershot": "^5.1"
+        "spatie/browsershot": "^5.2"
     },
     "require-dev": {
         "laravel/pail": "^1.2.2",
