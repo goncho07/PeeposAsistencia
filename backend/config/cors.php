@@ -24,7 +24,8 @@ return [
     /* 'allowed_origins' => [
         'https://tu-app.web.app',
         'http://localhost:3000',
-        'http://localhost:8080',
+        'http://127.0.0.1:3000',
+        'https://project-bfa6d760-e6eb-4759-a8d.web.app'
     ], */
 
     'allowed_origins_patterns' => [],
