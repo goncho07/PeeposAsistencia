@@ -23,7 +23,7 @@ class ParentResource extends JsonResource
             'document_number' => $this->document_number,
             'phone_number' => $this->phone_number,
             'email' => $this->email,
-            'photo_url' => $this->photo_url,
+            'photo_url' => get_storage_url($this->photo_url),
             'students' => $this->when($this->relationLoaded('students'), function () {
                 return $this->students->map(function ($student) {
                     return [

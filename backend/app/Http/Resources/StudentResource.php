@@ -28,7 +28,7 @@ class StudentResource extends JsonResource
             'age' => $this->age,
             'academic_year' => $this->academic_year,
             'enrollment_status' => $this->enrollment_status,
-            'photo_url' => $this->photo_url,
+            'photo_url' => get_storage_url($this->photo_url),
             'classroom' => $this->whenLoaded('classroom', function () {
                 return [
                     'id' => $this->classroom->id,

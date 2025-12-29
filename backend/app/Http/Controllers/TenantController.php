@@ -26,9 +26,9 @@ class TenantController extends Controller
             'name' => $tenant->name,
             'slug' => $tenant->slug,
             'ugel' => $tenant->ugel,
-            'logo_url' => $tenant->logo_url,
-            'banner_url' => $tenant->banner_url,
-            'background_url' => $tenant->background_url,
+            'logo_url' => get_storage_url($tenant->logo_url),
+            'banner_url' => get_storage_url($tenant->banner_url),
+            'background_url' => get_storage_url($tenant->background_url),
         ]);
     }
 }

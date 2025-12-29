@@ -23,7 +23,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'role' => $this->role,
             'phone_number' => $this->phone_number,
-            'photo_url' => $this->photo_url,
+            'photo_url' => get_storage_url($this->photo_url),
             'status' => $this->status,
             'last_login_at' => $this->last_login_at?->toISOString(),
             'last_login_ip' => $this->when($request->user()->id === $this->id || $request->user()->isSuperAdmin(), $this->last_login_ip),

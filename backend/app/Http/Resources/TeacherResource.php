@@ -17,7 +17,7 @@ class TeacherResource extends JsonResource
             'id' => $this->id,
             'dni' => $this->dni,
             'qr_code' => $this->qr_code,
-            'photo_url' => $this->photo_url,
+            'photo_url' => get_storage_url($this->photo_url),
             'full_name' => $this->full_name,
             'name' => $this->name,
             'paternal_surname' => $this->paternal_surname,

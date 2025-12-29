@@ -101,9 +101,9 @@ class AuthenticatedSessionController extends Controller
                     'code' => $user->tenant->code,
                     'ugel' => $user->tenant->ugel,
                     'slug' => $user->tenant->slug,
-                    'logo_url' => $user->tenant->logo_url,
-                    'banner_url' => $user->tenant->banner_url,
-                    'background_url' => $user->tenant->background_url,
+                    'logo_url' => get_storage_url($user->tenant->logo_url),
+                    'banner_url' => get_storage_url($user->tenant->banner_url),
+                    'background_url' => get_storage_url($user->tenant->background_url),
                 ],
             ],
         ], 200);

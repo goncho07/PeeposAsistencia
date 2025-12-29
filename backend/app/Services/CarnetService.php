@@ -293,28 +293,41 @@ class CarnetService
 
     /**
      * Prepare assets (images, fonts) as base64
+     * Handles both local storage and cloud storage (GCS)
      */
     private function prepareAssets(Tenant $tenant): array
     {
         $assets = [];
 
         if ($tenant->banner_url) {
-            $basePath = Storage::disk('public')->path($tenant->banner_url);
+            // Determine which disk to use for tenant files (could be 'public' or 'gcs')
+            $tenantDisk = config('filesystems.default');
 
-            $pathInfo = pathinfo($basePath);
-            $whiteVariantPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '_dark.' . $pathInfo['extension'];
+            // Try to load the dark variant of the banner
+            $pathInfo = pathinfo($tenant->banner_url);
+            $darkVariantPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '_dark.' . $pathInfo['extension'];
 
-            if (file_exists($whiteVariantPath)) {
-                $logoPath = $whiteVariantPath;
-            } elseif (file_exists($basePath)) {
-                $logoPath = $basePath;
-            } else {
-                $logoPath = null;
-            }
+            $logoContent = null;
 
-            if ($logoPath) {
-                $assets['escudo'] = base64_encode(file_get_contents($logoPath));
-            } else {
+            try {
+                // Try dark variant first
+                if (Storage::disk($tenantDisk)->exists($darkVariantPath)) {
+                    $logoContent = Storage::disk($tenantDisk)->get($darkVariantPath);
+                } elseif (Storage::disk($tenantDisk)->exists($tenant->banner_url)) {
+                    $logoContent = Storage::disk($tenantDisk)->get($tenant->banner_url);
+                }
+
+                if ($logoContent) {
+                    $assets['escudo'] = base64_encode($logoContent);
+                } else {
+                    $assets['escudo'] = $this->getDefaultAsset('escudo.png');
+                }
+            } catch (\Exception $e) {
+                Log::warning("Error cargando logo del tenant desde storage", [
+                    'banner_url' => $tenant->banner_url,
+                    'disk' => $tenantDisk,
+                    'error' => $e->getMessage()
+                ]);
                 $assets['escudo'] = $this->getDefaultAsset('escudo.png');
             }
         } else {
@@ -322,7 +335,7 @@ class CarnetService
         }
 
         $assets['fondo'] = $this->getDefaultAsset('carnet_background.png', 'images');
-        
+
         $assets['font'] = $this->getDefaultAsset('ChauPhilomeneOne.ttf', 'fonts');
 
         return $assets;

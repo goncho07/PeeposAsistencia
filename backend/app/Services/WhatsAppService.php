@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\Student;
 use App\Models\Attendance;
+use App\Models\Tenant;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -42,7 +43,8 @@ class WhatsAppService
             return false;
         }
 
-        $message = $this->buildMessage($student, $attendance, $type);
+        $tenant = Auth::user()->tenant;
+        $message = $this->buildMessage($student, $attendance, $type, $tenant);
         $sentCount = 0;
 
         foreach ($parents as $parent) {
@@ -90,12 +92,12 @@ class WhatsAppService
         return false;
     }
 
-    private function buildMessage(Student $student, Attendance $attendance, string $type): string
+    private function buildMessage(Student $student, Attendance $attendance, string $type, ?Tenant $tenant): string
     {
         $nombreEstudiante = $student->full_name;
         $aula = $student->classroom->full_name ?? 'Sin aula';
         $fecha = $attendance->date->format('d/m/Y');
-        $colegio = '*I.E.E 6049 Ricardo Palma*';
+        $colegio = $tenant ? "*{$tenant->name}*" : '*Institución Educativa*';
 
         if ($type === 'ENTRADA') {
             $hora = $attendance->entry_time ? $attendance->entry_time->format('h:i A') : 'N/A';
