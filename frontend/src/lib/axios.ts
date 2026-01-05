@@ -67,6 +67,11 @@ export default apiClient;
 
 export const getStorageUrl = (path: string | null | undefined): string => {
     if (!path) return '';
+
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+        return path;
+    }
+
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api';
     return `${baseUrl.replace('/api', '')}/storage/${path}`;
 };

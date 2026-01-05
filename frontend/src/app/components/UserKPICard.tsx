@@ -67,7 +67,7 @@ export function UserKPICard({
             whileHover={{ scale: active ? 1 : 1.03 }}
             whileTap={{ scale: 0.98 }}
             transition={{ type: "spring", stiffness: 400, damping: 25 }}
-            className={`relative w-full text-left rounded-xl p-4 overflow-hidden cursor-pointer ${
+            className={`relative w-full text-left rounded-xl p-3 sm:p-4 overflow-hidden cursor-pointer ${
                 active
                     ? `${gradient} shadow-lg`
                     : 'border'
@@ -77,9 +77,9 @@ export function UserKPICard({
                 borderColor: active ? undefined : 'var(--color-border)'
             }}
         >
-            <div className="relative z-10 flex items-center gap-4">
+            <div className="relative z-10 flex items-center gap-3 sm:gap-4">
                 <motion.div
-                    className={`p-3 rounded-lg ${
+                    className={`p-2 sm:p-3 rounded-lg ${
                         active
                             ? 'bg-white/20 backdrop-blur-sm'
                             : ''
@@ -91,19 +91,19 @@ export function UserKPICard({
                     transition={{ type: "spring", stiffness: 400, damping: 15 }}
                 >
                     <Icon
-                        size={24}
-                        className={active ? 'text-white' : ''}
+                        size={20}
+                        className={`sm:w-6 sm:h-6 ${active ? 'text-white' : ''}`}
                         style={{ color: active ? 'white' : 'var(--color-text-secondary)' }}
                     />
                 </motion.div>
 
-                <div className="flex-1">
-                    <p className="text-sm font-medium mb-1" style={{
+                <div className="flex-1 min-w-0">
+                    <p className="text-xs sm:text-sm font-medium mb-0.5 sm:mb-1 truncate" style={{
                         color: active ? 'rgba(255, 255, 255, 0.9)' : 'var(--color-text-secondary)'
                     }}>
                         {title}
                     </p>
-                    <p className="text-2xl font-bold" style={{
+                    <p className="text-xl sm:text-2xl font-bold" style={{
                         color: active ? 'white' : 'var(--color-text-primary)'
                     }}>
                         {typeof count === 'number' ? displayCount : count}

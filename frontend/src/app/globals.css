@@ -52,11 +52,14 @@
     transition-duration: 300ms;
 }
 
-body {
+html, body {
     font-family: var(--font-family-sans);
     color: var(--color-text-primary);
     background-color: var(--color-background);
     min-height: 100vh;
+    overflow-x: hidden;
+    max-width: 100vw;
+    position: relative;
 }
 
 .input {
@@ -311,8 +314,14 @@ body {
 }
 
 .app-sidebar {
-    @apply fixed top-0 left-0 h-screen flex flex-col transition-all duration-300 ease-in-out z-40;
+    @apply fixed top-0 left-0 flex flex-col transition-all duration-300 ease-in-out z-40;
     width: 100px;
+    height: 100vh;
+    height: 100dvh; /* Dynamic viewport height for mobile */
+    max-height: 100vh;
+    max-height: 100dvh;
+    overflow-y: auto;
+    overflow-x: hidden;
     background-color: var(--color-surface);
     border-right: 1px solid var(--color-border);
 }
@@ -320,6 +329,7 @@ body {
 .app-sidebar-mobile {
     @apply shadow-2xl -translate-x-full;
     width: 280px;
+    max-width: 85vw;
 }
 
 .app-sidebar-mobile-open {
@@ -397,20 +407,31 @@ body {
 .main-content-v2 {
     @apply flex-1 flex flex-col min-h-screen transition-all duration-300;
     margin-left: 100px;
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
 }
 
 @media (max-width: 1024px) {
     .main-content-v2 {
         margin-left: 0;
+        max-width: 100vw;
     }
 }
 
 .dashboard-container {
     @apply flex min-h-screen;
+    overflow-x: hidden;
+    max-width: 100vw;
+    width: 100%;
 }
 
 .content-area {
-    @apply flex-1 p-6 lg:px-10 lg:pt-6 lg:pb-14;
+    @apply flex-1 p-4 sm:p-6 lg:px-10 lg:pt-6 lg:pb-14;
+    overflow-x: hidden;
+    max-width: 100%;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .breadcrumbs {

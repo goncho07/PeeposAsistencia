@@ -39,17 +39,18 @@ export function UserSearchBar({
             transition={{ duration: 0.3 }}
             className="flex flex-col sm:flex-row gap-3 mb-6"
         >
-            <div className="flex-1 relative">
+            {/* Search Input */}
+            <div className="relative flex-1">
                 <Search
-                    size={20}
-                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                    size={18}
+                    className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none"
                 />
                 <input
                     type="text"
                     placeholder={getPlaceholder()}
                     value={searchQuery}
                     onChange={(e) => onSearchChange(e.target.value)}
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border focus:outline-none focus:ring-2 transition-all text-sm sm:text-base"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border focus:outline-none focus:ring-2 transition-all text-sm"
                     style={{
                         borderColor: 'var(--color-border)',
                         backgroundColor: 'var(--color-surface)',
@@ -59,13 +60,14 @@ export function UserSearchBar({
                 />
             </div>
 
+            {/* Action Buttons */}
             <div className="flex gap-2">
                 {onCarnetClick && (
                     <motion.button
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={onCarnetClick}
-                        className="px-4 py-2.5 rounded-lg flex items-center gap-2 font-medium shadow-sm transition-all border"
+                        className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 font-medium shadow-sm transition-all border text-sm whitespace-nowrap"
                         style={{
                             backgroundColor: 'var(--color-surface)',
                             borderColor: 'var(--color-border)',
@@ -74,6 +76,7 @@ export function UserSearchBar({
                     >
                         <CreditCard size={18} />
                         <span className="hidden sm:inline">Generar carnets</span>
+                        <span className="sm:hidden">Carnets</span>
                     </motion.button>
                 )}
 
@@ -81,13 +84,13 @@ export function UserSearchBar({
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     onClick={onAddClick}
-                    className="px-4 py-2.5 rounded-lg flex items-center gap-2 text-white font-medium shadow-sm transition-all"
+                    className="flex-1 sm:flex-none px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 text-white font-medium shadow-sm transition-all text-sm whitespace-nowrap"
                     style={{
                         background: 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))'
                     }}
                 >
                     <Plus size={18} />
-                    <span className="hidden sm:inline">Agregar</span>
+                    <span>Agregar</span>
                 </motion.button>
             </div>
         </motion.div>
