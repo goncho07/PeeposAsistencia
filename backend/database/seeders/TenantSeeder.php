@@ -30,9 +30,6 @@ class TenantSeeder extends Seeder
                 'ubigeo' => '150141',
                 'timezone' => 'America/Lima',
                 'is_active' => true,
-                'settings' => [
-                    'whatsapp_enabled' => true,
-                ],
                 'logo_url' => 'tenants/iee-6049-ricardo-palma/logo.png',
                 'banner_url' => 'tenants/iee-6049-ricardo-palma/banner.png',
                 'background_url' => 'tenants/iee-6049-ricardo-palma/background.jpg',
@@ -54,9 +51,6 @@ class TenantSeeder extends Seeder
                 'ubigeo' => '150132',
                 'timezone' => 'America/Lima',
                 'is_active' => true,
-                'settings' => [
-                    'whatsapp_enabled' => true,
-                ],
                 'logo_url' => 'tenants/ie-francisco-bolognesi-cervantes/logo.png',
                 'banner_url' => 'tenants/ie-francisco-bolognesi-cervantes/banner.png',
                 'background_url' => 'tenants/ie-francisco-bolognesi-cervantes/background.jpg',

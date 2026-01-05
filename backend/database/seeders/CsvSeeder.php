@@ -13,7 +13,7 @@ use Illuminate\Support\Str;
 use League\Csv\Reader;
 use Carbon\Carbon;
 
-class PeeposSeeder extends Seeder
+class CsvSeeder extends Seeder
 {
     private $tenant;
 
@@ -22,61 +22,90 @@ class PeeposSeeder extends Seeder
      */
     public function run(): void
     {
-        // Cambiar el Tenante según sea necesario
-        $this->tenant = Tenant::where('code', '0325265')->first();
+        $dataPath = database_path('seeders/data');
+
+        if (!is_dir($dataPath)) {
+            $this->command->error("Directorio no encontrado: {$dataPath}");
+            return;
+        }
+
+        $csvFiles = glob($dataPath . '/*.csv');
+
+        if (empty($csvFiles)) {
+            $this->command->warn("No se encontraron archivos CSV en {$dataPath}");
+            return;
+        }
+
+        $this->command->info("========================================");
+        $this->command->info("Iniciando CsvSeeder");
+        $this->command->info("Archivos encontrados: " . count($csvFiles));
+        $this->command->info("========================================");
+        $this->command->newLine();
+
+        foreach ($csvFiles as $filePath) {
+            $this->processFile($filePath);
+            $this->command->newLine();
+        }
+
+        $this->command->info("========================================");
+        $this->command->info("CsvSeeder completado");
+        $this->command->info("========================================");
+    }
+
+    private function processFile(string $filePath): void
+    {
+        $fileName = pathinfo($filePath, PATHINFO_FILENAME);
+        $tenantCode = $fileName;
+
+        $this->command->info("Procesando: {$fileName}.csv");
+        $this->command->line("Código de tenant: {$tenantCode}");
+
+        $this->tenant = Tenant::where('code', $tenantCode)->first();
 
         if (!$this->tenant) {
-            $this->command->error('Tenant con código 0325265 no encontrado. Ejecuta TenantSeeder primero.');
+            $this->command->error("  ✗ Tenant con código '{$tenantCode}' no encontrado. Saltando archivo.");
             return;
         }
 
-        // Cambiar la ruta según sea necesario
-        $filePath = database_path('seeders/data/bolognesi.csv');
+        $this->command->info("  ✓ Tenant encontrado: {$this->tenant->name}");
 
-        if (!file_exists($filePath)) {
-            $this->command->error("Archivo CSV no encontrado: {$filePath}");
-            return;
-        }
+        try {
+            $csv = Reader::from($filePath);
+            $csv->setHeaderOffset(0);
+            $records = $csv->getRecords();
 
-        $csv = Reader::createFromFileObject(new \SplFileObject($filePath, 'r'));
-        $csv->setHeaderOffset(0);
+            $count = 0;
+            $warnings = 0;
+            $errors = 0;
 
-        $records = $csv->getRecords();
+            foreach ($records as $index => $row) {
+                try {
+                    $rol = trim($row['ROL'] ?? '');
 
-        $count = 0;
-        $warnings = 0;
-        $errors = 0;
+                    match (strtolower($rol)) {
+                        'docente' => $this->createTeacher($row),
+                        'estudiante' => $this->createStudent($row),
+                        'apoderado' => $this->command->warn("    Fila #{$index}: Rol 'Apoderado' en proceso, se omite."),
+                        default => function () use ($rol, &$warnings, $index) {
+                            $this->command->warn("    Fila #{$index}: Rol desconocido '{$rol}'");
+                            $warnings++;
+                        },
+                    };
 
-        $this->command->info("Iniciando carga desde {$filePath}");
-        $this->command->info("Tenant: {$this->tenant->name} ({$this->tenant->code})");
-        $this->command->info('');
-
-        foreach ($records as $index => $row) {
-            try {
-                $rol = trim($row['ROL'] ?? '');
-
-                match (strtolower($rol)) {
-                    'docente' => $this->createTeacher($row),
-                    'estudiante' => $this->createStudent($row),
-                    'apoderado' => $this->command->warn("Fila #{$index}: Rol 'Apoderado' en proceso, se omite."),
-                    default => function () use ($rol, &$warnings, $index) {
-                        $this->command->warn("Fila #{$index}: Rol desconocido '{$rol}'");
-                        $warnings++;
-                    },
-                };
-
-                $count++;
-            } catch (\Throwable $e) {
-                $errors++;
-                $this->command->error("Error en fila {$index}: " . $e->getMessage());
+                    $count++;
+                } catch (\Throwable $e) {
+                    $errors++;
+                    $this->command->error("    Error en fila {$index}: " . $e->getMessage());
+                }
             }
-        }
 
-        $this->command->info('');
-        $this->command->info(" Peepos - Seed completado.");
-        $this->command->line("   - Registros procesados: {$count}");
-        $this->command->line("   - Advertencias: {$warnings}");
-        $this->command->line("   - Errores: {$errors}");
+            $this->command->info("  Resultados:");
+            $this->command->line("    - Registros procesados: {$count}");
+            $this->command->line("    - Advertencias: {$warnings}");
+            $this->command->line("    - Errores: {$errors}");
+        } catch (\Throwable $e) {
+            $this->command->error("  ✗ Error al procesar archivo: " . $e->getMessage());
+        }
     }
 
     private function createTeacher(array $row): void
@@ -245,7 +274,6 @@ class PeeposSeeder extends Seeder
     private function generateQRCode(string $dni): string
     {
         $hash = strtoupper(substr(hash('crc32', $dni . $this->tenant->code), 0, 8));
-        // Cambiar prefijo según sea necesario
-        return 'FB' . $this->tenant->code . $hash;
+        return $this->tenant->code . $hash;
     }
 }

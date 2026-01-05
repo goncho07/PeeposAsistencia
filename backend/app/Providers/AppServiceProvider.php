@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use Illuminate\Support\ServiceProvider;
+use Laravel\Sanctum\Sanctum;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -19,7 +20,9 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        \Laravel\Sanctum\Sanctum::$accessTokenAuthenticationCallback = function ($accessToken, $isValid) {
+        Sanctum::usePersonalAccessTokenModel(\App\Models\PersonalAccessToken::class);
+
+        Sanctum::$accessTokenAuthenticationCallback = function ($accessToken, $isValid) {
             if ($isValid && $accessToken->tokenable) {
                 $accessToken->tokenable->load('tenant');
             }

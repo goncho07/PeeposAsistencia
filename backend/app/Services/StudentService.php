@@ -172,6 +172,6 @@ class StudentService
     private function generateQRCode(string $documentNumber): string
     {
         $hash = strtoupper(substr(hash('crc32', $documentNumber . time()), 0, 8));
-        return 'STU' . $hash;
+        return $hash;
     }
 }

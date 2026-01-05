@@ -28,7 +28,7 @@ return new class extends Migration
             $table->enum('role', ['SUPERADMIN', 'DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO', 'ESCANER', 'COORDINADOR'])->default('ESCANER');
 
             $table->string('phone_number', 15)->nullable();
-            $table->string('avatar_url')->nullable();
+            $table->string('photo_url')->nullable();
 
             $table->enum('status', ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'])->default('ACTIVO');
 
@@ -44,6 +44,7 @@ return new class extends Migration
 
             $table->index(['tenant_id', 'status']);
             $table->index(['tenant_id', 'role']);
+            $table->index(['id', 'tenant_id'], 'idx_user_tenant');
             $table->index(['name', 'paternal_surname', 'maternal_surname'], 'idx_users_search');
         });
 

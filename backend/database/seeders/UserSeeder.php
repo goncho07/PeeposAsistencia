@@ -28,8 +28,8 @@ class UserSeeder extends Seeder
             'email_verified_at' => now(),
         ]);
 
-        $this->command->info("  SUPERADMIN creado: {$superadmin->email}");
-        $this->command->warn("  Password: PeeposKey1806$");
+        $this->command->info("SUPERADMIN creado: {$superadmin->email}");
+        $this->command->warn("Password: PeeposKey1806$");
         $this->command->info('');
 
         $tenants = Tenant::all();

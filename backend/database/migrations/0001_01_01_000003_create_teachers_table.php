@@ -18,6 +18,7 @@ return new class extends Migration
 
             $table->string('dni', 8);
             $table->string('qr_code', 50);
+            $table->string('photo_url')->nullable();
         
             $table->string('name', 100);
             $table->string('paternal_surname', 50);

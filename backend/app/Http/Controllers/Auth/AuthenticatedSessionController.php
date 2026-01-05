@@ -41,15 +41,15 @@ class AuthenticatedSessionController extends Controller
         }
 
         if ($request->has('tenant_slug') && $request->tenant_slug) {
-            $requestedTenant = \App\Models\Tenant::where('slug', $request->tenant_slug)->first();
+            $tenant = \App\Models\Tenant::where('slug', $request->tenant_slug)->first();
 
-            if (!$requestedTenant) {
+            if (!$tenant) {
                 return response()->json([
                     'message' => 'Institución no encontrada.',
                 ], 404);
             }
 
-            if ($user->tenant_id !== $requestedTenant->id) {
+            if ($user->tenant_id !== $tenant->id) {
                 return response()->json([
                     'message' => 'No tienes acceso a esta institución. Verifica tus credenciales.',
                 ], 403);
@@ -64,7 +64,8 @@ class AuthenticatedSessionController extends Controller
 
         if (!$user->tenant || !$user->tenant->is_active) {
             return response()->json([
-                'message' => 'La institución está inactiva. Contacta al soporte.',
+                'message' => 'Tu institución está inactiva. Contacta al soporte.',
+                'error' => 'TENANT_INACTIVE',
             ], 403);
         }
 
@@ -74,6 +75,10 @@ class AuthenticatedSessionController extends Controller
             : now()->addDays(30);
         $token = $user->createToken($deviceName, ['*'], $expiresAt);
 
+        $token->accessToken->update([
+            'ip_address' => $request->ip(),
+        ]);
+
         $user->updateLastLogin($request->ip());
 
         $user->tenant->updateActivity();
@@ -81,7 +86,6 @@ class AuthenticatedSessionController extends Controller
         $this->logActivity('user_login', null, [
             'ip_address' => $request->ip(),
             'user_agent' => $request->userAgent(),
-            'device_name' => $deviceName,
         ], $user);
 
         return response()->json([
@@ -213,10 +217,16 @@ class AuthenticatedSessionController extends Controller
         $user = $request->user();
         $currentToken = $request->user()->currentAccessToken();
 
+        $deviceName = $currentToken->name ?? 'api-client';
+        $ipAddress = $currentToken->ip_address ?? $request->ip();
+
         $currentToken->delete();
 
-        $deviceName = $currentToken->name ?? 'api-client';
         $token = $user->createToken($deviceName, ['*'], now()->addDays(30));
+
+        $token->accessToken->update([
+            'ip_address' => $ipAddress,
+        ]);
 
         $this->logActivity('token_refreshed', null, [
             'ip_address' => $request->ip(),
@@ -246,6 +256,7 @@ class AuthenticatedSessionController extends Controller
             return [
                 'id' => $token->id,
                 'name' => $token->name,
+                'ip_address' => $token->ip_address,
                 'last_used_at' => $token->last_used_at,
                 'expires_at' => $token->expires_at,
                 'is_current' => $token->id === $request->user()->currentAccessToken()->id,

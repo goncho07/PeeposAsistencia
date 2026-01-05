@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Student;
 use App\Models\Attendance;
 use App\Models\Tenant;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -24,11 +23,17 @@ class WhatsAppService
         $this->settingService = $settingService;
     }
 
+    /**
+     * Send attendance notification to student's parents via WhatsApp
+     *
+     * @param Student $student The student whose attendance is being reported
+     * @param Attendance $attendance The attendance record
+     * @param string $type Type of notification: 'ENTRADA' or 'SALIDA'
+     * @return bool True if at least one message was sent successfully
+     */
     public function sendAttendanceNotification(Student $student, Attendance $attendance, string $type = 'ENTRADA'): bool
     {
-        $tenantId = Auth::user()->tenant_id;
-
-        if (!$this->settingService->isWhatsAppEnabled($tenantId)) {
+        if (!$this->settingService->isWhatsAppEnabled()) {
             return false;
         }
 
@@ -43,7 +48,7 @@ class WhatsAppService
             return false;
         }
 
-        $tenant = Auth::user()->tenant;
+        $tenant = app()->bound('current_tenant') ? app('current_tenant') : null;
         $message = $this->buildMessage($student, $attendance, $type, $tenant);
         $sentCount = 0;
 
@@ -92,6 +97,15 @@ class WhatsAppService
         return false;
     }
 
+    /**
+     * Build WhatsApp message text for attendance notification
+     *
+     * @param Student $student The student
+     * @param Attendance $attendance The attendance record
+     * @param string $type Type of notification: 'ENTRADA' or 'SALIDA'
+     * @param Tenant|null $tenant The tenant/institution
+     * @return string Formatted WhatsApp message
+     */
     private function buildMessage(Student $student, Attendance $attendance, string $type, ?Tenant $tenant): string
     {
         $nombreEstudiante = $student->full_name;
@@ -154,6 +168,14 @@ class WhatsAppService
         }
     }
 
+    /**
+     * Format phone number for WhatsApp API
+     *
+     * Removes non-numeric characters and adds Peru country code (51) if needed
+     *
+     * @param string $phone Phone number to format
+     * @return string Formatted phone number with @s.whatsapp.net suffix
+     */
     private function formatPhone(string $phone): string
     {
         $phone = preg_replace('/[^0-9]/', '', $phone);

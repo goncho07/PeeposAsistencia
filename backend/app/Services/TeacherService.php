@@ -118,6 +118,6 @@ class TeacherService
     private function generateQRCode(string $dni): string
     {
         $hash = strtoupper(substr(hash('crc32', $dni . time()), 0, 8));
-        return 'TCH' . $hash;
+        return $hash;
     }
 }

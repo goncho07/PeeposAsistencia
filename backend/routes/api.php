@@ -1,6 +1,5 @@
 <?php
 
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Students\StudentController;
@@ -60,7 +59,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
             ->name('carnets.cancel');
     });
 
-    Route::prefix('students')->middleware(['role:DIRECTOR,SUBDIRECTOR,SECRETARIO'])->group(function () {
+    Route::prefix('students')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
         Route::get('/', [StudentController::class, 'index']);
         Route::get('/{id}', [StudentController::class, 'show']);
         Route::post('/', [StudentController::class, 'store']);
@@ -69,7 +68,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::delete('/{id}', [StudentController::class, 'destroy']);
     });
 
-    Route::prefix('teachers')->middleware(['role:DIRECTOR,SUBDIRECTOR'])->group(function () {
+    Route::prefix('teachers')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR')->group(function () {
         Route::get('/', [TeacherController::class, 'index']);
         Route::get('/{id}', [TeacherController::class, 'show']);
         Route::post('/', [TeacherController::class, 'store']);
@@ -78,7 +77,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::delete('/{id}', [TeacherController::class, 'destroy']);
     });
 
-    Route::prefix('parents')->middleware(['role:DIRECTOR,SUBDIRECTOR,SECRETARIO'])->group(function () {
+    Route::prefix('parents')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
         Route::get('/', [ParentController::class, 'index']);
         Route::get('/{id}', [ParentController::class, 'show']);
         Route::post('/', [ParentController::class, 'store']);
@@ -87,7 +86,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::delete('/{id}', [ParentController::class, 'destroy']);
     });
 
-    Route::prefix('users')->middleware(['role:DIRECTOR'])->group(function () {
+    Route::prefix('users')->middleware('tenant.role:DIRECTOR')->group(function () {
         Route::get('/', [UserController::class, 'index']);
         Route::get('/{id}', [UserController::class, 'show']);
         Route::post('/', [UserController::class, 'store']);
@@ -96,7 +95,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::delete('/{id}', [UserController::class, 'destroy']);
     });
 
-    Route::prefix('classrooms')->middleware(['role:DIRECTOR,SUBDIRECTOR'])->group(function () {
+    Route::prefix('classrooms')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR')->group(function () {
         Route::get('/', [ClassroomController::class, 'index']);
         Route::get('/{id}', [ClassroomController::class, 'show']);
         Route::post('/', [ClassroomController::class, 'store']);
@@ -113,13 +112,13 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::post('/exit', [ScannerController::class, 'scanExit']);
     });
 
-    Route::prefix('attendance')->middleware(['role:DIRECTOR,SUBDIRECTOR,SECRETARIO'])->group(function () {
+    Route::prefix('attendance')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
         Route::get('/', [AttendanceController::class, 'index']);
         Route::get('/daily-stats', [AttendanceController::class, 'getDailyStats']);
         Route::post('/report', [AttendanceController::class, 'generateReport']);
     });
 
-    Route::prefix('justifications')->middleware(['role:DIRECTOR,SUBDIRECTOR,SECRETARIO'])->group(function () {
+    Route::prefix('justifications')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
         Route::get('/', [JustificationController::class, 'index']);
         Route::get('/{id}', [JustificationController::class, 'show']);
         Route::post('/', [JustificationController::class, 'store']);

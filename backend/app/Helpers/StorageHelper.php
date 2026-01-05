@@ -1,22 +1,19 @@
 <?php
 
 if (!function_exists('get_storage_url')) {
-    /**
-     * Get the public URL for a storage file
-     *
-     * @param string|null $path
-     * @param string|null $disk
-     * @return string
-     */
+
     function get_storage_url(?string $path, ?string $disk = null): string
     {
         if (!$path) {
             return '';
         }
 
+        if (filter_var($path, FILTER_VALIDATE_URL)) {
+            return $path;
+        }
+
         $disk = $disk ?? config('filesystems.default');
 
-        // For GCS, generate public URL directly
         if ($disk === 'gcs') {
             $bucket = config('filesystems.disks.gcs.bucket');
             $pathPrefix = config('filesystems.disks.gcs.path_prefix', '');
@@ -26,23 +23,19 @@ if (!function_exists('get_storage_url')) {
             return "https://storage.googleapis.com/{$bucket}/{$fullPath}";
         }
 
-        // For public disk, construct URL manually
         if ($disk === 'public') {
             $baseUrl = rtrim(config('app.url'), '/');
             return "{$baseUrl}/storage/" . ltrim($path, '/');
         }
 
-        // For local disk, construct URL manually
         if ($disk === 'local') {
             $baseUrl = rtrim(config('app.url'), '/');
             return "{$baseUrl}/storage/" . ltrim($path, '/');
         }
 
-        // Generic fallback: attempt to call url() method if it exists
         try {
             $diskInstance = \Illuminate\Support\Facades\Storage::disk($disk);
 
-            // Check if the adapter supports url() method
             if (method_exists($diskInstance, 'url')) {
                 /** @var \Illuminate\Filesystem\FilesystemAdapter $diskInstance */
                 return $diskInstance->url($path);

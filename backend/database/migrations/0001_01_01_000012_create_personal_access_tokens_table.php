@@ -19,13 +19,13 @@ return new class extends Migration
             $table->text('abilities')->nullable();
             
             $table->string('ip_address', 45)->nullable();
-            $table->string('user_agent')->nullable();
-            $table->string('device_name')->nullable();
             
             $table->timestamp('last_used_at')->nullable();
             $table->timestamp('expires_at')->nullable()->index();
             
             $table->timestamps();
+
+            $table->index(['tokenable_type', 'tokenable_id'], 'idx_tokenable');
         });
     }
 

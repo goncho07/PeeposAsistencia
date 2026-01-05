@@ -29,10 +29,13 @@ return new class extends Migration
             $table->string('department', 50)->default('LIMA');
             $table->string('province', 50)->default('LIMA');
             $table->string('district', 50);
+            $table->string('ugel')->nullable();
             $table->string('ubigeo', 6)->nullable();
 
-            $table->json('settings')->nullable()->comment('Configuraciones personalizadas del tenante');
             $table->string('logo_url')->nullable();
+            $table->string('banner_url')->nullable();
+            $table->string('background_url')->nullable();
+            $table->string('primary_color')->default('#FFFFFF');
             $table->string('timezone', 50)->default('America/Lima');
 
             $table->boolean('is_active')->default(true);
@@ -44,6 +47,8 @@ return new class extends Migration
             $table->index('code');
             $table->index('slug');
             $table->index('district');
+
+            $table->index(['id', 'is_active'], 'idx_tenant_active');
         });
     }
 

@@ -8,28 +8,31 @@ use App\Models\Teacher;
 use App\Models\Classroom;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
 
 class ReportService
 {
     public function __construct(private SettingService $settingService) {}
 
+    /**
+     * Generate attendance report based on filters
+     *
+     * @param array $filters Report filters including period, type, level, grade, section, shift
+     * @return array Report data with period, filters, statistics, and detailed records
+     */
     public function generateReport(array $filters): array
     {
-        $tenantId = Auth::user()->tenant_id;
-        [$from, $to] = $this->getPeriodDates($filters, $tenantId);
+        [$from, $to] = $this->getPeriodDates($filters);
 
-        $query = Attendance::where('tenant_id', $tenantId)
-            ->whereBetween('date', [$from, $to]);
+        $query = Attendance::whereBetween('date', [$from, $to]);
 
         if ($filters['type'] === 'student') {
             $query->students();
 
             if (isset($filters['level'])) {
-                $query->whereHasMorph('attendable', [Student::class], function ($q) use ($filters, $tenantId) {
-                    $q->where('tenant_id', $tenantId)
-                        ->whereHas('classroom', function ($classroomQuery) use ($filters) {
-                            $classroomQuery->where('level', $filters['level']);
+                $query->whereHasMorph('attendable', [Student::class], function ($q) use ($filters) {
+                    $q->whereHas('classroom', function ($classroomQuery) use ($filters) {
+                        $classroomQuery->where('level', $filters['level']);
 
                             if (isset($filters['grade'])) {
                                 $classroomQuery->where('grade', $filters['grade']);
@@ -49,9 +52,8 @@ class ReportService
             $query->teachers();
 
             if (isset($filters['level'])) {
-                $query->whereHasMorph('attendable', [Teacher::class], function ($q) use ($filters, $tenantId) {
-                    $q->where('tenant_id', $tenantId)
-                        ->where('level', $filters['level']);
+                $query->whereHasMorph('attendable', [Teacher::class], function ($q) use ($filters) {
+                    $q->where('level', $filters['level']);
                 });
             }
         }
@@ -70,7 +72,13 @@ class ReportService
         ];
     }
 
-    private function getPeriodDates(array $filters, int $tenantId): array
+    /**
+     * Get start and end dates for the report period
+     *
+     * @param array $filters Report filters
+     * @return array Array containing [Carbon $from, Carbon $to]
+     */
+    private function getPeriodDates(array $filters): array
     {
         if (isset($filters['from']) && isset($filters['to'])) {
             return [
@@ -85,25 +93,37 @@ class ReportService
             'daily' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
             'weekly' => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
             'monthly' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
-            'bimester' => $this->getBimesterPeriod($filters['bimester'] ?? $this->settingService->getCurrentBimester(null, $tenantId), $tenantId),
+            'bimester' => $this->getBimesterPeriod($filters['bimester'] ?? $this->settingService->getCurrentBimester()),
             default => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
         };
     }
 
-    private function getBimesterPeriod(int $bimester, int $tenantId): array
+    /**
+     * Get start and end dates for a specific bimester period
+     *
+     * @param int $bimester Bimester number (1-4)
+     * @return array Array containing [Carbon $from, Carbon $to]
+     */
+    private function getBimesterPeriod(int $bimester): array
     {
-        $dates = $this->settingService->getBimesterDates($bimester, $tenantId);
+        $dates = $this->settingService->getBimesterDates($bimester);
         return [
             Carbon::parse($dates['inicio']),
             Carbon::parse($dates['fin'])
         ];
     }
 
+    /**
+     * Calculate attendance statistics from a collection of attendance records
+     *
+     * @param Collection $attendances Collection of Attendance models
+     * @return array Statistics including total records, present, late, absent, justified absences, and early exits
+     */
     private function calculateStatistics(Collection $attendances): array
     {
         return [
             'total_records' => $attendances->count(),
-            'present' => $attendances->whereIn('entry_status', ['COMPLETO', 'TARDANZA'])->count(),
+            'present' => $attendances->whereIn('entry_status', 'COMPLETO')->count(),
             'late' => $attendances->where('entry_status', 'TARDANZA')->count(),
             'absent' => $attendances->where('entry_status', 'FALTA')->count(),
             'justified_absences' => $attendances->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
@@ -112,6 +132,12 @@ class ReportService
         ];
     }
 
+    /**
+     * Group attendance records by person (student or teacher) and calculate individual statistics
+     *
+     * @param Collection $attendances Collection of Attendance models
+     * @return array Array of person objects with their attendance statistics and detailed records
+     */
     private function groupAttendancesByPerson(Collection $attendances): array
     {
         return $attendances->groupBy(fn($a) => $a->attendable_id . '-' . $a->attendable_type)
@@ -125,7 +151,7 @@ class ReportService
                     'document' => $person->dni ?? $person->document_number,
                     'statistics' => [
                         'total_days' => $group->count(),
-                        'present' => $group->whereIn('entry_status', ['COMPLETO', 'TARDANZA'])->count(),
+                        'present' => $group->whereIn('entry_status', 'COMPLETO')->count(),
                         'late' => $group->where('entry_status', 'TARDANZA')->count(),
                         'absent' => $group->where('entry_status', 'FALTA')->count(),
                         'justified' => $group->where('entry_status', 'FALTA_JUSTIFICADA')->count(),

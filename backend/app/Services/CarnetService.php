@@ -32,18 +32,7 @@ class CarnetService
      */
     private function getCurrentTenant(): Tenant
     {
-        Log::info('getCurrentTenant called', [
-            'app_bound_current_tenant' => app()->bound('current_tenant'),
-            'app_bound_current_tenant_id' => app()->bound('current_tenant_id'),
-            'auth_check' => Auth::check(),
-            'auth_user_tenant_id' => Auth::check() ? Auth::user()?->tenant_id : null,
-        ]);
-
         $tenant = app()->bound('current_tenant') ? app('current_tenant') : null;
-
-        Log::info('Tenant from app container', [
-            'tenant' => $tenant?->id ?? 'null',
-        ]);
 
         if (!$tenant) {
             throw new \Exception('Tenant no encontrado en el contexto actual');
@@ -86,15 +75,13 @@ class CarnetService
         $processedUsers = 0;
 
         while ($offset < $totalUsers) {
-            Log::info("Procesando chunk: offset={$offset}, size={$chunkSize}");
-
             $users = $this->getUsersForCarnetsChunk($filters, $offset, $chunkSize);
 
             if ($users->isEmpty()) {
                 break;
             }
 
-            $chunkHtml = view('carnets.template_chunk', [
+            $chunkHtml = view('carnets.template', [
                 'users' => $users,
                 'tenant' => $tenant,
                 'escudoBase64' => $assets['escudo'],
@@ -125,8 +112,6 @@ class CarnetService
         $path = "carnets/{$tenant->id}/{$filename}";
 
         Storage::disk('public')->put($path, $html);
-
-        Log::info("Carnets generados exitosamente: {$path}");
 
         return $path;
     }
@@ -300,17 +285,14 @@ class CarnetService
         $assets = [];
 
         if ($tenant->banner_url) {
-            // Determine which disk to use for tenant files (could be 'public' or 'gcs')
             $tenantDisk = config('filesystems.default');
 
-            // Try to load the dark variant of the banner
             $pathInfo = pathinfo($tenant->banner_url);
             $darkVariantPath = $pathInfo['dirname'] . '/' . $pathInfo['filename'] . '_dark.' . $pathInfo['extension'];
 
             $logoContent = null;
 
             try {
-                // Try dark variant first
                 if (Storage::disk($tenantDisk)->exists($darkVariantPath)) {
                     $logoContent = Storage::disk($tenantDisk)->get($darkVariantPath);
                 } elseif (Storage::disk($tenantDisk)->exists($tenant->banner_url)) {
@@ -380,20 +362,53 @@ class CarnetService
     }
 
     /**
-     * Delete old carnet HTML files
+     * Delete old carnet files (HTML and PDFs)
+     * Deletes from both local storage and default disk (GCS in production)
      */
     public function cleanupOldFiles(int $daysOld = 7): int
     {
         $count = 0;
-        $files = Storage::disk('public')->files('carnets');
         $cutoffDate = now()->subDays($daysOld);
+        $disk = config('filesystems.default');
 
-        foreach ($files as $file) {
-            $lastModified = Storage::disk('public')->lastModified($file);
+        try {
+            $files = Storage::disk($disk)->files('carnets');
 
-            if ($lastModified < $cutoffDate->timestamp) {
-                Storage::disk('public')->delete($file);
-                $count++;
+            foreach ($files as $file) {
+                $lastModified = Storage::disk($disk)->lastModified($file);
+
+                if ($lastModified < $cutoffDate->timestamp) {
+                    Storage::disk($disk)->delete($file);
+                    $count++;
+                    Log::info("LIMPIEZA - Archivo eliminado del storage", [
+                        'file' => $file,
+                        'disk' => $disk,
+                    ]);
+                }
+            }
+        } catch (\Exception $e) {
+            Log::error("Error limpiando archivos de carnets", [
+                'disk' => $disk,
+                'error' => $e->getMessage(),
+            ]);
+        }
+
+        if ($disk !== 'public') {
+            try {
+                $localFiles = Storage::disk('public')->files('carnets');
+
+                foreach ($localFiles as $file) {
+                    $lastModified = Storage::disk('public')->lastModified($file);
+
+                    if ($lastModified < $cutoffDate->timestamp) {
+                        Storage::disk('public')->delete($file);
+                        $count++;
+                    }
+                }
+            } catch (\Exception $e) {
+                Log::warning("Error limpiando archivos locales", [
+                    'error' => $e->getMessage(),
+                ]);
             }
         }
 

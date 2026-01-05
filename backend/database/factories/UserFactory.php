@@ -24,7 +24,7 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->firstName(),
+            /* 'name' => fake()->firstName(),
             'paternal_surname' => fake()->lastName(),
             'maternal_surname' => fake()->lastName(),
             'email' => fake()->unique()->safeEmail(),
@@ -35,7 +35,7 @@ class UserFactory extends Factory
             'dni' => fake()->unique()->numerify('########'),
             'avatar_url' => null,
             'phone_number' => null,
-            'remember_token' => Str::random(10),
+            'remember_token' => Str::random(10), */
         ];
     }
 

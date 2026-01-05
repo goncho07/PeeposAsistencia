@@ -13,11 +13,13 @@ return new class extends Migration
     {
         Schema::create('carnet_generations', function (Blueprint $table) {
             $table->id();
+
             $table->foreignId('tenant_id')->constrained()->onDelete('cascade');
             $table->foreignId('user_id')->constrained()->onDelete('cascade');
+            
             $table->json('filters');
-            $table->enum('status', ['pending', 'processing', 'completed', 'failed'])->default('pending');
-            $table->unsignedInteger('progress')->default(0); // 0-100
+            $table->enum('status', ['PENDING', 'PROCESSING', 'COMPLETED', 'FAILED'])->default('PENDING');
+            $table->unsignedInteger('progress')->default(0);
             $table->unsignedInteger('total_users')->default(0);
             $table->string('pdf_path')->nullable();
             $table->text('error_message')->nullable();

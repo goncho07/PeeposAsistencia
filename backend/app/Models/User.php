@@ -87,7 +87,7 @@ class User extends Authenticatable
     {
         $this->update([
             'last_login_at' => now(),
-            'last_login_ip' => $ipAddress ?? request()->ip(),
+            'last_login_ip' => $ipAddress ?? client_ip(),
         ]);
     }
 }

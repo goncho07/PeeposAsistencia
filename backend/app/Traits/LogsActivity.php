@@ -34,7 +34,7 @@ trait LogsActivity
                 'subject_type' => $subject_type,
                 'subject_id' => $subject_id,
                 'properties' => $properties,
-                'ip_address' => request()->ip(),
+                'ip_address' => client_ip(),
                 'user_agent' => request()->userAgent(),
             ]);
         } catch (\Exception $e) {
@@ -69,7 +69,7 @@ trait LogsActivity
                 'properties' => [
                     'changes' => array_keys($newValues),
                 ],
-                'ip_address' => request()->ip(),
+                'ip_address' => client_ip(),
                 'user_agent' => request()->userAgent(),
             ]);
         } catch (\Exception $e) {

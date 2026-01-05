@@ -74,6 +74,9 @@ class GenerateCarnetsJob implements ShouldQueue
         $this->carnetGeneration->updateProgress(92);
 
         $browsershot = Browsershot::html($html)
+            ->setChromePath(env('CHROMIUM_PATH', '/usr/bin/chromium'))
+            ->setNodeBinary(env('NODE_BINARY', '/usr/bin/node'))
+            ->setNpmBinary(env('NPM_BINARY', '/usr/bin/npm'))
             ->setOption('args', [
                 '--no-sandbox',
                 '--disable-gpu',
@@ -102,7 +105,15 @@ class GenerateCarnetsJob implements ShouldQueue
 
         $filename = 'carnets_' . now()->format('Y-m-d_His') . '.pdf';
         $pdfPath = "carnets/{$this->carnetGeneration->tenant_id}/{$filename}";
-        Storage::disk('public')->put($pdfPath, $pdfBinary);
+
+        $disk = config('filesystems.default');
+        Storage::disk($disk)->put($pdfPath, $pdfBinary);
+
+        Log::info('PDF guardado en storage', [
+            'path' => $pdfPath,
+            'disk' => $disk,
+            'size' => strlen($pdfBinary),
+        ]);
 
         return $pdfPath;
     }

@@ -19,16 +19,14 @@ class VerifyTenantAccess
      */
     public function handle(Request $request, Closure $next): Response
     {
-        $user = $request->user();
-
-        if ($user && $user->role === 'SUPERADMIN') {
+        if ($request->user() && $request->user()->role === 'SUPERADMIN') {
             return $next($request);
         }
 
-        if ($user && $user->tenant_id) {
+        if ($request->user() && $request->user()->tenant_id) {
             $currentTenantId = app()->bound('current_tenant_id') ? app('current_tenant_id') : null;
 
-            if ($currentTenantId && $currentTenantId !== $user->tenant_id) {
+            if ($currentTenantId && $currentTenantId !== $request->user()->tenant_id) {
             
                 return response()->json([
                     'message' => 'ACCESO DENEGADO: No tienes permisos para acceder a este recurso',

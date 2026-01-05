@@ -143,17 +143,30 @@ class CarnetController extends Controller
                 return response()->json(['message' => 'La generación aún no se ha completado'], 400);
             }
 
-            if (!$carnetGeneration->pdf_path || !Storage::disk('public')->exists($carnetGeneration->pdf_path)) {
+            $disk = config('filesystems.default');
+
+            if (!$carnetGeneration->pdf_path || !Storage::disk($disk)->exists($carnetGeneration->pdf_path)) {
+                Log::warning('PDF no encontrado', [
+                    'job_id' => $jobId,
+                    'pdf_path' => $carnetGeneration->pdf_path,
+                    'disk' => $disk,
+                ]);
                 return response()->json(['message' => 'PDF no encontrado'], 404);
             }
 
             $this->logActivity('carnet_generation_downloaded', $carnetGeneration);
 
             $filename = basename($carnetGeneration->pdf_path);
-            $fullPath = Storage::disk('public')->path($carnetGeneration->pdf_path);
+            $pdfContent = Storage::disk($disk)->get($carnetGeneration->pdf_path);
 
-            return response()->download($fullPath, $filename);
-        } catch (\Exception) {
+            return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        } catch (\Exception $e) {
+            Log::error('Error descargando PDF', [
+                'job_id' => $jobId,
+                'error' => $e->getMessage(),
+            ]);
             return response()->json(['message' => 'Error al descargar PDF'], 500);
         }
     }

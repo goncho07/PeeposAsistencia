@@ -25,6 +25,7 @@ return new class extends Migration
 
             $table->string('phone_number', 15)->nullable();
             $table->string('email', 100)->nullable();
+            $table->string('photo_url')->nullable();
 
             $table->timestamps();
 

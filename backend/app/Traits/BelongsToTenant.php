@@ -30,23 +30,11 @@ trait BelongsToTenant
         });
     }
 
-    public static function getTenantColumn(): string
+    public function tenant()
     {
-        return 'tenant_id';
+        return $this->belongsTo(\App\Models\Tenant::class, static::getTenantColumn());
     }
 
-    public static function getCurrentTenantId(): ?int
-    {
-        if (Auth::check() && Auth::user()->tenant_id) {
-            return Auth::user()->tenant_id;
-        }
-
-        if (app()->bound('current_tenant_id')) {
-            return app('current_tenant_id');
-        }
-
-        return null;
-    }
 
     protected static function shouldApplyTenantScope(): bool
     {
@@ -58,11 +46,6 @@ trait BelongsToTenant
         return !$model->getAttribute(static::getTenantColumn()) && static::getCurrentTenantId();
     }
 
-    public function tenant()
-    {
-        return $this->belongsTo(\App\Models\Tenant::class, static::getTenantColumn());
-    }
-
     public function scopeWithoutTenantScope(Builder $query)
     {
         return $query->withoutGlobalScope('tenant');
@@ -72,5 +55,23 @@ trait BelongsToTenant
     {
         return $query->withoutGlobalScope('tenant')
             ->where(static::getTenantColumn(), $tenantId);
+    }
+
+    public static function getTenantColumn(): string
+    {
+        return 'tenant_id';
+    }
+
+    public static function getCurrentTenantId(): ?int
+    {
+        if (app()->bound('current_tenant_id')) {
+            return app('current_tenant_id');
+        }
+
+        if (Auth::check() && Auth::user()->tenant_id) {
+            return Auth::user()->tenant_id;
+        }
+
+        return null;
     }
 }

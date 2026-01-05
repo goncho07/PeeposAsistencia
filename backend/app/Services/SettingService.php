@@ -10,11 +10,23 @@ use Illuminate\Support\Facades\Cache;
 class SettingService
 {
     /**
+     * Get current tenant ID from app container or authenticated user
+     *
+     * @return int
+     */
+    private function getCurrentTenantId(): int
+    {
+        return app()->bound('current_tenant_id')
+            ? app('current_tenant_id')
+            : Auth::user()->tenant_id;
+    }
+
+    /**
      * Get all settings grouped by category
      */
     public function getAllSettings(): array
     {
-        $tenantId = Auth::user()->tenant_id;
+        $tenantId = $this->getCurrentTenantId();
 
         return [
             'general' => $this->getGroup('general', $tenantId),
@@ -29,7 +41,7 @@ class SettingService
      */
     public function getGroup(string $group, ?int $tenantId = null): array
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
         $cacheKey = "settings.{$tenantId}.{$group}";
 
@@ -52,7 +64,7 @@ class SettingService
      */
     public function get(string $key, mixed $default = null, ?int $tenantId = null): mixed
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
         $cacheKey = "setting.{$tenantId}.{$key}";
 
@@ -70,7 +82,7 @@ class SettingService
      */
     public function set(string $key, mixed $value, string $type = 'string', string $group = 'general', ?int $tenantId = null): Setting
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
         $storedValue = match ($type) {
             'boolean' => $value ? 'true' : 'false',
@@ -100,7 +112,7 @@ class SettingService
      */
     public function updateSettings(array $settings, ?int $tenantId = null): void
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
         foreach ($settings as $key => $value) {
             $setting = Setting::where('tenant_id', $tenantId)
@@ -121,7 +133,7 @@ class SettingService
      */
     public function getScheduleForLevel(string $level, string $shift = 'MAÑANA', ?int $tenantId = null): array
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
         $levelLower = strtolower($level);
         $shiftLower = strtolower($shift);
 
@@ -139,7 +151,7 @@ class SettingService
      */
     public function getToleranceMinutes(?int $tenantId = null): int
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
         return (int) $this->get('tardiness_tolerance_minutes', 5, $tenantId);
     }
 
@@ -148,7 +160,7 @@ class SettingService
      */
     public function getWhatsAppPhone(string $level, ?int $tenantId = null): ?string
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
         $levelLower = strtolower($level);
         return $this->get("whatsapp_{$levelLower}_phone", null, $tenantId);
     }
@@ -158,7 +170,7 @@ class SettingService
      */
     public function isWhatsAppEnabled(?int $tenantId = null): bool
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
         return (bool) $this->get('whatsapp_notifications_enabled', true, $tenantId);
     }
 
@@ -167,7 +179,7 @@ class SettingService
      */
     public function getCurrentBimester(?Carbon $date = null, ?int $tenantId = null): ?int
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
         $date = $date ?? now();
 
         for ($i = 1; $i <= 4; $i++) {
@@ -187,7 +199,7 @@ class SettingService
      */
     public function getBimesterDates(int $bimester, ?int $tenantId = null): array
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
         return [
             'inicio' => $this->get("bimestre_{$bimester}_inicio", null, $tenantId),
@@ -200,7 +212,7 @@ class SettingService
      */
     public function isAttendanceDay(string $day, ?int $tenantId = null): bool
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
         $attendanceDays = $this->get('attendance_days', ['lunes', 'martes', 'miercoles', 'jueves', 'viernes'], $tenantId);
 
         return in_array(strtolower($day), $attendanceDays);
@@ -211,7 +223,7 @@ class SettingService
      */
     public function shouldAutoMarkAbsences(?int $tenantId = null): bool
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
         return (bool) $this->get('auto_mark_absences', true, $tenantId);
     }
 
@@ -220,7 +232,7 @@ class SettingService
      */
     public function getAutoMarkAbsencesTime(?int $tenantId = null): string
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
         return $this->get('auto_mark_absences_time', '10:00', $tenantId);
     }
 
@@ -229,7 +241,7 @@ class SettingService
      */
     private function clearCache(?int $tenantId, string $key, string $group): void
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
         Cache::forget("setting.{$tenantId}.{$key}");
 
@@ -241,7 +253,7 @@ class SettingService
      */
     public function clearAllCache(?int $tenantId = null): void
     {
-        $tenantId = $tenantId ?? Auth::user()->tenant_id;
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
         $groups = ['general', 'horarios', 'whatsapp', 'bimestres'];
 

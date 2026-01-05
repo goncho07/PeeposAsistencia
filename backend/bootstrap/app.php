@@ -18,7 +18,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'tenant.context' => \App\Http\Middleware\Tenant\SetTenantContext::class,
             'tenant.verify' => \App\Http\Middleware\Tenant\VerifyTenantAccess::class,
             'tenant.active' => \App\Http\Middleware\Tenant\EnsureTenantIsActive::class,
-            'role' => \App\Http\Middleware\Tenant\CheckRole::class,
+            'tenant.role' => \App\Http\Middleware\Tenant\CheckTenantRole::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions) {
