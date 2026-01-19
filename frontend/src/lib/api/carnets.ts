@@ -7,43 +7,43 @@ export interface CarnetFilters {
     section?: string;
 }
 
-export interface CarnetJob {
-    id: number;
-    status: 'pending' | 'processing' | 'completed' | 'failed';
+export interface SSEProgressEvent {
     progress: number;
-    total_users: number;
-    pdf_url?: string;
-    error_message?: string;
-    created_at: string;
-    completed_at?: string;
+    phase: 'html' | 'pdf' | 'complete';
+    message?: string;
 }
 
-export interface GenerateResponse {
-    job_id: number;
-    status: string;
+export interface SSEStartEvent {
     total_users: number;
     message: string;
 }
 
+export interface SSECompletedEvent {
+    pdf_url: string;
+    pdf_path: string;
+    message: string;
+}
+
+export interface SSEErrorEvent {
+    message: string;
+}
+
 export const carnetsService = {
-    async generate(filters: CarnetFilters): Promise<GenerateResponse> {
-        const response = await api.post<{ data: GenerateResponse }>('/carnets/generate', filters);
-        return response.data.data;
+    async getCount(filters: CarnetFilters): Promise<number> {
+        const response = await api.post<{ data: { count: number } }>('/carnets/count', filters);
+        return response.data.data.count;
     },
 
-    async getStatus(jobId: number): Promise<CarnetJob> {
-        const response = await api.get<{ data: CarnetJob }>(`/carnets/status/${jobId}`);
-        return response.data.data;
-    },
-
-    async download(jobId: number): Promise<Blob> {
-        const response = await api.get(`/carnets/download/${jobId}`, {
+    async download(pdfPath: string): Promise<Blob> {
+        const encodedPath = btoa(pdfPath);
+        const response = await api.get(`/carnets/download/${encodedPath}`, {
             responseType: 'blob'
         });
         return response.data;
     },
 
-    async cancel(jobId: number): Promise<void> {
-        await api.delete(`/carnets/${jobId}`);
+    getGenerateUrl(): string {
+        const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
+        return `${baseUrl}/carnets/generate`;
     }
 };

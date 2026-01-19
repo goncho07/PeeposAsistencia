@@ -9,7 +9,7 @@ export interface Settings {
     auto_mark_absences_time: string;
   };
   horarios: {
-    [key: string]: string; // horario_{level}_{shift}_{type}
+    [key: string]: string;
   };
   whatsapp: {
     whatsapp_inicial_phone: string;

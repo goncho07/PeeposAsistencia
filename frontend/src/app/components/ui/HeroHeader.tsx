@@ -1,7 +1,7 @@
 'use client';
 import { LucideIcon, ChevronRight, Home } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useTenant } from '@/app/contexts/TenantProvider';
+import { useTenant } from '@/app/contexts/TenantContext';
 
 export interface Breadcrumb {
   label: string;
@@ -20,7 +20,7 @@ export function HeroHeader({
   title,
   subtitle,
   icon: Icon,
-  breadcrumbs = []
+  breadcrumbs = [],
 }: HeroHeaderProps) {
   const router = useRouter();
   const { tenant } = useTenant();
@@ -33,35 +33,38 @@ export function HeroHeader({
 
   const defaultBreadcrumbs: Breadcrumb[] = [
     { label: 'Inicio', href: '/dashboard', icon: Home },
-    ...breadcrumbs
+    ...breadcrumbs,
   ];
 
   return (
-    <div className="page-header-modern">
+    <div className="mb-6">
       {defaultBreadcrumbs.length > 0 && (
-        <nav className="breadcrumbs" aria-label="Breadcrumb">
-          <ol className="breadcrumbs-list">
+        <nav className="mb-6" aria-label="Breadcrumb">
+          <ol className="flex items-center flex-wrap gap-1.5">
             {defaultBreadcrumbs.map((crumb, index) => {
               const isLast = index === defaultBreadcrumbs.length - 1;
               const CrumbIcon = crumb.icon;
 
               return (
-                <li key={index} className="breadcrumbs-item">
+                <li key={index} className="flex items-center gap-1.5">
                   {!isLast && crumb.href ? (
                     <>
                       <button
                         onClick={() => handleBreadcrumbClick(crumb.href)}
-                        className="breadcrumb-link"
+                        className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-medium transition-all hover:scale-105 text-text-secondary dark:text-text-secondary-dark hover:text-primary dark:hover:text-primary-light hover:bg-primary/10"
                         aria-label={`Ir a ${crumb.label}`}
                       >
-                        {CrumbIcon && <CrumbIcon size={14} />}
+                        {CrumbIcon && <CrumbIcon size={15} />}
                         <span>{crumb.label}</span>
                       </button>
-                      <ChevronRight size={14} className="breadcrumb-separator" />
+                      <ChevronRight
+                        size={15}
+                        className="text-border dark:text-border-dark"
+                      />
                     </>
                   ) : (
-                    <span className="breadcrumb-current">
-                      {CrumbIcon && <CrumbIcon size={14} />}
+                    <span className="flex items-center gap-1.5 px-2.5 py-1 text-sm font-semibold rounded-lg text-primary dark:text-primary-light bg-primary/10">
+                      {CrumbIcon && <CrumbIcon size={15} />}
                       <span>{crumb.label}</span>
                     </span>
                   )}
@@ -72,13 +75,20 @@ export function HeroHeader({
         </nav>
       )}
 
-      <div className="page-header-content">
-        <div className="page-header-icon">
-          <Icon size={24} strokeWidth={2} />
+      <div className="flex items-center gap-4 pb-4 border-b border-border">
+        <div className="shrink-0 w-14 h-14 rounded-xl flex items-center justify-center bg-primary/10">
+          <Icon size={28} strokeWidth={1.8} className="text-primary" />
         </div>
-        <div className="page-header-text">
-          <h1 className="page-header-title">{title}</h1>
-          {subtitle && <p className="page-header-subtitle">{subtitle}</p>}
+
+        <div className="flex-1 min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight text-text-primary dark:text-text-primary-dark">
+            {title}
+          </h1>
+          {subtitle && (
+            <p className="text-sm text-text-secondary dark:text-text-secondary-dark mt-0.5">
+              {subtitle}
+            </p>
+          )}
         </div>
       </div>
     </div>

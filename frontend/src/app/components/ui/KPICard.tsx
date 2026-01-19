@@ -1,6 +1,4 @@
 'use client';
-import React from 'react';
-import { motion } from 'framer-motion';
 import { LucideIcon, TrendingUp, TrendingDown, Minus } from 'lucide-react';
 
 interface KPICardProps {
@@ -13,20 +11,6 @@ interface KPICardProps {
   trendValue?: string;
 }
 
-const itemVariants = {
-  hidden: { opacity: 0, scale: 0.95, y: 20 },
-  show: {
-    opacity: 1,
-    scale: 1,
-    y: 0,
-    transition: {
-      type: "spring" as const,
-      stiffness: 300,
-      damping: 24
-    }
-  }
-};
-
 export function KPICard({
   title,
   value,
@@ -34,7 +18,7 @@ export function KPICard({
   mainIcon: MainIcon,
   gradient,
   trend,
-  trendValue
+  trendValue,
 }: KPICardProps) {
   const getTrendIcon = () => {
     switch (trend) {
@@ -50,53 +34,40 @@ export function KPICard({
   const TrendIcon = getTrendIcon();
 
   return (
-    <motion.div
-      variants={itemVariants}
-      whileHover={{ scale: 1.02 }}
-      transition={{ type: "spring", stiffness: 400, damping: 25 }}
-      className={`kpi-card ${gradient}`}
+    <div
+      className={`relative rounded-2xl p-7 overflow-hidden shadow-md hover:shadow-xl cursor-pointer transition-all duration-200 hover:scale-[1.02] ${gradient}`}
     >
-      <motion.div
-        className="kpi-card-bg-icon"
-        initial={{ rotate: 0 }}
-        whileHover={{ rotate: 5, scale: 1.1 }}
-        transition={{ type: "spring", stiffness: 300, damping: 20 }}
-      >
+      <div className="absolute -right-3 -bottom-3 opacity-15 pointer-events-none">
         <MainIcon size={100} className="text-white" />
-      </motion.div>
+      </div>
 
-      <div className="kpi-card-content">
-        <motion.div
-          className="kpi-card-icon-wrapper"
-          whileHover={{ scale: 1.15, rotate: 5 }}
-          transition={{ type: "spring", stiffness: 400, damping: 15 }}
-        >
+      <div className="relative z-10 flex items-start gap-4">
+        <div className="flex items-center justify-center p-3 rounded-xl backdrop-blur-sm bg-white/20">
           <MainIcon size={32} className="text-white opacity-90" />
-        </motion.div>
+        </div>
 
-        <div className="kpi-card-stats">
-          <motion.h3
-            className="kpi-card-value"
-            initial={{ scale: 1 }}
-            whileHover={{ scale: 1.05 }}
-            transition={{ type: "spring", stiffness: 400, damping: 20 }}
-          >
+        <div className="flex-1 flex flex-col gap-1">
+          <h3 className="text-4xl font-bold text-white leading-none tracking-tight">
             {value}
-          </motion.h3>
-          <div className="kpi-card-info">
-            <span className="kpi-card-title">{title}</span>
+          </h3>
+          <div className="flex flex-col gap-1">
+            <span className="text-sm font-medium text-white opacity-95 leading-tight">
+              {title}
+            </span>
             {(trend || trendValue) && (
-              <div className="kpi-card-trend">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-white opacity-85">
                 {trend && <TrendIcon size={16} />}
                 <span>{subtext}</span>
               </div>
             )}
             {!trend && !trendValue && (
-              <span className="kpi-card-subtext">{subtext}</span>
+              <span className="text-xs font-medium text-white opacity-75">
+                {subtext}
+              </span>
             )}
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

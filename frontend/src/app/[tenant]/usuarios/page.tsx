@@ -1,411 +1,222 @@
 'use client';
-import { useEffect, useState, useMemo } from 'react';
+import { useState } from 'react';
 import { HeroHeader } from '@/app/components/ui/HeroHeader';
-import { DashboardLayout } from '@/app/components/layouts/DashboardLayout';
-import { UserKPICard } from '@/app/components/UserKPICard';
-import { UserSearchBar } from '@/app/components/UserSearchBar';
-import { UserTable } from '@/app/components/UserTable';
-import { UserDetailModal } from '@/app/components/modals/UserDetailModal';
-import { UserEditModal } from '@/app/components/modals/UserEditModal';
-import { UserDeleteModal } from '@/app/components/modals/UserDeleteModal';
-import { UserCreateModal } from '@/app/components/modals/UserCreateModal';
-import { CarnetGeneratorModal } from '@/app/components/modals/CarnetGeneratorModal';
-import { ToastContainer } from '@/app/components/ui/Toast';
-import { useToast } from '@/app/hooks/useToast';
-import { Users, GraduationCap, UserCircle, Shield } from 'lucide-react';
-import { usersService, Entity, EntityType, Student, Teacher, Parent, User } from '@/lib/api/users';
-import { motion } from 'framer-motion';
+import { AppLayout } from '@/app/components/layouts/AppLayout';
+import { UserTable } from '@/app/features/users/components/UserTable';
+import { UserKPICard, UserSearchBar, UserFilters } from '@/app/features/users/components/shared';
+import { UserDetailModal, UserEditModal, UserCreateModal, UserDeleteModal, CarnetGeneratorModal } from '@/app/features/users/components/modals';
+import { ToastContainer } from '@/app/components/ui/base/Toast';
+import { Users, GraduationCap, UserCircle, Shield, UsersRound, BookUser, ShieldCheck, UserCog } from 'lucide-react';
+import { EntityType } from '@/lib/api/users';
+import { useUsers, useUserModals, useUserSearch } from '@/app/features/users/hooks';
+import { useToasts } from '@/app/hooks';
 
-const ITEMS_PER_PAGE = 10;
+const ENTITY_CONFIG = {
+  student: {
+    title: 'Estudiantes',
+    label: 'estudiante',
+    labelCapitalized: 'Estudiante',
+    icon: Users,
+    bgIcon: UsersRound,
+    colorClass: 'text-primary',
+    bgLight: 'bg-primary/30',
+    borderColor: 'border-primary/30',
+  },
+  teacher: {
+    title: 'Docentes',
+    label: 'docente',
+    labelCapitalized: 'Docente',
+    icon: GraduationCap,
+    bgIcon: BookUser,
+    colorClass: 'text-success',
+    bgLight: 'bg-success/30',
+    borderColor: 'border-success/30',
+  },
+  parent: {
+    title: 'Apoderados',
+    label: 'apoderado',
+    labelCapitalized: 'Apoderado',
+    icon: UserCircle,
+    bgIcon: UserCog,
+    colorClass: 'text-secondary',
+    bgLight: 'bg-secondary/30',
+    borderColor: 'border-secondary/30',
+  },
+  user: {
+    title: 'Administrativos',
+    label: 'usuario',
+    labelCapitalized: 'Usuario',
+    icon: Shield,
+    bgIcon: ShieldCheck,
+    colorClass: 'text-warning',
+    bgLight: 'bg-warning/30',
+    borderColor: 'border-warning/30',
+  },
+} as const;
 
-const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-        opacity: 1,
-        transition: {
-            staggerChildren: 0.05
-        }
-    }
-};
+const ENTITY_TYPES: EntityType[] = ['student', 'teacher', 'parent', 'user'];
 
 export default function UsuariosPage() {
-    const { toasts, success, error: showError, removeToast } = useToast();
+  const [activeType, setActiveType] = useState<EntityType>('student');
 
-    const [activeType, setActiveType] = useState<EntityType>('student');
-    const [searchQuery, setSearchQuery] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
+  const { entities, counts, loading, error, fetchAllData, deleteEntity } = useUsers();
+  const { selectedEntity, modals, open, close } = useUserModals();
+  const {
+    searchQuery,
+    setSearchQuery,
+    filters,
+    setFilters,
+    currentPage,
+    setCurrentPage,
+    paginatedEntities,
+    totalPages,
+    totalFiltered,
+  } = useUserSearch(entities[activeType], activeType);
+  const { toasts, success, error: showError, removeToast } = useToasts();
 
-    const [students, setStudents] = useState<Student[]>([]);
-    const [teachers, setTeachers] = useState<Teacher[]>([]);
-    const [parents, setParents] = useState<Parent[]>([]);
-    const [users, setUsers] = useState<User[]>([]);
+  const config = ENTITY_CONFIG[activeType];
 
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+  const handleDeleteConfirm = async () => {
+    if (!selectedEntity) return;
 
-    const [selectedEntity, setSelectedEntity] = useState<Entity | null>(null);
-    const [detailModalOpen, setDetailModalOpen] = useState(false);
-    const [editModalOpen, setEditModalOpen] = useState(false);
-    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [createModalOpen, setCreateModalOpen] = useState(false);
-    const [carnetModalOpen, setCarnetModalOpen] = useState(false);
+    try {
+      await deleteEntity(selectedEntity.id, activeType);
+      success('Eliminado exitosamente', `El ${config.label} ${selectedEntity.full_name} ha sido eliminado del sistema.`);
+      close.delete();
+    } catch (err: any) {
+      showError('Error al eliminar', err.response?.data?.message || 'No se pudo eliminar el registro.');
+    }
+  };
 
+  const handleEditSuccess = async () => {
+    await fetchAllData();
+    success(`${config.labelCapitalized} actualizado`, 'Los cambios se han guardado correctamente.');
+  };
 
-    const fetchAllData = async () => {
-        try {
-            setLoading(true);
-            const [studentsData, teachersData, parentsData, usersData] = await Promise.all([
-                usersService.getStudents(),
-                usersService.getTeachers(),
-                usersService.getParents(),
-                usersService.getUsers()
-            ]);
+  const handleCreateSuccess = async () => {
+    await fetchAllData();
+    success(`${config.labelCapitalized} creado`, 'El nuevo registro se ha guardado exitosamente.');
+  };
 
-            setStudents(studentsData);
-            setTeachers(teachersData);
-            setParents(parentsData);
-            setUsers(usersData);
-            setError(null);
-        } catch (err) {
-            setError('No se pudieron cargar los datos');
-        } finally {
-            setLoading(false);
-        }
-    };
+  return (
+    <AppLayout>
+      <HeroHeader
+        title="Usuarios"
+        subtitle="Gestiona estudiantes, docentes, apoderados y personal administrativo."
+        icon={Users}
+        breadcrumbs={[{ label: 'Usuarios' }]}
+      />
 
-    useEffect(() => {
-        fetchAllData();
-    }, []);
+      {error && (
+        <div className="rounded-xl p-4 mb-4 bg-danger/10 border border-danger/20">
+          <p className="text-sm font-medium text-danger text-center">{error}</p>
+        </div>
+      )}
 
-    const filteredEntities = useMemo(() => {
-        let entities: Entity[] = [];
-
-        switch (activeType) {
-            case 'student':
-                entities = students;
-                break;
-            case 'teacher':
-                entities = teachers;
-                break;
-            case 'parent':
-                entities = parents;
-                break;
-            case 'user':
-                entities = users;
-                break;
-        }
-
-        if (!searchQuery.trim()) return entities;
-
-        const query = searchQuery.toLowerCase().trim();
-
-        return entities.filter((entity) => {
-            const fullName = entity.full_name.toLowerCase();
-            const identifier = activeType === 'student'
-                ? (entity as Student).student_code
-                : activeType === 'teacher' || activeType === 'user'
-                    ? (entity as Teacher | User).dni
-                    : (entity as Parent).document_number;
-
-            if (fullName.includes(query) || identifier.toLowerCase().includes(query)) {
-                return true;
-            }
-
-            if (activeType === 'student') {
-                const student = entity as Student;
-                if (student.classroom) {
-                    const level = student.classroom.level.toLowerCase();
-                    const grade = student.classroom.grade.toString();
-                    const section = student.classroom.section.toLowerCase();
-                    const fullClassroom = student.classroom.full_name.toLowerCase();
-
-                    if (level.includes(query)) {
-                        return true;
-                    }
-
-                    const gradeSection = `${grade}${section}`;
-                    const gradeOrdinalSection = `${grade}°${section}`;
-
-                    if (query === gradeSection || query === gradeOrdinalSection) {
-                        return true;
-                    }
-
-                    if (fullClassroom.includes(query)) {
-                        return true;
-                    }
-                }
-            }
-
-            if (activeType === 'teacher') {
-                const teacher = entity as Teacher;
-                const teacherLevel = teacher.level?.toLowerCase() || '';
-
-                if (teacherLevel.includes(query)) {
-                    return true;
-                }
-
-                if (teacher.classrooms && teacher.classrooms.length > 0) {
-                    return teacher.classrooms.some((classroom) => {
-                        const level = classroom.level.toLowerCase();
-                        const grade = classroom.grade.toString();
-                        const section = classroom.section.toLowerCase();
-                        const fullClassroom = classroom.full_name.toLowerCase();
-
-                        if (level.includes(query)) {
-                            return true;
-                        }
-
-                        const gradeSection = `${grade}${section}`;
-                        const gradeOrdinalSection = `${grade}°${section}`;
-
-                        if (query === gradeSection || query === gradeOrdinalSection) {
-                            return true;
-                        }
-
-                        if (fullClassroom.includes(query)) {
-                            return true;
-                        }
-
-                        return false;
-                    });
-                }
-            }
-
-            return false;
-        });
-    }, [activeType, students, teachers, parents, users, searchQuery]);
-
-    const paginatedEntities = useMemo(() => {
-        const start = (currentPage - 1) * ITEMS_PER_PAGE;
-        const end = start + ITEMS_PER_PAGE;
-        return filteredEntities.slice(start, end);
-    }, [filteredEntities, currentPage]);
-
-    const totalPages = Math.ceil(filteredEntities.length / ITEMS_PER_PAGE);
-
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [activeType, searchQuery]);
-
-    const kpiData = [
-        {
-            title: 'Estudiantes',
-            count: loading ? '—' : students.length,
-            icon: Users,
-            gradient: 'bg-gradient-to-br from-blue-500 to-blue-700',
-            type: 'student' as EntityType
-        },
-        {
-            title: 'Docentes',
-            count: loading ? '—' : teachers.length,
-            icon: GraduationCap,
-            gradient: 'bg-gradient-to-br from-green-500 to-green-700',
-            type: 'teacher' as EntityType
-        },
-        {
-            title: 'Apoderados',
-            count: loading ? '—' : parents.length,
-            icon: UserCircle,
-            gradient: 'bg-gradient-to-br from-purple-500 to-purple-700',
-            type: 'parent' as EntityType
-        },
-        {
-            title: 'Administrativos',
-            count: loading ? '—' : users.length,
-            icon: Shield,
-            gradient: 'bg-gradient-to-br from-amber-500 to-amber-700',
-            type: 'user' as EntityType
-        }
-    ];
-
-    const totalEntities = students.length + teachers.length + parents.length + users.length;
-
-    const handleView = (entity: Entity) => {
-        setSelectedEntity(entity);
-        setDetailModalOpen(true);
-    };
-
-    const handleEdit = (entity: Entity) => {
-        setSelectedEntity(entity);
-        setEditModalOpen(true);
-    };
-
-    const handleDelete = (entity: Entity) => {
-        setSelectedEntity(entity);
-        setDeleteModalOpen(true);
-    };
-
-    const handleDeleteConfirm = async () => {
-        if (!selectedEntity) return;
-
-        try {
-            const entityName = selectedEntity.full_name;
-            const entityTypeLabel = {
-                student: 'estudiante',
-                teacher: 'docente',
-                parent: 'apoderado',
-                user: 'usuario'
-            }[activeType];
-
-            if (activeType === 'student') {
-                await usersService.deleteStudent(selectedEntity.id);
-            } else if (activeType === 'teacher') {
-                await usersService.deleteTeacher(selectedEntity.id);
-            } else if (activeType === 'parent') {
-                await usersService.deleteParent(selectedEntity.id);
-            } else if (activeType === 'user') {
-                await usersService.deleteUser(selectedEntity.id);
-            }
-
-            await fetchAllData();
-            success(
-                'Eliminado exitosamente',
-                `El ${entityTypeLabel} ${entityName} ha sido eliminado del sistema.`
-            );
-        } catch (err: any) {
-            const message = err.response?.data?.message || 'No se pudo eliminar el registro.';
-            showError('Error al eliminar', message);
-            throw err;
-        }
-    };
-
-    const handleEditSuccess = async () => {
-        const entityTypeLabel = {
-            student: 'Estudiante',
-            teacher: 'Docente',
-            parent: 'Apoderado',
-            user: 'Usuario'
-        }[activeType];
-
-        await fetchAllData();
-        success(
-            `${entityTypeLabel} actualizado`,
-            'Los cambios se han guardado correctamente.'
-        );
-    };
-
-    const handleCreateSuccess = async () => {
-        const entityTypeLabel = {
-            student: 'Estudiante',
-            teacher: 'Docente',
-            parent: 'Apoderado',
-            user: 'Usuario'
-        }[activeType];
-
-        await fetchAllData();
-        success(
-            `${entityTypeLabel} creado`,
-            'El nuevo registro se ha guardado exitosamente.'
-        );
-    };
-
-    const handleAdd = () => {
-        setCreateModalOpen(true);
-    };
-
-    return (
-        <DashboardLayout>
-            <HeroHeader
-                title="Usuarios"
-                subtitle="Gestiona estudiantes, docentes, apoderados y personal administrativo."
-                icon={Users}
-                breadcrumbs={[
-                    { label: 'Usuarios' }
-                ]}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        {ENTITY_TYPES.map((type) => {
+          const cfg = ENTITY_CONFIG[type];
+          return (
+            <UserKPICard
+              key={type}
+              title={cfg.title}
+              count={counts[type]}
+              icon={cfg.icon}
+              bgIcon={cfg.bgIcon}
+              colorClass={cfg.colorClass}
+              bgLight={cfg.bgLight}
+              borderColor={cfg.borderColor}
+              active={activeType === type}
+              loading={loading}
+              onClick={() => setActiveType(type)}
             />
+          );
+        })}
+      </div>
 
-            {error && (
-                <div className="card mb-4">
-                    <div className="text-center py-4">
-                        <p style={{ color: 'var(--color-danger)' }} className="text-sm font-medium">{error}</p>
-                    </div>
-                </div>
-            )}
+      <UserSearchBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        onAddClick={open.create}
+        onCarnetClick={open.carnet}
+      />
 
-            <motion.div
-                variants={containerVariants}
-                initial="hidden"
-                animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6"
-            >
-                {kpiData.map((kpi) => (
-                    <UserKPICard
-                        key={kpi.type}
-                        title={kpi.title}
-                        count={kpi.count}
-                        icon={kpi.icon}
-                        gradient={kpi.gradient}
-                        active={activeType === kpi.type}
-                        onClick={() => setActiveType(kpi.type)}
-                    />
-                ))}
-            </motion.div>
+      <div className="lg:hidden mb-4">
+        <UserFilters
+          entityType={activeType}
+          entities={entities[activeType]}
+          filters={filters}
+          onFiltersChange={setFilters}
+        />
+      </div>
 
-            <UserSearchBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-                onAddClick={handleAdd}
-                onCarnetClick={() => setCarnetModalOpen(true)}
-                entityType={activeType}
-            />
+      {!loading && (
+        <div className="mb-4 text-sm text-text-secondary">
+          Mostrando {paginatedEntities.length} de {totalFiltered} {config.label}s
+          {totalFiltered !== counts[activeType] && ` (filtrado de ${counts[activeType]} total)`}
+        </div>
+      )}
 
-            {loading ? (
-                <div className="card">
-                    <div className="text-center py-16">
-                        <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4" style={{ borderColor: 'var(--color-primary)' }}></div>
-                        <p style={{ color: 'var(--color-text-secondary)' }}>Cargando datos...</p>
-                    </div>
-                </div>
-            ) : (
-                <UserTable
-                    entities={paginatedEntities}
-                    entityType={activeType}
-                    onView={handleView}
-                    onEdit={handleEdit}
-                    onDelete={handleDelete}
-                    currentPage={currentPage}
-                    totalPages={totalPages}
-                    onPageChange={setCurrentPage}
-                />
-            )}
+      <div className="flex gap-6">
+        <div className="hidden lg:block">
+          <UserFilters
+            entityType={activeType}
+            entities={entities[activeType]}
+            filters={filters}
+            onFiltersChange={setFilters}
+          />
+        </div>
 
-            <UserDetailModal
-                isOpen={detailModalOpen}
-                onClose={() => setDetailModalOpen(false)}
-                entity={selectedEntity}
-                entityType={activeType}
-            />
+        <UserTable
+          entities={paginatedEntities}
+          entityType={activeType}
+          onView={open.detail}
+          onEdit={open.edit}
+          onDelete={open.delete}
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+          loading={loading}
+        />
+      </div>
 
-            <UserEditModal
-                isOpen={editModalOpen}
-                onClose={() => setEditModalOpen(false)}
-                onSuccess={handleEditSuccess}
-                entity={selectedEntity}
-                entityType={activeType}
-            />
+      <UserDetailModal
+        isOpen={modals.detail}
+        onClose={close.detail}
+        entity={selectedEntity}
+        entityType={activeType}
+      />
 
-            <UserDeleteModal
-                isOpen={deleteModalOpen}
-                onClose={() => setDeleteModalOpen(false)}
-                onConfirm={handleDeleteConfirm}
-                entity={selectedEntity}
-                entityType={activeType}
-            />
+      <UserEditModal
+        isOpen={modals.edit}
+        onClose={close.edit}
+        onSuccess={handleEditSuccess}
+        entity={selectedEntity}
+        entityType={activeType}
+      />
 
-            <UserCreateModal
-                isOpen={createModalOpen}
-                onClose={() => setCreateModalOpen(false)}
-                onSuccess={handleCreateSuccess}
-                entityType={activeType}
-            />
+      <UserDeleteModal
+        isOpen={modals.delete}
+        onClose={close.delete}
+        onConfirm={handleDeleteConfirm}
+        entity={selectedEntity}
+        entityType={activeType}
+      />
 
-            <CarnetGeneratorModal
-                isOpen={carnetModalOpen}
-                onClose={() => setCarnetModalOpen(false)}
-                onSuccess={(message) => success('Carnets', message)}
-            />
+      <UserCreateModal
+        isOpen={modals.create}
+        onClose={close.create}
+        onSuccess={handleCreateSuccess}
+        entityType={activeType}
+      />
 
-            <ToastContainer toasts={toasts} onClose={removeToast} />
-        </DashboardLayout>
-    );
+      <CarnetGeneratorModal
+        isOpen={modals.carnet}
+        onClose={close.carnet}
+        onSuccess={(message) => success('Carnets', message)}
+      />
+
+      <ToastContainer toasts={toasts} onClose={removeToast} />
+    </AppLayout>
+  );
 }

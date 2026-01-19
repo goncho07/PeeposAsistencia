@@ -1,12 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import { Camera, Scan, UserSearch, ArrowLeft, LogIn, LogOut } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { DashboardLayout } from '@/app/components/layouts/DashboardLayout';
-import { WebcamScanner } from '@/app/components/scanner/WebcamScanner';
-import { USBScanner } from '@/app/components/scanner/USBScanner';
-import { ManualScanner } from '@/app/components/scanner/ManualScanner';
+import { Camera, Scan, UserSearch, ArrowLeft, LogIn, LogOut, ScanLine } from 'lucide-react';
+import { AppLayout } from '@/app/components/layouts/AppLayout';
+import { HeroHeader } from '@/app/components/ui/HeroHeader';
+import { ScannerModeCard } from '@/app/features/scanner/components/shared/ScannerModeCard';
+import { ScanTypeCard } from '@/app/features/scanner/components/shared/ScanTypeCard';
+import { ManualScanner, WebcamScanner, USBScanner } from '@/app/features/scanner/components';
 
 type ScannerMode = 'webcam' | 'usb' | 'manual' | null;
 type ScanType = 'entry' | 'exit' | null;
@@ -14,11 +14,11 @@ type ScanType = 'entry' | 'exit' | null;
 const getModeLabel = (mode: ScannerMode): string => {
   switch (mode) {
     case 'webcam':
-      return 'CÁMARA WEBCAM';
+      return 'Cámara Webcam';
     case 'usb':
-      return 'PISTOLA USB';
+      return 'Pistola USB';
     case 'manual':
-      return 'BÚSQUEDA MANUAL';
+      return 'Búsqueda Manual';
     default:
       return '';
   }
@@ -45,202 +45,104 @@ export default function ScannerPage() {
     setScanType(type);
   };
 
-  const isFullscreen = selectedMode && scanType;
+  const getBreadcrumbs = () => {
+    const crumbs = [{ label: 'Escáner' }];
+    if (selectedMode) {
+      crumbs.push({ label: getModeLabel(selectedMode) });
+    }
+    if (scanType) {
+      crumbs.push({ label: scanType === 'entry' ? 'Entrada' : 'Salida' });
+    }
+    return crumbs;
+  };
 
   return (
-    <DashboardLayout>
-      <div className={isFullscreen ? "scanner-fullscreen" : ""}>
-      {!selectedMode ? (
-        <>
-          <div className="text-center mb-10">
-            <h1 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-              Módulo de Escaneo
-            </h1>
-            <p className="text-base md:text-lg" style={{ color: 'var(--color-text-secondary)' }}>
-              Seleccione el método de entrada de datos
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 max-w-6xl mx-auto">
-            <motion.button
-              whileHover={{ y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleModeSelect('webcam')}
-              className="card p-6 md:p-8 text-center cursor-pointer transition-all"
-            >
-              <motion.div
-                className="flex justify-center mb-4"
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center"
-                     style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }}>
-                  <Camera size={48} className="md:w-16 md:h-16" style={{ color: 'var(--color-primary)' }} />
-                </div>
-              </motion.div>
-              <h2 className="text-xl md:text-2xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Cámara Webcam
-              </h2>
-              <p className="text-sm md:text-base" style={{ color: 'var(--color-text-secondary)' }}>
-                Escaneo visual inteligente
-              </p>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleModeSelect('usb')}
-              className="card p-6 md:p-8 text-center cursor-pointer transition-all"
-            >
-              <motion.div
-                className="flex justify-center mb-4"
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center"
-                     style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }}>
-                  <Scan size={48} className="md:w-16 md:h-16" style={{ color: 'var(--color-primary)' }} />
-                </div>
-              </motion.div>
-              <h2 className="text-xl md:text-2xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Pistola USB
-              </h2>
-              <p className="text-sm md:text-base" style={{ color: 'var(--color-text-secondary)' }}>
-                Lector HID físico (Plug & Play)
-              </p>
-            </motion.button>
-
-            <motion.button
-              whileHover={{ y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleModeSelect('manual')}
-              className="card p-6 md:p-8 text-center cursor-pointer transition-all"
-            >
-              <motion.div
-                className="flex justify-center mb-4"
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center"
-                     style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 10%, transparent)' }}>
-                  <UserSearch size={48} className="md:w-16 md:h-16" style={{ color: 'var(--color-primary)' }} />
-                </div>
-              </motion.div>
-              <h2 className="text-xl md:text-2xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>
-                Búsqueda Manual
-              </h2>
-              <p className="text-sm md:text-base" style={{ color: 'var(--color-text-secondary)' }}>
-                Buscar por nombre, DNI o código
-              </p>
-            </motion.button>
-          </div>
-        </>
-      ) : !scanType ? (
-        <>
-          <motion.button
-            onClick={handleBack}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="rounded-full w-12 h-12 flex items-center justify-center shadow-md mb-6 transition-all"
-            style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-          >
-            <ArrowLeft
-              size={24}
-              style={{ color: 'var(--color-text-primary)' }}
+    <AppLayout>
+      <div className="flex flex-col flex-1">
+        {!selectedMode ? (
+          <>
+            <HeroHeader
+              title="Escáner de Asistencia"
+              subtitle="Registra la entrada y salida del personal mediante diferentes métodos de escaneo."
+              icon={ScanLine}
+              breadcrumbs={getBreadcrumbs()}
             />
-          </motion.button>
 
-          <div className="text-center mb-8">
-            <div className="inline-block px-4 py-2 rounded-lg mb-4"
-                 style={{ backgroundColor: 'color-mix(in srgb, var(--color-primary) 15%, transparent)' }}>
-              <p className="text-sm md:text-base font-bold" style={{ color: 'var(--color-primary)' }}>
-                {getModeLabel(selectedMode)}
-              </p>
+            <div className="flex-1 flex items-center justify-center py-8">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 max-w-5xl w-full">
+                <ScannerModeCard
+                  icon={Camera}
+                  title="Cámara Webcam"
+                  description="Escaneo visual con cámara integrada"
+                  onClick={() => handleModeSelect('webcam')}
+                />
+                <ScannerModeCard
+                  icon={Scan}
+                  title="Pistola USB"
+                  description="Lector de códigos de barras HID"
+                  onClick={() => handleModeSelect('usb')}
+                />
+                <ScannerModeCard
+                  icon={UserSearch}
+                  title="Búsqueda Manual"
+                  description="Buscar por nombre, DNI o código"
+                  onClick={() => handleModeSelect('manual')}
+                />
+              </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-bold mb-3" style={{ color: 'var(--color-text-primary)' }}>
-              Tipo de Registro
-            </h1>
-            <p className="text-base md:text-lg" style={{ color: 'var(--color-text-secondary)' }}>
-              Seleccione si es entrada o salida
-            </p>
-          </div>
+          </>
+        ) : !scanType ? (
+          <>
+            <HeroHeader
+              title="Tipo de Registro"
+              subtitle={`Selecciona si es entrada o salida usando ${getModeLabel(selectedMode)}.`}
+              icon={ScanLine}
+              breadcrumbs={getBreadcrumbs()}
+            />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-4xl mx-auto">
-            <motion.button
-              whileHover={{ y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleScanTypeSelect('entry')}
-              className="card p-8 md:p-12 text-center cursor-pointer transition-all border-2"
-              style={{
-                borderColor: 'transparent'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgb(34, 197, 94)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'transparent';
-              }}
-            >
-              <motion.div
-                className="flex justify-center mb-4"
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.2 }}
+            <div className="mb-6">
+              <button
+                onClick={handleBack}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all bg-surface dark:bg-surface-dark border border-border dark:border-border-dark hover:bg-background dark:hover:bg-background-dark text-text-primary dark:text-text-primary-dark"
               >
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center"
-                     style={{ backgroundColor: 'rgba(34, 197, 94, 0.1)' }}>
-                  <LogIn size={48} className="md:w-16 md:h-16 text-green-600" />
-                </div>
-              </motion.div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-green-600">
-                ENTRADA
-              </h2>
-              <p className="text-sm md:text-base" style={{ color: 'var(--color-text-secondary)' }}>
-                Registrar ingreso al plantel
-              </p>
-            </motion.button>
+                <ArrowLeft size={18} />
+                Volver
+              </button>
+            </div>
 
-            <motion.button
-              whileHover={{ y: -4 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={() => handleScanTypeSelect('exit')}
-              className="card p-8 md:p-12 text-center cursor-pointer transition-all border-2"
-              style={{
-                borderColor: 'transparent'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.borderColor = 'rgb(249, 115, 22)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.borderColor = 'transparent';
-              }}
-            >
-              <motion.div
-                className="flex justify-center mb-4"
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.2 }}
-              >
-                <div className="w-24 h-24 md:w-32 md:h-32 rounded-full flex items-center justify-center"
-                     style={{ backgroundColor: 'rgba(249, 115, 22, 0.1)' }}>
-                  <LogOut size={48} className="md:w-16 md:h-16 text-orange-600" />
-                </div>
-              </motion.div>
-              <h2 className="text-2xl md:text-3xl font-bold mb-2 text-orange-600">
-                SALIDA
-              </h2>
-              <p className="text-sm md:text-base" style={{ color: 'var(--color-text-secondary)' }}>
-                Registrar salida del plantel
-              </p>
-            </motion.button>
+            <div className="flex-1 flex items-center justify-center py-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 max-w-3xl w-full">
+                <ScanTypeCard
+                  icon={LogIn}
+                  title="ENTRADA"
+                  description="Registrar ingreso al plantel"
+                  color="success"
+                  onClick={() => handleScanTypeSelect('entry')}
+                />
+                <ScanTypeCard
+                  icon={LogOut}
+                  title="SALIDA"
+                  description="Registrar salida del plantel"
+                  color="warning"
+                  onClick={() => handleScanTypeSelect('exit')}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex-1 flex flex-col min-h-0">
+            {selectedMode === 'webcam' && (
+              <WebcamScanner key={`webcam-${scanType}`} scanType={scanType} onBack={handleBack} />
+            )}
+            {selectedMode === 'usb' && (
+              <USBScanner key={`usb-${scanType}`} scanType={scanType} onBack={handleBack} />
+            )}
+            {selectedMode === 'manual' && (
+              <ManualScanner key={`manual-${scanType}`} scanType={scanType} onBack={handleBack} />
+            )}
           </div>
-        </>
-      ) : (
-        <>
-          {selectedMode === 'webcam' && <WebcamScanner key={`webcam-${scanType}`} scanType={scanType} onBack={handleBack} />}
-          {selectedMode === 'usb' && <USBScanner key={`usb-${scanType}`} scanType={scanType} onBack={handleBack} />}
-          {selectedMode === 'manual' && <ManualScanner key={`manual-${scanType}`} scanType={scanType} onBack={handleBack} />}
-        </>
-      )}
+        )}
       </div>
-    </DashboardLayout>
+    </AppLayout>
   );
 }

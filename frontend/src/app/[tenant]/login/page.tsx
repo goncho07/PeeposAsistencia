@@ -1,15 +1,15 @@
 'use client';
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { useTenant } from '@/app/contexts/TenantProvider';
+import { useTenant } from '@/app/contexts/TenantContext';
+import { useAuth } from '@/app/contexts/AuthContext';
 import { AuthLayout } from '@/app/components/layouts/AuthLayout';
-import { authService } from '@/lib/api/auth';
+import { Input, Button } from '@/app/components/ui/base';
 import { Mail, Lock, LogIn, Eye, EyeOff } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LoginPage() {
-  const router = useRouter();
   const { tenant } = useTenant();
+  const { login } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -24,24 +24,14 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const data = await authService.login({
+      await login({
         email,
         password,
         remember_me: rememberMe,
         tenant_slug: tenant?.slug,
       });
-
-      localStorage.setItem('token', data.access_token);
-      localStorage.setItem('user', JSON.stringify(data.user));
-
-      const maxAge = rememberMe ? 7776000 : 2592000;
-      document.cookie = `token=${data.access_token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-      document.cookie = `user=${encodeURIComponent(JSON.stringify(data.user))}; path=/; max-age=${maxAge}; SameSite=Lax`;
-
-      router.push(`/${tenant?.slug}/dashboard`);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al iniciar sesión. Verifica tus credenciales.');
-    } finally {
       setLoading(false);
     }
   };
@@ -49,102 +39,81 @@ export default function LoginPage() {
   return (
     <AuthLayout subtitle="Iniciar Sesión para ingresar al panel">
       {error && (
-        <div className="alert alert-error mb-6">
+        <div className="px-4 py-3 rounded-lg text-sm font-medium border mb-6 bg-danger/10 text-danger border-danger/20">
           {error}
         </div>
       )}
 
       <form onSubmit={handleLogin} className="space-y-5">
-        <div className="form-group">
-          <label htmlFor="email" className="label">
-            Correo Electrónico
-          </label>
-          <div className="input-with-icon">
-            <Mail className="input-icon" size={20} />
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="input"
-              placeholder="correo@ejemplo.com"
-              autoComplete="email"
-            />
-          </div>
-        </div>
+        <Input
+          label="Correo Electrónico"
+          type="email"
+          value={email}
+          onChange={setEmail}
+          placeholder="correo@ejemplo.com"
+          icon={<Mail size={20} />}
+          required
+        />
 
-        <div className="form-group">
+        <div>
           <div className="flex items-center justify-between mb-2">
-            <label htmlFor="password" className="label mb-0">
+            <label className="block text-sm font-medium text-text-primary">
               Contraseña
+              <span className="text-danger ml-1">*</span>
             </label>
             <Link
               href={`/${tenant?.slug}/recover-password`}
-              className="auth-link"
+              className="text-sm font-medium hover:underline transition-colors text-primary"
             >
               ¿Olvidaste tu contraseña?
             </Link>
           </div>
-          <div className="input-with-icon relative">
-            <Lock className="input-icon" size={20} />
-            <input
-              id="password"
-              type={showPassword ? "text" : "password"}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="input pr-12"
-              placeholder="••••••••"
-              autoComplete="current-password"
-            />
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="input-action"
-              tabIndex={-1}
-            >
-              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
-            </button>
-          </div>
+          <Input
+            type={showPassword ? 'text' : 'password'}
+            value={password}
+            onChange={setPassword}
+            placeholder="••••••••"
+            icon={<Lock size={20} />}
+            actionIcon={showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            onActionClick={() => setShowPassword(!showPassword)}
+            required
+          />
         </div>
 
-        <div className="form-checkbox">
+        <div className="flex items-center">
           <input
             id="remember"
             type="checkbox"
             checked={rememberMe}
             onChange={(e) => setRememberMe(e.target.checked)}
-            className="checkbox"
+            className="w-4 h-4 rounded focus:ring-2 cursor-pointer accent-primary border-border"
           />
-          <label htmlFor="remember" className="checkbox-label">
+          <label
+            htmlFor="remember"
+            className="ml-2 text-sm cursor-pointer select-none text-text-primary"
+          >
             Mantener sesión iniciada
           </label>
         </div>
 
-        <button
+        <Button
           type="submit"
-          disabled={loading}
-          className="btn-auth"
+          variant="primary"
+          loading={loading}
+          icon={<LogIn size={20} />}
+          className="w-full"
         >
-          {loading ? (
-            <>
-              <div className="spinner"></div>
-              <span>Iniciando sesión...</span>
-            </>
-          ) : (
-            <>
-              <LogIn size={20} />
-              <span>Iniciar Sesión</span>
-            </>
-          )}
-        </button>
+          {loading ? 'Iniciando sesión...' : 'Iniciar Sesión'}
+        </Button>
       </form>
 
       <div className="mt-6 text-center">
-        <p className="text-sm" style={{ color: 'var(--color-text-secondary)' }}>
+        <p className="text-sm text-text-secondary">
           ¿Problemas para ingresar?{' '}
-          <a href="mailto:soporte@peepos.com" className="auth-link">
+          <a
+            href="mailto:soporte@peepos.com"
+            className="text-sm font-medium hover:underline transition-colors text-primary"
+          >
             Contactar soporte
           </a>
         </p>

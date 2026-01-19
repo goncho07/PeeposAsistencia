@@ -1,11 +1,11 @@
 import './globals.css'
 import type { Metadata } from 'next'
-import { ThemeScript } from './components/ThemeScript'
 import { ThemeProvider } from './contexts/ThemeContext'
-import { TenantProvider } from './contexts/TenantProvider'
+import { AuthProvider } from './contexts/AuthContext'
+import { TenantProvider } from './contexts/TenantContext'
 
 export const metadata: Metadata = {
-  title: 'Peepos | Asistencia',
+  title: 'InteliCole | Asistencia',
   description: 'Sistema de control de asistencia escolar',
 }
 
@@ -14,18 +14,27 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  const themeScript = `
+    (function() {
+      const theme = localStorage.getItem('theme') ||
+                   (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      document.documentElement.classList.toggle('dark', theme === 'dark');
+    })()
+  `;
+
   return (
     <html lang="es" suppressHydrationWarning>
       <head>
-        <link rel="icon" href="/favicon.ico" />
-        <ThemeScript />
+        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
       <body className="antialiased">
-        <ThemeProvider>
-          <TenantProvider>
-            {children}
-          </TenantProvider>
-        </ThemeProvider>
+        <AuthProvider>
+          <ThemeProvider>
+            <TenantProvider>
+              {children}
+            </TenantProvider>
+          </ThemeProvider>
+        </AuthProvider>
       </body>
     </html>
   )

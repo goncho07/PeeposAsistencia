@@ -1,30 +1,20 @@
-module.exports = {
+import type { Config } from 'tailwindcss'
+
+const config: Config = {
   content: [
     './pages/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
     './app/**/*.{js,ts,jsx,tsx,mdx}',
+    './src/**/*.{js,ts,jsx,tsx,mdx}',
   ],
+  darkMode: 'class',
   theme: {
     extend: {
-      fontFamily: {
-        sans: ['Poppins', 'system-ui', 'sans-serif'],
-      },
-      colors: {
-        primary: {
-          DEFAULT: '#2563eb',
-          dark: '#1d4ed8',
-          light: '#3b82f6',
-        },
-        secondary: {
-          DEFAULT: '#64748b',
-          dark: '#475569',
-          light: '#94a3b8',
-        },
-      },
-      animation: {
-        'spin': 'spin 1s linear infinite',
-      },
+      // Colores y animaciones ahora están en globals.css @theme
+      // para compatibilidad con Tailwind v4
     },
   },
   plugins: [],
 }
+
+export default config

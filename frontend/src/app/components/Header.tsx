@@ -1,31 +1,39 @@
 'use client';
-import { useTenant } from '@/app/contexts/TenantProvider';
+import { Menu } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
-import { MobileMenuButton } from './MobileMenuButton';
+import { UserMenu } from './UserMenu';
+import { useSidebar } from '@/app/contexts/SidebarContext';
 
 export function Header() {
-  const { tenant } = useTenant();
+  const { isMobile, isOpen, toggle } = useSidebar();
 
   return (
-    <header className="app-header">
-      <div className="app-header-content">
-        <div className="app-header-mobile-left">
-          <MobileMenuButton />
-        </div>
+    <>
+      <header className="lg:hidden sticky top-0 z-30 h-14 bg-surface dark:bg-surface-dark border-b border-border dark:border-border-dark">
+        <div className="h-full flex items-center justify-between px-4">
+          <div className="flex items-center">
+            {isMobile && !isOpen && (
+              <button
+                onClick={toggle}
+                className="p-2 rounded-lg transition-colors hover:bg-surface-hover dark:hover:bg-surface-hover-dark text-text-primary dark:text-text-primary-dark"
+                aria-label="Abrir menú"
+              >
+                <Menu className="w-6 h-6" />
+              </button>
+            )}
+          </div>
 
-        <div className="app-header-brand">
-          <div className="app-header-info">
-            {/* <h1 className="app-header-name">{tenant?.name || 'Institución'}</h1>
-            {tenant?.ugel && (
-              <span className="app-header-badge">UGEL {tenant.ugel}</span>
-            )} */}
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <UserMenu />
           </div>
         </div>
+      </header>
 
-        <div className="app-header-actions">
-          <ThemeToggle />
-        </div>
+      <div className="hidden lg:flex fixed top-4 right-6 z-50 items-center gap-2 p-1.5 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm">
+        <ThemeToggle />
+        <UserMenu />
       </div>
-    </header>
+    </>
   );
 }

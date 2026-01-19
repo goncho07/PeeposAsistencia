@@ -54,9 +54,32 @@ export interface ReportData {
     details: PersonDetail[];
 }
 
+export interface BehaviorStatisticsFilters {
+    period: 'daily' | 'monthly' | 'bimester' | 'custom';
+    from?: string;
+    to?: string;
+    bimester?: number;
+    level?: string;
+    grade?: number;
+    section?: string;
+    shift?: string;
+}
+
+export interface BehaviorStatistics {
+    optimal: number;
+    preventive_alert: number;
+    citation_required: number;
+    total_students: number;
+}
+
 class ReportsService {
     async generateReport(filters: ReportFilters): Promise<ReportData> {
         const response = await apiClient.post('/attendance/report', filters);
+        return response.data.data;
+    }
+
+    async getBehaviorStatistics(filters: BehaviorStatisticsFilters): Promise<BehaviorStatistics> {
+        const response = await apiClient.post('/attendance/behavior-statistics', filters);
         return response.data.data;
     }
 }

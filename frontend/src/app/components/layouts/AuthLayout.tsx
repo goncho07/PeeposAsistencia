@@ -1,89 +1,111 @@
 'use client';
-import { useTenant } from '@/app/contexts/TenantProvider';
+import { useTenant } from '@/app/contexts/TenantContext';
 import { useTheme } from '@/app/contexts/ThemeContext';
-import { useTenantMetadata } from '@/app/hooks/useTenantMetadata';
 import { ThemeToggle } from '@/app/components/ThemeToggle';
+import { AlertTriangle } from 'lucide-react';
 import { ReactNode } from 'react';
 
 interface AuthLayoutProps {
-    children: ReactNode;
-    title?: string;
-    subtitle?: string;
+  children: ReactNode;
+  title?: string;
+  subtitle?: string;
 }
 
-export function AuthLayout({ children, title, subtitle = "Iniciar Sesión" }: AuthLayoutProps) {
-    const { tenant, loading, error, getLogoUrl, getBannerUrl, getBackgroundUrl } = useTenant();
-    const { theme } = useTheme();
+export function AuthLayout({
+  children,
+  title,
+  subtitle = 'Iniciar Sesión',
+}: AuthLayoutProps) {
+  const { tenant, loading, error, getLogoUrl, getBannerUrl, getBackgroundUrl } =
+    useTenant();
+  const { theme } = useTheme();
 
-    useTenantMetadata();
+  if (loading) {
+    return null;
+  }
 
-    if (loading) {
-        return null;
-    }
-
-    if (error || !tenant) {
-        return (
-            <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: 'var(--color-background)' }}>
-                <div className="card max-w-md w-full text-center">
-                    <div style={{ color: 'var(--color-danger)' }} className="mb-4">
-                        <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <h2 className="text-xl font-bold mb-2" style={{ color: 'var(--color-text-primary)' }}>Error</h2>
-                    <p style={{ color: 'var(--color-text-secondary)' }}>{error || 'Institución no encontrada'}</p>
-                </div>
-            </div>
-        );
-    }
-
-    const backgroundUrl = getBackgroundUrl();
-    const bannerUrl = getBannerUrl(theme);
-    const logoUrl = getLogoUrl();
-
+  if (error || !tenant) {
     return (
-        <div className="auth-split-container">
-            <div className="fixed top-4 right-4 z-50">
-                <ThemeToggle />
-            </div>
-
-            <div className="auth-split-left">
-                <div
-                    className="auth-split-background"
-                    style={{
-                        backgroundImage: backgroundUrl
-                            ? `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url(${backgroundUrl})`
-                            : `linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))`
-                    }}
-                >
-                </div>
-            </div>
-
-            <div className="auth-split-right">
-                <div className="auth-split-content">
-                    <div className="auth-header">
-                        {bannerUrl ? (
-                            <img src={bannerUrl} alt={tenant.name} className="auth-banner" />
-                        ) : logoUrl ? (
-                            <img src={logoUrl} alt={tenant.name} className="auth-logo" />
-                        ) : null}
-
-                        <h1 className="auth-institution-name">{tenant.name}</h1>
-                        {title && <h2 className="auth-title">{title}</h2>}
-                        {subtitle && <p className="auth-subtitle">{subtitle}</p>}
-                    </div>
-
-                    <div className="auth-form-wrapper">
-                        {children}
-                    </div>
-
-                    <div className="auth-footer">
-                        <p style={{ color: 'var(--color-text-secondary)' }}>
-                            © {new Date().getFullYear()} {tenant.name}
-                        </p>
-                    </div>
-                </div>
-            </div>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
+        <div className="rounded-xl shadow-sm p-6 max-w-md w-full text-center bg-surface border border-border">
+          <div className="mb-4 text-danger">
+            <AlertTriangle className="w-16 h-16 mx-auto" />
+          </div>
+          <h2 className="text-xl font-bold mb-2 text-text-primary">
+            Error
+          </h2>
+          <p className="text-text-secondary">
+            {error || 'Institución no encontrada'}
+          </p>
         </div>
+      </div>
     );
+  }
+
+  const backgroundUrl = getBackgroundUrl();
+  const bannerUrl = getBannerUrl(theme);
+  const logoUrl = getLogoUrl();
+
+  return (
+    <div className="min-h-screen flex">
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+
+      <div className="hidden lg:flex lg:w-2/3 relative overflow-hidden">
+        <div
+          className="w-full h-full bg-cover bg-center relative flex items-center justify-center"
+          style={{
+            backgroundImage: backgroundUrl
+              ? `linear-gradient(rgba(0, 0, 0, 0.3), rgba(0, 0, 0, 0.3)), url(${backgroundUrl})`
+              : 'linear-gradient(135deg, var(--color-primary), var(--color-primary-dark))',
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+          }}
+        ></div>
+      </div>
+
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 bg-color-background">
+        <div className="w-full max-w-md">
+          <div className="text-center mb-8">
+            {bannerUrl ? (
+              <img
+                src={bannerUrl}
+                alt={tenant.name}
+                className="max-h-28 w-auto mx-auto mb-8 object-contain"
+              />
+            ) : logoUrl ? (
+              <img
+                src={logoUrl}
+                alt={tenant.name}
+                className="max-h-28 w-auto mx-auto mb-8 object-contain"
+              />
+            ) : null}
+
+            <h1 className="text-3xl lg:text-3xl font-bold mb-3 text-text-primary">
+              {tenant.name}
+            </h1>
+            {title && (
+              <h2 className="text-xl font-semibold mb-2 text-text-primary">
+                {title}
+              </h2>
+            )}
+            {subtitle && (
+              <p className="text-sm text-text-secondary">
+                {subtitle}
+              </p>
+            )}
+          </div>
+
+          <div className="space-y-6">{children}</div>
+
+          <div className="text-center text-xs mt-8">
+            <p className="text-text-secondary">
+              © {new Date().getFullYear()} {tenant.name}
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
