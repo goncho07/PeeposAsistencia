@@ -68,6 +68,11 @@ class Student extends Model
         return $this->morphMany(Justification::class, 'justifiable');
     }
 
+    public function incidents()
+    {
+        return $this->hasMany(Incident::class);
+    }
+
     public function getFullNameAttribute()
     {
         return "{$this->name} {$this->paternal_surname} {$this->maternal_surname}";

@@ -2,7 +2,6 @@
 
 namespace App\Console\Commands;
 
-use App\Models\CarnetGeneration;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\Storage;
 
@@ -32,47 +31,37 @@ class CleanupOldCarnets extends Command
 
         $this->info("Limpiando archivos de carnets generados antes de {$cutoffDate->toDateTimeString()}...");
 
-        // Find old completed generations
-        $oldGenerations = CarnetGeneration::where('status', 'completed')
-            ->where('completed_at', '<', $cutoffDate)
-            ->get();
-
         $deletedPdfs = 0;
         $deletedHtmls = 0;
-        $deletedRecords = 0;
 
-        foreach ($oldGenerations as $generation) {
-            // Delete PDF file
-            if ($generation->pdf_path && Storage::disk('public')->exists($generation->pdf_path)) {
-                Storage::disk('public')->delete($generation->pdf_path);
-                $deletedPdfs++;
+        // Cleanup old files in carnets directory (both public and default disk)
+        $disks = ['public', config('filesystems.default')];
+        $disks = array_unique($disks);
+
+        foreach ($disks as $disk) {
+            if (!Storage::disk($disk)->exists('carnets')) {
+                continue;
             }
 
-            // Delete the record
-            $generation->delete();
-            $deletedRecords++;
-        }
+            $allCarnetsFiles = Storage::disk($disk)->allFiles('carnets');
 
-        // Also cleanup orphaned HTML files in carnets directory
-        $allCarnetsFiles = Storage::disk('public')->allFiles('carnets');
+            foreach ($allCarnetsFiles as $file) {
+                $lastModified = Storage::disk($disk)->lastModified($file);
 
-        foreach ($allCarnetsFiles as $file) {
-            $lastModified = Storage::disk('public')->lastModified($file);
+                if ($lastModified < $cutoffDate->timestamp) {
+                    Storage::disk($disk)->delete($file);
 
-            if ($lastModified < $cutoffDate->timestamp) {
-                Storage::disk('public')->delete($file);
-
-                if (str_ends_with($file, '.html')) {
-                    $deletedHtmls++;
-                } elseif (str_ends_with($file, '.pdf')) {
-                    $deletedPdfs++;
+                    if (str_ends_with($file, '.html')) {
+                        $deletedHtmls++;
+                    } elseif (str_ends_with($file, '.pdf')) {
+                        $deletedPdfs++;
+                    }
                 }
             }
         }
 
         $this->info("✓ Archivos PDF eliminados: {$deletedPdfs}");
         $this->info("✓ Archivos HTML eliminados: {$deletedHtmls}");
-        $this->info("✓ Registros eliminados: {$deletedRecords}");
         $this->info('Limpieza completada exitosamente.');
 
         return self::SUCCESS;

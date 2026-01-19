@@ -3,15 +3,13 @@
 namespace App\Http\Controllers\Carnets;
 
 use App\Http\Controllers\Controller;
-use App\Jobs\GenerateCarnetsJob;
-use App\Models\CarnetGeneration;
 use App\Services\CarnetService;
 use App\Traits\LogsActivity;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Storage;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class CarnetController extends Controller
 {
@@ -22,14 +20,171 @@ class CarnetController extends Controller
     ) {}
 
     /**
-     * Generate carnets (dispatch job)
+     * Generate carnets with SSE streaming progress
      *
      * POST /api/carnets/generate
      *
      * @param Request $request
+     * @return StreamedResponse
+     */
+    public function generate(Request $request): StreamedResponse
+    {
+        $request->validate([
+            'type' => 'required|in:all,student,teacher',
+            'level' => 'nullable|string',
+            'grade' => 'nullable|string',
+            'section' => 'nullable|string',
+        ]);
+
+        $filters = $request->all();
+        $tenant = app('current_tenant');
+
+        return new StreamedResponse(function () use ($filters, $tenant) {
+            if (ob_get_level()) {
+                ob_end_clean();
+            }
+
+            set_time_limit(600);
+            ini_set('memory_limit', '2048M');
+
+            try {
+                $totalUsers = $this->carnetService->getUserCount($filters);
+
+                if ($totalUsers === 0) {
+                    $this->sendSSE('error', [
+                        'message' => 'No se encontraron usuarios con los filtros especificados'
+                    ]);
+                    return;
+                }
+
+                $this->sendSSE('start', [
+                    'total_users' => $totalUsers,
+                    'message' => 'Iniciando generación de carnets'
+                ]);
+
+                $htmlPath = $this->carnetService->generateHTMLWithProgress(
+                    $filters,
+                    function (int $progress) {
+                        $this->sendSSE('progress', [
+                            'progress' => min($progress, 85),
+                            'phase' => 'html'
+                        ]);
+                    },
+                    $tenant
+                );
+
+                $this->sendSSE('progress', [
+                    'progress' => 90,
+                    'phase' => 'pdf',
+                    'message' => 'Generando PDF...'
+                ]);
+
+                $pdfPath = $this->carnetService->generatePDFFromHTML($htmlPath, $tenant);
+
+                $this->sendSSE('progress', [
+                    'progress' => 100,
+                    'phase' => 'complete'
+                ]);
+
+                $downloadUrl = route('carnets.download.direct', ['path' => base64_encode($pdfPath)]);
+
+                $this->sendSSE('completed', [
+                    'pdf_url' => $downloadUrl,
+                    'pdf_path' => $pdfPath,
+                    'message' => 'Carnets generados exitosamente'
+                ]);
+
+                $this->logActivity('carnet_generation_completed', null, [
+                    'total_users' => $totalUsers,
+                    'filters' => $filters,
+                ]);
+
+            } catch (\Throwable $e) {
+                Log::error('Error generando carnets via SSE', [
+                    'message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                ]);
+
+                $this->sendSSE('error', [
+                    'message' => 'Error al generar carnets: ' . $e->getMessage()
+                ]);
+            }
+        }, 200, [
+            'Content-Type' => 'text/event-stream',
+            'Cache-Control' => 'no-cache',
+            'Connection' => 'keep-alive',
+            'X-Accel-Buffering' => 'no',
+        ]);
+    }
+
+    /**
+     * Send SSE event
+     */
+    private function sendSSE(string $event, array $data): void
+    {
+        echo "event: {$event}\n";
+        echo "data: " . json_encode($data) . "\n\n";
+
+        if (ob_get_level()) {
+            ob_flush();
+        }
+        flush();
+    }
+
+    /**
+     * Download PDF directly by path
+     *
+     * GET /api/carnets/download/{path}
+     *
+     * @param string $path Base64 encoded path
+     * @return mixed
+     */
+    public function downloadDirect(string $path): mixed
+    {
+        try {
+            $pdfPath = base64_decode($path);
+            $tenant = app('current_tenant');
+
+            if (!str_contains($pdfPath, "carnets/{$tenant->id}/")) {
+                return response()->json(['message' => 'No autorizado'], 403);
+            }
+
+            $disk = config('filesystems.default');
+
+            if (!Storage::disk($disk)->exists($pdfPath)) {
+                Log::warning('PDF no encontrado', [
+                    'pdf_path' => $pdfPath,
+                    'disk' => $disk,
+                ]);
+                return response()->json(['message' => 'PDF no encontrado'], 404);
+            }
+
+            $this->logActivity('carnet_downloaded', null, ['path' => $pdfPath]);
+
+            $filename = basename($pdfPath);
+            $pdfContent = Storage::disk($disk)->get($pdfPath);
+
+            return response($pdfContent)
+                ->header('Content-Type', 'application/pdf')
+                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
+        } catch (\Exception $e) {
+            Log::error('Error descargando PDF', [
+                'path' => $path,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json(['message' => 'Error al descargar PDF'], 500);
+        }
+    }
+
+    /**
+     * Get user count for filters (for preview)
+     *
+     * POST /api/carnets/count
+     *
+     * @param Request $request
      * @return JsonResponse
      */
-    public function generate(Request $request): JsonResponse
+    public function count(Request $request): JsonResponse
     {
         $request->validate([
             'type' => 'required|in:all,student,teacher',
@@ -39,165 +194,13 @@ class CarnetController extends Controller
         ]);
 
         try {
-            $user = Auth::user();
-            $tenant = app('current_tenant');
-            $totalUsers = $this->carnetService->getUserCount($request->all());
-
-            if ($totalUsers === 0) {
-                return $this->error('No se encontraron usuarios con los filtros especificados', null, 404);
-            }
-
-            $carnetGeneration = CarnetGeneration::create([
-                'tenant_id' => $tenant->id,
-                'user_id' => $user->id,
-                'filters' => $request->all(),
-                'status' => 'pending',
-                'total_users' => $totalUsers,
-            ]);
-
-            GenerateCarnetsJob::dispatch($carnetGeneration);
-
-            $this->logActivity('carnet_generation_requested', $carnetGeneration, [
-                'total_users' => $totalUsers,
-                'filters' => $request->all(),
-            ]);
+            $count = $this->carnetService->getUserCount($request->all());
 
             return $this->success([
-                'job_id' => $carnetGeneration->id,
-                'status' => $carnetGeneration->status,
-                'total_users' => $totalUsers,
-            ], 'Generación de carnets iniciada');
-        } catch (\Exception $e) {
-            Log::error('Error despachando job de carnets', [
-                'message' => $e->getMessage(),
+                'count' => $count,
             ]);
-
-            return $this->error(
-                'Error al iniciar generación de carnets: ' . $e->getMessage(),
-                null,
-                500
-            );
-        }
-    }
-
-    /**
-     * Get job status
-     *
-     * GET /api/carnets/status/{jobId}
-     *
-     * @param int $jobId
-     * @return JsonResponse
-     */
-    public function status(int $jobId): JsonResponse
-    {
-        try {
-            $carnetGeneration = CarnetGeneration::findOrFail($jobId);
-            $tenant = app('current_tenant');
-
-            if ($carnetGeneration->tenant_id !== $tenant->id) {
-                return $this->error('No autorizado', null, 403);
-            }
-
-            $response = [
-                'id' => $carnetGeneration->id,
-                'status' => $carnetGeneration->status,
-                'progress' => $carnetGeneration->progress,
-                'total_users' => $carnetGeneration->total_users,
-                'created_at' => $carnetGeneration->created_at->toISOString(),
-            ];
-
-            if ($carnetGeneration->isCompleted()) {
-                $response['pdf_url'] = route('carnets.download', ['jobId' => $carnetGeneration->id]);
-                $response['completed_at'] = $carnetGeneration->completed_at?->toISOString();
-            }
-
-            if ($carnetGeneration->isFailed()) {
-                $response['error_message'] = $carnetGeneration->error_message;
-            }
-
-            return $this->success($response);
-        } catch (\Exception) {
-            return $this->error('Generación no encontrada', null, 404);
-        }
-    }
-
-    /**
-     * Download generated PDF
-     *
-     * GET /api/carnets/download/{jobId}
-     *
-     * @param int $jobId
-     * @return mixed
-     */
-    public function download(int $jobId): mixed
-    {
-        try {
-            $carnetGeneration = CarnetGeneration::findOrFail($jobId);
-            $tenant = app('current_tenant');
-
-            if ($carnetGeneration->tenant_id !== $tenant->id) {
-                return response()->json(['message' => 'No autorizado'], 403);
-            }
-
-            if (!$carnetGeneration->isCompleted()) {
-                return response()->json(['message' => 'La generación aún no se ha completado'], 400);
-            }
-
-            $disk = config('filesystems.default');
-
-            if (!$carnetGeneration->pdf_path || !Storage::disk($disk)->exists($carnetGeneration->pdf_path)) {
-                Log::warning('PDF no encontrado', [
-                    'job_id' => $jobId,
-                    'pdf_path' => $carnetGeneration->pdf_path,
-                    'disk' => $disk,
-                ]);
-                return response()->json(['message' => 'PDF no encontrado'], 404);
-            }
-
-            $this->logActivity('carnet_generation_downloaded', $carnetGeneration);
-
-            $filename = basename($carnetGeneration->pdf_path);
-            $pdfContent = Storage::disk($disk)->get($carnetGeneration->pdf_path);
-
-            return response($pdfContent)
-                ->header('Content-Type', 'application/pdf')
-                ->header('Content-Disposition', 'attachment; filename="' . $filename . '"');
         } catch (\Exception $e) {
-            Log::error('Error descargando PDF', [
-                'job_id' => $jobId,
-                'error' => $e->getMessage(),
-            ]);
-            return response()->json(['message' => 'Error al descargar PDF'], 500);
-        }
-    }
-
-    /**
-     * Cancel pending job
-     *
-     * DELETE /api/carnets/{jobId}
-     *
-     * @param int $jobId
-     * @return JsonResponse
-     */
-    public function cancel(int $jobId): JsonResponse
-    {
-        try {
-            $carnetGeneration = CarnetGeneration::findOrFail($jobId);
-            $tenant = app('current_tenant');
-
-            if ($carnetGeneration->tenant_id !== $tenant->id) {
-                return $this->error('No autorizado', null, 403);
-            }
-
-            if (!$carnetGeneration->isPending()) {
-                return $this->error('Solo se pueden cancelar trabajos pendientes', null, 400);
-            }
-
-            $carnetGeneration->markAsFailed('Cancelado por el usuario');
-
-            return $this->success(null, 'Generación cancelada');
-        } catch (\Exception) {
-            return $this->error('Error al cancelar generación', null, 500);
+            return $this->error('Error al contar usuarios', null, 500);
         }
     }
 }

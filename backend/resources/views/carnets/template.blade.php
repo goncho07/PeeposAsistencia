@@ -63,7 +63,7 @@ $currentYear = date('Y');
             background-color: {{ $tenant->primary_color ?? '#E30613' }};
             background-image: url('data:image/png;base64,{{ $escudoBase64 }}');
             background-repeat: no-repeat;
-            background-size: 65% auto;
+            background-size: 60% auto;
             background-position: 5px center;
             height: 32%;
             width: 100%;
@@ -227,7 +227,7 @@ $currentYear = date('Y');
 
             <div class="footer">
                 @php
-                $fontSize = strlen($user->full_name) > 25 ? '10pt' : '13pt';
+                $fontSize = strlen($user->full_name) > 27 ? '10pt' : '13pt';
                 @endphp
                 <span class="student-name" style="font-size: {{ $fontSize }}">{{ $user->full_name }}</span>
             </div>

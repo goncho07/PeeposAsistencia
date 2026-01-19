@@ -23,7 +23,7 @@ class StudentUpdateRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = $this->user()->tenant_id;
-        $studentId = $this->route('student');
+        $studentId = $this->route('id');
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:100'],

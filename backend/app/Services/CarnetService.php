@@ -8,8 +8,8 @@ use App\Models\Tenant;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Auth;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use Spatie\Browsershot\Browsershot;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
@@ -114,6 +114,58 @@ class CarnetService
         Storage::disk('public')->put($path, $html);
 
         return $path;
+    }
+
+    /**
+     * Generate PDF from HTML file
+     */
+    public function generatePDFFromHTML(string $htmlPath, Tenant $tenant): string
+    {
+        $html = Storage::disk('public')->get($htmlPath);
+
+        $browsershot = Browsershot::html($html)
+            ->setChromePath(env('CHROMIUM_PATH', '/usr/bin/chromium'))
+            ->setNodeBinary(env('NODE_BINARY', '/usr/bin/node'))
+            ->setNpmBinary(env('NPM_BINARY', '/usr/bin/npm'))
+            ->setOption('args', [
+                '--no-sandbox',
+                '--disable-gpu',
+                '--disable-dev-shm-usage',
+                '--disable-software-rasterizer',
+                '--disable-extensions',
+                '--disable-background-timer-throttling',
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
+                '--disable-web-security',
+                '--disable-features=IsolateOrigins,site-per-process',
+            ])
+            ->timeout(600)
+            ->setOption('waitUntil', 'domcontentloaded')
+            ->setOption('protocolTimeout', 600000)
+            ->setOption('preferCSSPageSize', true)
+            ->showBackground()
+            ->format('A4')
+            ->margins(0, 0, 0, 0)
+            ->noSandbox()
+            ->dismissDialogs();
+
+        $pdfBinary = $browsershot->pdf();
+
+        $filename = 'carnets_' . now()->format('Y-m-d_His') . '.pdf';
+        $pdfPath = "carnets/{$tenant->id}/{$filename}";
+
+        $disk = config('filesystems.default');
+        Storage::disk($disk)->put($pdfPath, $pdfBinary);
+
+        Log::info('PDF guardado en storage', [
+            'path' => $pdfPath,
+            'disk' => $disk,
+            'size' => strlen($pdfBinary),
+        ]);
+
+        Storage::disk('public')->delete($htmlPath);
+
+        return $pdfPath;
     }
 
     /**

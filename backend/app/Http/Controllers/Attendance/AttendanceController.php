@@ -85,4 +85,26 @@ class AttendanceController extends Controller
             return $this->error('Error al generar reporte: ' . $e->getMessage(), null, 500);
         }
     }
+
+    public function getBehaviorStatistics(Request $request): JsonResponse
+    {
+        $request->validate([
+            'period' => 'required|in:daily,weekly,monthly,bimester,custom',
+            'from' => 'required_if:period,custom|date',
+            'to' => 'required_if:period,custom|date|after_or_equal:from',
+            'bimester' => 'required_if:period,bimester|integer|between:1,4',
+            'level' => 'nullable|in:INICIAL,PRIMARIA,SECUNDARIA',
+            'grade' => 'nullable|integer|between:1,6',
+            'section' => 'nullable|string',
+            'shift' => 'nullable|in:MAÑANA,TARDE,NOCHE',
+        ]);
+
+        try {
+            $statistics = $this->reportService->getBehaviorStatistics($request->all());
+
+            return $this->success($statistics);
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener estadísticas de comportamiento: ' . $e->getMessage(), null, 500);
+        }
+    }
 }

@@ -23,7 +23,7 @@ class TeacherUpdateRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = $this->user()->tenant_id;
-        $teacherId = $this->route('teacher');
+        $teacherId = $this->route('id');
 
         return [
             'dni' => [

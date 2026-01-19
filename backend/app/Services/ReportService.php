@@ -168,4 +168,56 @@ class ReportService
             ->values()
             ->toArray();
     }
+
+    /**
+     * Get behavior statistics for students based on absence count
+     *
+     * @param array $filters Report filters including period, level, grade, section, shift
+     * @return array Behavior statistics with optimal, preventive alert, and citation counts
+     */
+    public function getBehaviorStatistics(array $filters): array
+    {
+        [$from, $to] = $this->getPeriodDates($filters);
+
+        $query = Attendance::whereBetween('date', [$from, $to])
+            ->students();
+
+        if (isset($filters['level'])) {
+            $query->whereHasMorph('attendable', [Student::class], function ($q) use ($filters) {
+                $q->whereHas('classroom', function ($classroomQuery) use ($filters) {
+                    $classroomQuery->where('level', $filters['level']);
+
+                    if (isset($filters['grade'])) {
+                        $classroomQuery->where('grade', $filters['grade']);
+                    }
+
+                    if (isset($filters['section'])) {
+                        $classroomQuery->where('section', $filters['section']);
+                    }
+
+                    if (isset($filters['shift'])) {
+                        $classroomQuery->where('shift', $filters['shift']);
+                    }
+                });
+            });
+        }
+
+        $attendances = $query->with(['attendable'])->get();
+
+        $studentAbsences = $attendances->groupBy('attendable_id')
+            ->map(function ($group) {
+                return $group->where('entry_status', 'FALTA')->count();
+            });
+
+        $optimal = $studentAbsences->filter(fn($count) => $count === 0)->count();
+        $preventive = $studentAbsences->filter(fn($count) => $count >= 1 && $count <= 3)->count();
+        $citation = $studentAbsences->filter(fn($count) => $count > 3)->count();
+
+        return [
+            'optimal' => $optimal,
+            'preventive_alert' => $preventive,
+            'citation_required' => $citation,
+            'total_students' => $studentAbsences->count(),
+        ];
+    }
 }

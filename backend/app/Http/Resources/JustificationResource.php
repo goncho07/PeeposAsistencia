@@ -32,7 +32,7 @@ class JustificationResource extends JsonResource
             'reason' => $this->reason,
             'document_path' => $this->document_path,
             'created_by' => $this->created_by,
-            'creator' => $this->whenLoaded('creator', fn() => new AdminUserResource($this->creator)),
+            'creator' => $this->whenLoaded('creator', fn() => new UserResource($this->creator)),
             'days_count' => $this->getDaysCount(),
             'created_at' => $this->created_at?->toISOString(),
             'updated_at' => $this->updated_at?->toISOString(),

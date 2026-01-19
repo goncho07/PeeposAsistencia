@@ -247,14 +247,19 @@ class AttendanceService
             ->get();
 
         foreach ($absentStudents as $student) {
-            Attendance::create([
+            $attendance = Attendance::create([
                 'attendable_type' => Student::class,
                 'attendable_id' => $student->id,
                 'date' => $date,
                 'shift' => $student->classroom->shift ?? 'MAÑANA',
                 'entry_status' => 'FALTA',
                 'exit_status' => 'SIN_SALIDA',
+                'whatsapp_sent' => false,
             ]);
+
+            if ($this->settingService->shouldSendWhatsAppOnAbsence()) {
+                $this->whatsAppService->sendAbsenceNotification($student, $attendance);
+            }
         }
 
         $teacherIds = Attendance::teachers()

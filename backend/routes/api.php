@@ -13,6 +13,7 @@ use App\Http\Controllers\Attendance\JustificationController;
 use App\Http\Controllers\Carnets\CarnetController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\TenantController;
+use App\Http\Controllers\Incidents\IncidentController;
 
 Route::get('/ping', function () {
     return response()->json(['message' => 'Pong!']);
@@ -51,12 +52,10 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
     Route::prefix('carnets')->group(function () {
         Route::post('/generate', [CarnetController::class, 'generate'])
             ->name('carnets.generate');
-        Route::get('/status/{jobId}', [CarnetController::class, 'status'])
-            ->name('carnets.status');
-        Route::get('/download/{jobId}', [CarnetController::class, 'download'])
-            ->name('carnets.download');
-        Route::delete('/{jobId}', [CarnetController::class, 'cancel'])
-            ->name('carnets.cancel');
+        Route::post('/count', [CarnetController::class, 'count'])
+            ->name('carnets.count');
+        Route::get('/download/{path}', [CarnetController::class, 'downloadDirect'])
+            ->name('carnets.download.direct');
     });
 
     Route::prefix('students')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
@@ -116,6 +115,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::get('/', [AttendanceController::class, 'index']);
         Route::get('/daily-stats', [AttendanceController::class, 'getDailyStats']);
         Route::post('/report', [AttendanceController::class, 'generateReport']);
+        Route::post('/behavior-statistics', [AttendanceController::class, 'getBehaviorStatistics']);
     });
 
     Route::prefix('justifications')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
@@ -123,6 +123,19 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::get('/{id}', [JustificationController::class, 'show']);
         Route::post('/', [JustificationController::class, 'store']);
         Route::delete('/{id}', [JustificationController::class, 'destroy']);
+    });
+
+    Route::prefix('incidents')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
+        Route::get('/', [IncidentController::class, 'index']);
+        Route::get('/types', [IncidentController::class, 'types']);
+        Route::get('/severities', [IncidentController::class, 'severities']);
+        Route::get('/statistics', [IncidentController::class, 'statistics']);
+        Route::get('/student/{studentId}', [IncidentController::class, 'byStudent']);
+        Route::get('/{id}', [IncidentController::class, 'show']);
+        Route::post('/', [IncidentController::class, 'store']);
+        Route::put('/{id}', [IncidentController::class, 'update']);
+        Route::patch('/{id}', [IncidentController::class, 'update']);
+        Route::delete('/{id}', [IncidentController::class, 'destroy']);
     });
 
     Route::prefix('settings')->group(function () {

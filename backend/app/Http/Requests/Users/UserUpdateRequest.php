@@ -24,7 +24,7 @@ class UserUpdateRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = $this->user()->tenant_id;
-        $userId = $this->route('user');
+        $userId = $this->route('id');
 
         return [
             'name' => ['sometimes', 'required', 'string', 'max:100'],

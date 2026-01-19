@@ -23,7 +23,7 @@ class ParentUpdateRequest extends FormRequest
     public function rules(): array
     {
         $tenantId = $this->user()->tenant_id;
-        $parentId = $this->route('parent');
+        $parentId = $this->route('id');
 
         return [
             'document_type' => ['sometimes', 'required', 'in:DNI,CE,PAS,CI,PTP'],

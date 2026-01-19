@@ -37,6 +37,18 @@ class WhatsAppService
             return false;
         }
 
+        if ($type === 'ENTRADA') {
+            if (!$this->settingService->shouldSendWhatsAppOnEntry()) {
+                Log::info("WhatsApp deshabilitado para entradas - Estudiante: {$student->id}");
+                return false;
+            }
+        } elseif ($type === 'SALIDA') {
+            if (!$this->settingService->shouldSendWhatsAppOnExit()) {
+                Log::info("WhatsApp deshabilitado para salidas - Estudiante: {$student->id}");
+                return false;
+            }
+        }
+
         $parents = $student->parents()->wherePivot('is_primary_contact', true)->get();
 
         if ($parents->isEmpty()) {
@@ -166,6 +178,107 @@ class WhatsAppService
                     "{$colegio}",
             };
         }
+    }
+
+    /**
+     * Send absence notification to student's parents via WhatsApp
+     *
+     * @param Student $student The student who is absent or late
+     * @param Attendance $attendance The attendance record
+     * @return bool True if at least one message was sent successfully
+     */
+    public function sendAbsenceNotification(Student $student, Attendance $attendance): bool
+    {
+        if (!$this->settingService->isWhatsAppEnabled()) {
+            return false;
+        }
+
+        if (!$this->settingService->shouldSendWhatsAppOnAbsence()) {
+            Log::info("WhatsApp deshabilitado para ausencias - Estudiante: {$student->id}");
+            return false;
+        }
+
+        $parents = $student->parents()->wherePivot('is_primary_contact', true)->get();
+
+        if ($parents->isEmpty()) {
+            $parents = $student->parents;
+        }
+
+        if ($parents->isEmpty()) {
+            Log::warning("Estudiante {$student->id} no tiene padres o tutores registrados");
+            return false;
+        }
+
+        $tenant = app()->bound('current_tenant') ? app('current_tenant') : null;
+        $message = $this->buildAbsenceMessage($student, $attendance, $tenant);
+        $sentCount = 0;
+
+        foreach ($parents as $parent) {
+            if (!$parent->phone_number) {
+                continue;
+            }
+
+            $phone = $this->formatPhone($parent->phone_number);
+
+            try {
+                $response = Http::get("{$this->apiUrl}/send-text", [
+                    'token' => $this->token,
+                    'instance_id' => $this->instanceId,
+                    'jid' => $phone,
+                    'msg' => $message,
+                ]);
+
+                $body = $response->json();
+
+                if (isset($body['success']) && $body['success'] === true) {
+                    $sentCount++;
+                } else {
+                    Log::error('Error enviando WhatsApp de ausencia', [
+                        'response' => $body,
+                        'student_id' => $student->id,
+                        'parent_id' => $parent->id,
+                    ]);
+                }
+            } catch (\Exception $e) {
+                Log::error('Excepción enviando WhatsApp de ausencia', [
+                    'error' => $e->getMessage(),
+                    'student_id' => $student->id,
+                    'parent_id' => $parent->id,
+                ]);
+            }
+        }
+
+        if ($sentCount > 0) {
+            $attendance->update([
+                'whatsapp_sent' => true,
+            ]);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Build WhatsApp message text for absence notification
+     *
+     * @param Student $student The student
+     * @param Attendance $attendance The attendance record
+     * @param Tenant|null $tenant The tenant/institution
+     * @return string Formatted WhatsApp message
+     */
+    private function buildAbsenceMessage(Student $student, Attendance $attendance, ?Tenant $tenant): string
+    {
+        $nombreEstudiante = $student->full_name;
+        $aula = $student->classroom->full_name ?? 'Sin aula';
+        $fecha = $attendance->date->format('d/m/Y');
+        $colegio = $tenant ? "*{$tenant->name}*" : '*Institución Educativa*';
+
+        return "❌ *FALSTA REGISTRADA*\n\n" .
+            "👤 Alumno: *{$nombreEstudiante}*\n" .
+            "🏫 Aula: *{$aula}*\n" .
+            "📅 Fecha: *{$fecha}*\n\n" .
+            "⚠️ El alumno no registró ingreso al colegio.\n\n" .
+            "{$colegio}";
     }
 
     /**

@@ -38,6 +38,11 @@ class Classroom extends Model
         return $this->hasMany(Student::class);
     }
 
+    public function incidents()
+    {
+        return $this->hasMany(Incident::class);
+    }
+
     public function getFullNameAttribute()
     {
         $gradeName = $this->getGradeName();

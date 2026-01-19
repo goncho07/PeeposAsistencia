@@ -175,6 +175,33 @@ class SettingService
     }
 
     /**
+     * Check if WhatsApp notifications should be sent on entry
+     */
+    public function shouldSendWhatsAppOnEntry(?int $tenantId = null): bool
+    {
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
+        return (bool) $this->get('whatsapp_send_on_entry', true, $tenantId);
+    }
+
+    /**
+     * Check if WhatsApp notifications should be sent on exit
+     */
+    public function shouldSendWhatsAppOnExit(?int $tenantId = null): bool
+    {
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
+        return (bool) $this->get('whatsapp_send_on_exit', false, $tenantId);
+    }
+
+    /**
+     * Check if WhatsApp notifications should be sent on absence
+     */
+    public function shouldSendWhatsAppOnAbsence(?int $tenantId = null): bool
+    {
+        $tenantId = $tenantId ?? $this->getCurrentTenantId();
+        return (bool) $this->get('whatsapp_send_on_absence', true, $tenantId);
+    }
+
+    /**
      * Get current bimester based on date
      */
     public function getCurrentBimester(?Carbon $date = null, ?int $tenantId = null): ?int

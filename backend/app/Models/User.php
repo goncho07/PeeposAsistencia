@@ -62,7 +62,17 @@ class User extends Authenticatable
     {
         return $this->hasMany(ActivityLog::class);
     }
-    
+
+    public function reportedIncidents()
+    {
+        return $this->hasMany(Incident::class, 'reported_by');
+    }
+
+    public function resolvedIncidents()
+    {
+        return $this->hasMany(Incident::class, 'resolved_by');
+    }
+
     public function getFullNameAttribute()
     {
         return "{$this->name} {$this->paternal_surname} {$this->maternal_surname}";
