@@ -12,25 +12,39 @@ class Classroom extends Model
 
     protected $fillable = [
         'tenant_id',
-        'teacher_id',
+        'tutor_id',
         'level',
         'grade',
         'section',
         'shift',
+        'capacity',
         'status',
     ];
 
     protected $casts = [
         'grade' => 'integer',
+        'capacity' => 'integer',
     ];
 
     protected $appends = [
         'full_name',
     ];
 
-    public function teacher()
+    public function tutor()
     {
-        return $this->belongsTo(Teacher::class);
+        return $this->belongsTo(Teacher::class, 'tutor_id');
+    }
+
+    public function teachers()
+    {
+        return $this->belongsToMany(
+            Teacher::class, 
+            'classroom_teacher'
+        )->withPivot([
+            'subject', 
+            'academic_year', 
+            'schedule'
+        ])->withTimestamps();
     }
 
     public function students()
@@ -79,8 +93,33 @@ class Classroom extends Model
         return $query->where('shift', $shift);
     }
 
-    public function scopeCurrentYear($query)
+    public function scopeByTeacher($query, $teacherId)
     {
-        return $query->where('academic_year', now()->year);
+        return $query->whereHas('teachers', fn($q) => $q->where('teachers.id', $teacherId));
+    }
+
+    public function scopeSearch($query, $search)
+    {
+        return $query->where(function ($q) use ($search) {
+            $q->where('section', 'like', "%{$search}%")
+                ->orWhereHas('tutor.user', function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('paternal_surname', 'like', "%{$search}%")
+                        ->orWhere('maternal_surname', 'like', "%{$search}%");
+                });
+        });
+    }
+
+    public function getStudentCount()
+    {
+        return $this->students()->enrolled()->count();
+    }
+
+    public function hasCapacity()
+    {
+        if (!$this->capacity) {
+            return true;
+        }
+        return $this->getStudentCount() < $this->capacity;
     }
 }

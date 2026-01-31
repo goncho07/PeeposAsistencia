@@ -26,16 +26,17 @@ class UserStoreRequest extends FormRequest
         $tenantId = $this->user()->tenant_id;
 
         return [
+            'document_type' => ['required', 'in:DNI,CE,PAS,CI,PTP'],
+            'document_number' => [
+                'nullable',
+                'string',
+                'max:20',
+                Rule::unique('users', 'document_number')
+                    ->where('tenant_id', $tenantId)
+            ],
             'name' => ['required', 'string', 'max:100'],
             'paternal_surname' => ['required', 'string', 'max:50'],
             'maternal_surname' => ['required', 'string', 'max:50'],
-            'dni' => [
-                'required',
-                'string',
-                'digits:8',
-                Rule::unique('users', 'dni')
-                    ->where('tenant_id', $tenantId)
-            ],
             'email' => [
                 'required',
                 'email',
@@ -44,7 +45,7 @@ class UserStoreRequest extends FormRequest
                     ->where('tenant_id', $tenantId)
             ],
             'password' => ['required', Password::min(8)->mixedCase()->numbers()->symbols()],
-            'role' => ['required', 'in:SUPERADMIN,DIRECTOR,SUBDIRECTOR,SECRETARIO,ESCANER,COORDINADOR'],
+            'role' => ['required', 'in:SUPERADMIN,DIRECTOR,SUBDIRECTOR,SECRETARIO,COORDINADOR,AUXILIAR,DOCENTE,ESCANER'],
             'phone_number' => ['nullable', 'string', 'max:15'],
         ];
     }
@@ -57,13 +58,13 @@ class UserStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'document_type.required' => 'El tipo de documento es obligatorio.',
+            'document_type.in' => 'El tipo de documento no es válido.',
+            'document_number.unique' => 'El número de documento ya está registrado en esta institución.',
             'name.required' => 'El nombre es obligatorio.',
             'name.max' => 'El nombre no puede tener más de 100 caracteres.',
             'paternal_surname.required' => 'El apellido paterno es obligatorio.',
             'maternal_surname.required' => 'El apellido materno es obligatorio.',
-            'dni.required' => 'El DNI es obligatorio.',
-            'dni.digits' => 'El DNI debe tener exactamente 8 dígitos.',
-            'dni.unique' => 'El DNI ya está registrado en esta institución.',
             'email.required' => 'El correo electrónico es obligatorio.',
             'email.email' => 'El correo electrónico no es válido.',
             'email.unique' => 'El correo electrónico ya está registrado en esta institución.',

@@ -37,6 +37,7 @@ class ParentStoreRequest extends FormRequest
             'paternal_surname' => ['required', 'string', 'max:50'],
             'maternal_surname' => ['required', 'string', 'max:50'],
             'phone_number' => ['nullable', 'string', 'max:15'],
+            'phone_number_secondary' => ['nullable', 'string', 'max:15'],
             'email' => [
                 'nullable',
                 'email',
@@ -44,6 +45,9 @@ class ParentStoreRequest extends FormRequest
                 Rule::unique('parents', 'email')
                     ->where('tenant_id', $tenantId)
             ],
+            'address' => ['nullable', 'string', 'max:255'],
+            'occupation' => ['nullable', 'string', 'max:100'],
+            'workplace' => ['nullable', 'string', 'max:150'],
             'students' => ['nullable', 'array', 'max:10'],
             'students.*.student_id' => [
                 'required',

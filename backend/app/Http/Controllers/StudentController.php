@@ -1,17 +1,20 @@
 <?php
 
-namespace App\Http\Controllers\Students;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Students\StudentStoreRequest;
 use App\Http\Requests\Students\StudentUpdateRequest;
 use App\Http\Resources\StudentResource;
 use App\Services\StudentService;
+use App\Traits\ParsesExpandParameter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
 {
+    use ParsesExpandParameter;
+
     public function __construct(
         private StudentService $studentService
     ) {}
@@ -20,6 +23,8 @@ class StudentController extends Controller
      * Display a listing of students
      *
      * GET /api/students
+     * GET /api/students?expand=classroom
+     * GET /api/students?expand=classroom,parents
      *
      * @param Request $request
      * @return JsonResponse
@@ -29,8 +34,9 @@ class StudentController extends Controller
         try {
             $search = $request->query('search');
             $classroomId = $request->query('classroom_id');
+            $expand = $this->parseExpand($request);
 
-            $students = $this->studentService->getAllStudents($search, $classroomId);
+            $students = $this->studentService->getAllStudents($search, $classroomId, $expand);
 
             return $this->success(
                 StudentResource::collection($students),
@@ -45,14 +51,17 @@ class StudentController extends Controller
      * Display the specified student
      *
      * GET /api/students/{id}
+     * GET /api/students/{id}?expand=classroom,parents
      *
+     * @param Request $request
      * @param int $id
      * @return JsonResponse
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         try {
-            $student = $this->studentService->findById($id);
+            $expand = $this->parseExpand($request);
+            $student = $this->studentService->findById($id, $expand);
 
             return $this->success(
                 new StudentResource($student),

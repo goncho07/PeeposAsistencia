@@ -12,44 +12,85 @@ class ClassroomService
     use LogsActivity;
 
     /**
-     * Get all classrooms with optional search and filters
+     * Get all classrooms with optional search and filters.
+     * Relations are loaded based on ?expand= parameter.
+     *
+     * @param string|null $search
+     * @param string|null $level
+     * @param string|null $shift
+     * @param string|null $status
+     * @param int|null $tutorId
+     * @param int|null $teacherId
+     * @param array $expand Relations to expand (tutor, teachers, students)
      */
     public function getAllClassrooms(
         ?string $search = null,
         ?string $level = null,
         ?string $shift = null,
-        ?string $status = null
+        ?string $status = null,
+        ?int $tutorId = null,
+        ?int $teacherId = null,
+        array $expand = []
     ): Collection {
-        $query = Classroom::with(['teacher:id,name,paternal_surname,maternal_surname'])
+        $query = Classroom::query()
             ->withCount('students')
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($query) use ($search) {
-                    $query->where('section', 'like', "%{$search}%")
-                        ->orWhereHas('teacher', function ($q) use ($search) {
-                            $q->where('name', 'like', "%{$search}%")
-                                ->orWhere('paternal_surname', 'like', "%{$search}%")
-                                ->orWhere('maternal_surname', 'like', "%{$search}%");
-                        });
-                });
-            })
-            ->when($level, fn($q) => $q->where('level', $level))
-            ->when($shift, fn($q) => $q->where('shift', $shift))
+            ->when($search, fn($q) => $q->search($search))
+            ->when($level, fn($q) => $q->byLevel($level))
+            ->when($shift, fn($q) => $q->byShift($shift))
             ->when($status, fn($q) => $q->where('status', $status))
+            ->when($tutorId, fn($q) => $q->where('tutor_id', $tutorId))
+            ->when($teacherId, fn($q) => $q->byTeacher($teacherId))
             ->orderBy('level')
             ->orderBy('grade')
             ->orderBy('section');
+
+        $relations = $this->buildRelationsFromExpand($expand);
+        if (!empty($relations)) {
+            $query->with($relations);
+        }
 
         return $query->get();
     }
 
     /**
-     * Find classroom by ID
+     * Find classroom by ID.
+     * Relations are loaded based on ?expand= parameter.
+     *
+     * @param int $id
+     * @param array $expand Relations to expand
      */
-    public function findById(int $id): Classroom
+    public function findById(int $id, array $expand = []): Classroom
     {
-        return Classroom::with(['teacher', 'students'])
-            ->withCount('students')
-            ->findOrFail($id);
+        $query = Classroom::query()->withCount('students');
+
+        $relations = $this->buildRelationsFromExpand($expand);
+        if (!empty($relations)) {
+            $query->with($relations);
+        }
+
+        return $query->findOrFail($id);
+    }
+
+    /**
+     * Build relations array from expand parameter.
+     */
+    private function buildRelationsFromExpand(array $expand): array
+    {
+        $relations = [];
+
+        if (in_array('tutor', $expand)) {
+            $relations[] = 'tutor.user';
+        }
+
+        if (in_array('teachers', $expand)) {
+            $relations[] = 'teachers';
+        }
+
+        if (in_array('students', $expand)) {
+            $relations[] = 'students';
+        }
+
+        return $relations;
     }
 
     /**
@@ -60,13 +101,13 @@ class ClassroomService
         return DB::transaction(function () use ($data) {
             $data['status'] = $data['status'] ?? 'ACTIVO';
 
-            if (isset($data['teacher_id'])) {
-                $this->validateTeacherAssignment($data['teacher_id'], $data['level']);
+            if (isset($data['tutor_id'])) {
+                $this->validateTutorAssignment($data['tutor_id'], $data['level']);
             }
 
             $classroom = Classroom::create($data);
 
-            $classroom->load(['teacher']);
+            $classroom->load(['tutor.user']);
 
             $this->logActivity('classroom_created', $classroom, [
                 'full_name' => $classroom->full_name,
@@ -87,16 +128,16 @@ class ClassroomService
         return DB::transaction(function () use ($id, $data) {
             $classroom = Classroom::findOrFail($id);
 
-            $oldValues = $classroom->only(['teacher_id', 'level', 'grade', 'section', 'shift', 'status']);
+            $oldValues = $classroom->only(['tutor_id', 'level', 'grade', 'section', 'shift', 'status']);
 
-            if (isset($data['teacher_id']) && $data['teacher_id'] != $classroom->teacher_id) {
+            if (isset($data['tutor_id']) && $data['tutor_id'] != $classroom->tutor_id) {
                 $level = $data['level'] ?? $classroom->level;
-                $this->validateTeacherAssignment($data['teacher_id'], $level);
+                $this->validateTutorAssignment($data['tutor_id'], $level);
             }
 
             $classroom->update($data);
 
-            $classroom->load(['teacher']);
+            $classroom->load(['tutor.user', 'teachers']);
 
             $newValues = $classroom->only(array_keys($oldValues));
             $this->logActivityWithChanges('classroom_updated', $classroom, $oldValues, $newValues);
@@ -133,53 +174,24 @@ class ClassroomService
     }
 
     /**
-     * Validate teacher assignment to classroom
+     * Validate tutor assignment to classroom
      */
-    private function validateTeacherAssignment(?int $teacherId, string $level): void
+    private function validateTutorAssignment(?int $tutorId, string $level): void
     {
-        if (!$teacherId) {
+        if (!$tutorId) {
             return;
         }
 
-        $teacher = \App\Models\Teacher::findOrFail($teacherId);
+        $teacher = \App\Models\Teacher::findOrFail($tutorId);
 
         if ($teacher->level !== $level) {
             throw new \Exception(
-                "El docente está asignado al nivel {$teacher->level} y no puede ser asignado a un aula de nivel {$level}."
+                "El tutor está asignado al nivel {$teacher->level} y no puede ser asignado a un aula de nivel {$level}."
             );
         }
-        
+
         if ($teacher->status !== 'ACTIVO') {
-            throw new \Exception('El docente no está activo y no puede ser asignado a un aula.');
+            throw new \Exception('El tutor no está activo y no puede ser asignado a un aula.');
         }
-    }
-
-    /**
-     * Get classrooms by level
-     */
-    public function getByLevel(string $level): Collection
-    {
-        return Classroom::with(['teacher'])
-            ->withCount('students')
-            ->where('level', $level)
-            ->where('status', 'ACTIVO')
-            ->orderBy('grade')
-            ->orderBy('section')
-            ->get();
-    }
-
-    /**
-     * Get classrooms by teacher
-     */
-    public function getByTeacher(int $teacherId): Collection
-    {
-        return Classroom::with(['teacher'])
-            ->withCount('students')
-            ->where('teacher_id', $teacherId)
-            ->where('status', 'ACTIVO')
-            ->orderBy('level')
-            ->orderBy('grade')
-            ->orderBy('section')
-            ->get();
     }
 }

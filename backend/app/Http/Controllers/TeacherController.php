@@ -1,17 +1,20 @@
 <?php
 
-namespace App\Http\Controllers\Teachers;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Teachers\TeacherStoreRequest;
 use App\Http\Requests\Teachers\TeacherUpdateRequest;
 use App\Http\Resources\TeacherResource;
 use App\Services\TeacherService;
+use App\Traits\ParsesExpandParameter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TeacherController extends Controller
 {
+    use ParsesExpandParameter;
+
     public function __construct(
         private TeacherService $teacherService
     ) {}
@@ -20,6 +23,8 @@ class TeacherController extends Controller
      * Display a listing of teachers
      *
      * GET /api/teachers
+     * GET /api/teachers?expand=user
+     * GET /api/teachers?expand=classrooms,tutoredClassrooms
      *
      * @param Request $request
      * @return JsonResponse
@@ -30,8 +35,9 @@ class TeacherController extends Controller
             $search = $request->query('search');
             $level = $request->query('level');
             $status = $request->query('status');
+            $expand = $this->parseExpand($request);
 
-            $teachers = $this->teacherService->getAllTeachers($search, $level, $status);
+            $teachers = $this->teacherService->getAllTeachers($search, $level, $status, $expand);
 
             return $this->success(
                 TeacherResource::collection($teachers),
@@ -46,14 +52,17 @@ class TeacherController extends Controller
      * Display the specified teacher
      *
      * GET /api/teachers/{id}
+     * GET /api/teachers/{id}?expand=user,classrooms,tutoredClassrooms
      *
+     * @param Request $request
      * @param int $id
      * @return JsonResponse
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         try {
-            $teacher = $this->teacherService->findById($id);
+            $expand = $this->parseExpand($request);
+            $teacher = $this->teacherService->findById($id, $expand);
 
             return $this->success(
                 new TeacherResource($teacher),
@@ -81,7 +90,7 @@ class TeacherController extends Controller
 
             return $this->created(
                 new TeacherResource($teacher),
-                'Docente creado exitosamente'
+                'Docente y cuenta de usuario creados exitosamente'
             );
         } catch (\Exception $e) {
             return $this->error('Error al crear docente: ' . $e->getMessage(), null, 500);

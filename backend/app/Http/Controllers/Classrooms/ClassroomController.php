@@ -7,11 +7,14 @@ use App\Http\Requests\Classrooms\ClassroomStoreRequest;
 use App\Http\Requests\Classrooms\ClassroomUpdateRequest;
 use App\Http\Resources\ClassroomResource;
 use App\Services\ClassroomService;
+use App\Traits\ParsesExpandParameter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ClassroomController extends Controller
 {
+    use ParsesExpandParameter;
+
     public function __construct(
         private ClassroomService $classroomService
     ) {}
@@ -20,6 +23,12 @@ class ClassroomController extends Controller
      * Display a listing of classrooms
      *
      * GET /api/classrooms
+     * GET /api/classrooms?search=A
+     * GET /api/classrooms?level=PRIMARIA
+     * GET /api/classrooms?shift=MAÑANA
+     * GET /api/classrooms?tutor_id=5
+     * GET /api/classrooms?teacher_id=3
+     * GET /api/classrooms?expand=tutor,students
      *
      * @param Request $request
      * @return JsonResponse
@@ -31,8 +40,19 @@ class ClassroomController extends Controller
             $level = $request->query('level');
             $shift = $request->query('shift');
             $status = $request->query('status');
+            $tutorId = $request->query('tutor_id');
+            $teacherId = $request->query('teacher_id');
+            $expand = $this->parseExpand($request);
 
-            $classrooms = $this->classroomService->getAllClassrooms($search, $level, $shift, $status);
+            $classrooms = $this->classroomService->getAllClassrooms(
+                $search,
+                $level,
+                $shift,
+                $status,
+                $tutorId,
+                $teacherId,
+                $expand
+            );
 
             return $this->success(
                 ClassroomResource::collection($classrooms),
@@ -47,14 +67,17 @@ class ClassroomController extends Controller
      * Display the specified classroom
      *
      * GET /api/classrooms/{id}
+     * GET /api/classrooms/{id}?expand=tutor,teachers,students
      *
+     * @param Request $request
      * @param int $id
      * @return JsonResponse
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         try {
-            $classroom = $this->classroomService->findById($id);
+            $expand = $this->parseExpand($request);
+            $classroom = $this->classroomService->findById($id, $expand);
 
             return $this->success(
                 new ClassroomResource($classroom),
@@ -132,54 +155,6 @@ class ClassroomController extends Controller
             return $this->error('Aula no encontrada', null, 404);
         } catch (\Exception $e) {
             return $this->error('Error al eliminar aula: ' . $e->getMessage(), null, 500);
-        }
-    }
-
-    /**
-     * Get classrooms by level
-     *
-     * GET /api/classrooms/by-level/{level}
-     *
-     * @param string $level
-     * @return JsonResponse
-     */
-    public function byLevel(string $level): JsonResponse
-    {
-        try {
-            if (!in_array($level, ['INICIAL', 'PRIMARIA', 'SECUNDARIA'])) {
-                return $this->error('Nivel inválido', null, 400);
-            }
-
-            $classrooms = $this->classroomService->getByLevel($level);
-
-            return $this->success(
-                ClassroomResource::collection($classrooms),
-                'Aulas obtenidas exitosamente'
-            );
-        } catch (\Exception $e) {
-            return $this->error('Error al obtener aulas: ' . $e->getMessage(), null, 500);
-        }
-    }
-
-    /**
-     * Get classrooms by teacher
-     *
-     * GET /api/classrooms/by-teacher/{teacherId}
-     *
-     * @param int $teacherId
-     * @return JsonResponse
-     */
-    public function byTeacher(int $teacherId): JsonResponse
-    {
-        try {
-            $classrooms = $this->classroomService->getByTeacher($teacherId);
-
-            return $this->success(
-                ClassroomResource::collection($classrooms),
-                'Aulas obtenidas exitosamente'
-            );
-        } catch (\Exception $e) {
-            return $this->error('Error al obtener aulas: ' . $e->getMessage(), null, 500);
         }
     }
 }

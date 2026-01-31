@@ -75,16 +75,16 @@ class AuthenticatedSessionController extends Controller
             : now()->addDays(30);
         $token = $user->createToken($deviceName, ['*'], $expiresAt);
 
+        $ip = client_ip();
+
         $token->accessToken->update([
-            'ip_address' => $request->ip(),
+            'ip_address' => $ip,
         ]);
 
-        $user->updateLastLogin($request->ip());
-
-        $user->tenant->updateActivity();
+        $user->updateLastLogin($ip);
 
         $this->logActivity('user_login', null, [
-            'ip_address' => $request->ip(),
+            'ip_address' => $ip,
             'user_agent' => $request->userAgent(),
         ], $user);
 
@@ -126,7 +126,7 @@ class AuthenticatedSessionController extends Controller
         $user = $request->user();
 
         $this->logActivity('user_logout', null, [
-            'ip_address' => $request->ip(),
+            'ip_address' => client_ip(),
         ], $user);
 
         $request->user()->currentAccessToken()->delete();
@@ -218,7 +218,7 @@ class AuthenticatedSessionController extends Controller
         $currentToken = $request->user()->currentAccessToken();
 
         $deviceName = $currentToken->name ?? 'api-client';
-        $ipAddress = $currentToken->ip_address ?? $request->ip();
+        $ipAddress = $currentToken->ip_address ?? client_ip();
 
         $currentToken->delete();
 

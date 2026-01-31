@@ -16,20 +16,21 @@ return new class extends Migration
 
             $table->foreignId('tenant_id')->nullable()->constrained('tenants')->onDelete('cascade');
 
+            $table->enum('document_type', ['DNI', 'CE', 'PAS', 'CI', 'PTP'])->default('DNI');
+            $table->string('document_number', 20)->nullable();
+
             $table->string('name', 100);
             $table->string('paternal_surname', 50);
             $table->string('maternal_surname', 50);
-            $table->string('dni', 8)->nullable();
+            $table->string('photo_url')->nullable();
 
-            $table->string('email')->unique();
+            $table->string('email');
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
 
-            $table->enum('role', ['SUPERADMIN', 'DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO', 'ESCANER', 'COORDINADOR'])->default('ESCANER');
+            $table->enum('role', ['SUPERADMIN', 'DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO', 'COORDINADOR', 'AUXILIAR', 'DOCENTE', 'ESCANER'])->default('ESCANER');
 
             $table->string('phone_number', 15)->nullable();
-            $table->string('photo_url')->nullable();
-
             $table->enum('status', ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'])->default('ACTIVO');
 
             $table->rememberToken();
@@ -39,7 +40,7 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->unique(['tenant_id', 'dni']);
+            $table->unique(['tenant_id', 'document_number']);
             $table->unique(['tenant_id', 'email']);
 
             $table->index(['tenant_id', 'status']);

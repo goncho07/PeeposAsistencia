@@ -27,18 +27,19 @@ class UserUpdateRequest extends FormRequest
         $userId = $this->route('id');
 
         return [
-            'name' => ['sometimes', 'required', 'string', 'max:100'],
-            'paternal_surname' => ['sometimes', 'required', 'string', 'max:50'],
-            'maternal_surname' => ['sometimes', 'required', 'string', 'max:50'],
-            'dni' => [
+            'document_type' => ['sometimes', 'in:DNI,CE,PAS,CI,PTP'],
+            'document_number' => [
                 'sometimes',
-                'required',
+                'nullable',
                 'string',
-                'digits:8',
-                Rule::unique('users', 'dni')
+                'max:20',
+                Rule::unique('users', 'document_number')
                     ->where('tenant_id', $tenantId)
                     ->ignore($userId)
             ],
+            'name' => ['sometimes', 'required', 'string', 'max:100'],
+            'paternal_surname' => ['sometimes', 'required', 'string', 'max:50'],
+            'maternal_surname' => ['sometimes', 'required', 'string', 'max:50'],
             'email' => [
                 'sometimes',
                 'required',
@@ -49,10 +50,10 @@ class UserUpdateRequest extends FormRequest
                     ->ignore($userId)
             ],
             'password' => ['sometimes', Password::min(8)->mixedCase()->numbers()->symbols()],
-            'role' => ['required', 'in:SUPERADMIN,DIRECTOR,SUBDIRECTOR,SECRETARIO,ESCANER,COORDINADOR'],
+            'role' => ['sometimes', 'in:SUPERADMIN,DIRECTOR,SUBDIRECTOR,SECRETARIO,COORDINADOR,AUXILIAR,DOCENTE,ESCANER'],
             'phone_number' => ['sometimes', 'nullable', 'string', 'max:15'],
-            'avatar_url' => ['sometimes', 'nullable', 'url', 'max:500'],
-            'status' => ['sometimes', 'in:ACTIVO,INACTIVO'],
+            'photo_url' => ['sometimes', 'nullable', 'string', 'max:500'],
+            'status' => ['sometimes', 'in:ACTIVO,INACTIVO,SUSPENDIDO'],
         ];
     }
 
@@ -64,18 +65,16 @@ class UserUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
+            'document_type.in' => 'El tipo de documento no es válido.',
+            'document_number.unique' => 'El número de documento ya está registrado en esta institución.',
             'name.required' => 'El nombre es obligatorio.',
             'name.max' => 'El nombre no puede tener más de 100 caracteres.',
             'paternal_surname.required' => 'El apellido paterno es obligatorio.',
             'maternal_surname.required' => 'El apellido materno es obligatorio.',
-            'dni.required' => 'El DNI es obligatorio.',
-            'dni.digits' => 'El DNI debe tener exactamente 8 dígitos.',
-            'dni.unique' => 'El DNI ya está registrado en esta institución.',
             'email.required' => 'El correo electrónico es obligatorio.',
             'email.email' => 'El correo electrónico no es válido.',
             'email.unique' => 'El correo electrónico ya está registrado en esta institución.',
             'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
-            'role.required' => 'El rol es obligatorio.',
             'role.in' => 'El rol no es válido.',
             'phone_number.max' => 'El número de teléfono no puede tener más de 15 caracteres.',
             'status.in' => 'El estado no es válido.',

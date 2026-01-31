@@ -21,7 +21,14 @@ class AttendanceController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Attendance::with(['attendable']);
+            $query = Attendance::with([
+                'attendable' => function ($morphTo) {
+                    $morphTo->morphWith([
+                        \App\Models\Student::class => ['classroom'],
+                        \App\Models\Teacher::class => ['classrooms'],
+                    ]);
+                }
+            ]);
 
             if ($request->query('date')) {
                 $query->forDate(Carbon::parse($request->query('date')));

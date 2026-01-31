@@ -2,12 +2,20 @@
 
 namespace App\Http\Resources;
 
+use App\Traits\ExpandableResource;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class StudentResource extends JsonResource
 {
+    use ExpandableResource;
+
     /**
      * Transform the resource into an array.
+     *
+     * Usage:
+     * - GET /api/students       
+     * - GET /api/students?expand=classroom
+     * - GET /api/students?expand=classroom,parents
      *
      * @return array<string, mixed>
      */
@@ -15,53 +23,54 @@ class StudentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'student_code' => $this->student_code,
             'qr_code' => $this->qr_code,
+
+            'student_code' => $this->student_code,
+            'document_type' => $this->document_type,
+            'document_number' => $this->document_number,
             'full_name' => $this->full_name,
             'name' => $this->name,
             'paternal_surname' => $this->paternal_surname,
             'maternal_surname' => $this->maternal_surname,
-            'document_type' => $this->document_type,
-            'document_number' => $this->document_number,
             'gender' => $this->gender,
             'birth_date' => $this->birth_date?->format('Y-m-d'),
+            'birth_place' => $this->birth_place,
+            'nationality' => $this->nationality,
             'age' => $this->age,
+            'photo_url' => get_storage_url($this->photo_url),
+
             'academic_year' => $this->academic_year,
             'enrollment_status' => $this->enrollment_status,
-            'photo_url' => get_storage_url($this->photo_url),
-            'classroom' => $this->whenLoaded('classroom', function () {
-                return [
-                    'id' => $this->classroom->id,
-                    'full_name' => $this->classroom->full_name,
-                    'level' => $this->classroom->level,
-                    'grade' => $this->classroom->grade,
-                    'section' => $this->classroom->section,
-                    'shift' => $this->classroom->shift,
-                    'status' => $this->classroom->status,
-                    'teacher' => $this->classroom->teacher ? [
-                        'id' => $this->classroom->teacher->id,
-                        'full_name' => $this->classroom->teacher->full_name,
-                    ] : null,
-                ];
-            }),
-            'parents' => $this->when($this->relationLoaded('parents'), function () {
-                return $this->parents->map(function ($parent) {
-                    return [
-                        'id' => $parent->id,
-                        'full_name' => $parent->full_name,
-                        'document_type' => $parent->document_type,
-                        'document_number' => $parent->document_number,
-                        'phone_number' => $parent->phone_number,
-                        'email' => $parent->email,
-                        'relationship' => [
-                            'type' => $parent->pivot->relationship_type,
-                            'custom_label' => $parent->pivot->custom_relationship_label,
-                            'is_primary_contact' => $parent->pivot->is_primary_contact,
-                            'receives_notifications' => $parent->pivot->receives_notifications,
-                        ],
-                    ];
-                });
-            }, [])
+
+            'classroom_id' => $this->classroom_id,
+            'classroom' => $this->whenExpanded('classroom', fn () => [
+                'id' => $this->classroom->id,
+                'full_name' => $this->classroom->full_name,
+                'level' => $this->classroom->level,
+                'grade' => $this->classroom->grade,
+                'section' => $this->classroom->section,
+                'shift' => $this->classroom->shift,
+                'status' => $this->classroom->status,
+                'tutor' => $this->classroom->tutor ? [
+                    'id' => $this->classroom->tutor->id,
+                    'full_name' => $this->classroom->tutor->full_name,
+                ] : null,
+            ]),
+
+            'parents' => $this->whenExpanded('parents', fn () => $this->parents->map(fn ($parent) => [
+                'id' => $parent->id,
+                'full_name' => $parent->full_name,
+                'document_type' => $parent->document_type,
+                'document_number' => $parent->document_number,
+                'phone_number' => $parent->phone_number,
+                'email' => $parent->email,
+                'relationship' => [
+                    'type' => $parent->pivot->relationship_type,
+                    'custom_label' => $parent->pivot->custom_relationship_label,
+                    'is_primary_contact' => $parent->pivot->is_primary_contact,
+                    'receives_notifications' => $parent->pivot->receives_notifications,
+                ],
+            ])),
         ];
     }
 }

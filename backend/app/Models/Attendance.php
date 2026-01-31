@@ -17,24 +17,27 @@ class Attendance extends Model
         'date',
         'shift',
         'entry_time',
-        'exit_time',
         'entry_status',
+        'exit_time',
         'exit_status',
-        'entry_observation',
-        'exit_observation',
+        'recorded_by',
+        'device_type',
         'whatsapp_sent',
     ];
 
     protected $casts = [
         'date' => 'date',
         'whatsapp_sent' => 'boolean',
-        'entry_time' => 'datetime',
-        'exit_time' => 'datetime',
     ];
 
     public function attendable()
     {
         return $this->morphTo();
+    }
+
+    public function recorder()
+    {
+        return $this->belongsTo(User::class, 'recorded_by');
     }
 
     public function scopeForDate($query, $date)
@@ -57,14 +60,24 @@ class Attendance extends Model
         return $query->where('attendable_type', Student::class);
     }
 
+    public function scopeTeachers($query)
+    {
+        return $query->where('attendable_type', Teacher::class);
+    }
+
+    public function scopeUsers($query)
+    {
+        return $query->where('attendable_type', User::class);
+    }
+
     public function scopeByShift($query, $shift)
     {
         return $query->where('shift', $shift);
     }
-    
-    public function scopeTeachers($query)
+
+    public function scopeByDeviceType($query, $deviceType)
     {
-        return $query->where('attendable_type', Teacher::class);
+        return $query->where('device_type', $deviceType);
     }
 
     public function isLate()
@@ -77,8 +90,19 @@ class Attendance extends Model
         return in_array($this->entry_status, ['FALTA', 'FALTA_JUSTIFICADA']);
     }
 
+    public function isPresent()
+    {
+        return $this->entry_status === 'COMPLETO';
+    }
+
     public function hasEarlyExit()
     {
         return in_array($this->exit_status, ['SALIDA_ANTICIPADA', 'SALIDA_ANTICIPADA_JUSTIFICADA']);
     }
+
+    public function hasExited()
+    {
+        return $this->exit_status !== 'SIN_SALIDA';
+    }
 }
+

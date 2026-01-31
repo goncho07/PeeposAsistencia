@@ -12,14 +12,16 @@ class ParentService
     use LogsActivity;
 
     /**
-     * Get all parents with optional search
+     * Get all parents with optional search.
+     * Relations are loaded based on ?expand= parameter.
+     *
+     * @param string|null $search
+     * @param array $expand Relations to expand (students)
      */
-    public function getAllParents(?string $search = null): Collection
+    public function getAllParents(?string $search = null, array $expand = []): Collection
     {
-        $query = ParentGuardian::with([
-                'students:id,student_code,name,paternal_surname,maternal_surname,document_number,enrollment_status,classroom_id',
-                'students.classroom:id,level,grade,section'
-            ])
+        $query = ParentGuardian::query()
+            ->withCount('students')
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($query) use ($search) {
                     $query->where('document_number', 'like', "%{$search}%")
@@ -34,16 +36,32 @@ class ParentService
             ->orderBy('maternal_surname')
             ->orderBy('name');
 
+        if (in_array('students', $expand)) {
+            $query->with([
+                'students:id,student_code,name,paternal_surname,maternal_surname,document_number,enrollment_status,classroom_id',
+                'students.classroom:id,level,grade,section'
+            ]);
+        }
+
         return $query->get();
     }
 
     /**
-     * Find parent by ID
+     * Find parent by ID.
+     * Relations are loaded based on ?expand= parameter.
+     *
+     * @param int $id
+     * @param array $expand Relations to expand
      */
-    public function findById(int $id): ParentGuardian
+    public function findById(int $id, array $expand = []): ParentGuardian
     {
-        return ParentGuardian::with(['students.classroom'])
-            ->findOrFail($id);
+        $query = ParentGuardian::query();
+
+        if (in_array('students', $expand)) {
+            $query->with(['students.classroom']);
+        }
+
+        return $query->findOrFail($id);
     }
 
     /**

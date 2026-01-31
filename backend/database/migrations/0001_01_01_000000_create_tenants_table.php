@@ -14,11 +14,13 @@ return new class extends Migration
         Schema::create('tenants', function (Blueprint $table) {
             $table->id();
 
-            $table->string('code', 20)->unique()->comment('Código MODULAR del colegio');
-            $table->string('name', 200);
+            $table->string('modular_code', 7)->nullable()->unique()->comment('Código modular MINEDU');
             $table->string('slug', 100)->unique();
-
             $table->string('ruc', 11)->nullable()->unique();
+
+            $table->string('name', 200);
+            $table->string('director_name', 150)->nullable();
+            $table->year('founded_year')->nullable();
             $table->enum('institution_type', ['ESTATAL', 'PRIVADO', 'PARROQUIAL'])->default('ESTATAL');
             $table->enum('level', ['INICIAL', 'PRIMARIA', 'SECUNDARIA', 'MULTIPLE'])->default('MULTIPLE');
 
@@ -35,7 +37,7 @@ return new class extends Migration
             $table->string('logo_url')->nullable();
             $table->string('banner_url')->nullable();
             $table->string('background_url')->nullable();
-            $table->string('primary_color')->default('#FFFFFF');
+            $table->string('primary_color', 7)->default('#FFFFFF');
             $table->string('timezone', 50)->default('America/Lima');
 
             $table->boolean('is_active')->default(true);
@@ -44,10 +46,9 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index('code');
+            $table->index('modular_code');
             $table->index('slug');
             $table->index('district');
-
             $table->index(['id', 'is_active'], 'idx_tenant_active');
         });
     }

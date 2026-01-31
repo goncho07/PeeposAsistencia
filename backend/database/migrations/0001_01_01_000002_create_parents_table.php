@@ -22,16 +22,20 @@ return new class extends Migration
             $table->string('name', 100);
             $table->string('paternal_surname', 50);
             $table->string('maternal_surname', 50);
+            $table->string('photo_url')->nullable();
 
             $table->string('phone_number', 15)->nullable();
+            $table->string('phone_number_secondary', 15)->nullable();
             $table->string('email', 100)->nullable();
-            $table->string('photo_url')->nullable();
+            $table->string('address', 255)->nullable();
+
+            $table->string('workplace', 150)->nullable();
 
             $table->timestamps();
 
             $table->unique(['tenant_id', 'document_number']);
             $table->unique(['tenant_id', 'email']);
-            
+
             $table->index(['name', 'paternal_surname', 'maternal_surname'], 'idx_parents_search');
         });
     }

@@ -13,18 +13,17 @@ return new class extends Migration
     {
         Schema::create('classrooms', function (Blueprint $table) {
             $table->id();
+
             $table->foreignId('tenant_id')->constrained('tenants')->onDelete('cascade');
 
-            $table->foreignId('teacher_id')
-                ->nullable()
-                ->constrained('teachers')
-                ->onDelete('set null');
+            $table->foreignId('tutor_id')->nullable()->constrained('teachers')->onDelete('set null');
 
             $table->enum('level', ['INICIAL', 'PRIMARIA', 'SECUNDARIA']);
             $table->unsignedTinyInteger('grade');
-            $table->string('section', 50);
-
+            $table->string('section', 10);
             $table->enum('shift', ['MAÑANA', 'TARDE', 'NOCHE'])->nullable();
+
+            $table->unsignedSmallInteger('capacity')->nullable()->comment('Aforo máximo');
 
             $table->enum('status', ['ACTIVO', 'INACTIVO', 'CERRADO'])->default('ACTIVO');
 

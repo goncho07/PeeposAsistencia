@@ -25,7 +25,7 @@ class ClassroomStoreRequest extends FormRequest
         $tenantId = $this->user()->tenant_id;
 
         return [
-            'teacher_id' => [
+            'tutor_id' => [
                 'nullable',
                 Rule::exists('teachers', 'id')
                     ->where('tenant_id', $tenantId)
@@ -33,8 +33,10 @@ class ClassroomStoreRequest extends FormRequest
             ],
             'level' => ['required', 'in:INICIAL,PRIMARIA,SECUNDARIA'],
             'grade' => ['required', 'integer', 'min:1', 'max:6'],
-            'section' => ['required', 'string', 'max:50'],
+            'section' => ['required', 'string', 'max:10'],
             'shift' => ['nullable', 'in:MAÑANA,TARDE,NOCHE'],
+            'room_number' => ['nullable', 'string', 'max:20'],
+            'capacity' => ['nullable', 'integer', 'min:1', 'max:100'],
             'status' => ['nullable', 'in:ACTIVO,INACTIVO,CERRADO'],
         ];
     }
@@ -80,7 +82,7 @@ class ClassroomStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'teacher_id.exists' => 'El docente seleccionado no existe o está inactivo.',
+            'tutor_id.exists' => 'El tutor seleccionado no existe o está inactivo.',
             'level.required' => 'El nivel es obligatorio.',
             'level.in' => 'El nivel debe ser INICIAL, PRIMARIA o SECUNDARIA.',
             'grade.required' => 'El grado es obligatorio.',
@@ -88,8 +90,12 @@ class ClassroomStoreRequest extends FormRequest
             'grade.min' => 'El grado debe ser al menos 1.',
             'grade.max' => 'El grado no puede ser mayor a 6.',
             'section.required' => 'La sección es obligatoria.',
-            'section.max' => 'La sección no puede tener más de 50 caracteres.',
+            'section.max' => 'La sección no puede tener más de 10 caracteres.',
             'shift.in' => 'El turno debe ser MAÑANA, TARDE o NOCHE.',
+            'room_number.max' => 'El número de aula no puede tener más de 20 caracteres.',
+            'capacity.integer' => 'La capacidad debe ser un número.',
+            'capacity.min' => 'La capacidad debe ser al menos 1.',
+            'capacity.max' => 'La capacidad no puede ser mayor a 100.',
             'status.in' => 'El estado no es válido.',
         ];
     }

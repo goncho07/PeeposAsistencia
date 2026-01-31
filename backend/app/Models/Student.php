@@ -5,26 +5,28 @@ namespace App\Models;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Student extends Model
 {
-    use HasFactory, BelongsToTenant;
+    use HasFactory, BelongsToTenant, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
         'qr_code',
         'student_code',
+        'document_type',
+        'document_number',
         'name',
         'paternal_surname',
         'maternal_surname',
-        'document_type',
-        'document_number',
         'gender',
         'birth_date',
+        'nationality',
+        'photo_url',
         'classroom_id',
         'academic_year',
         'enrollment_status',
-        'photo_url',
     ];
 
     protected $casts = [
@@ -56,6 +58,11 @@ class Student extends Model
             'is_primary_contact',
             'receives_notifications'
         ])->withTimestamps();
+    }
+
+    public function primaryContact()
+    {
+        return $this->parents()->wherePivot('is_primary_contact', true)->first();
     }
 
     public function attendances()
@@ -98,5 +105,10 @@ class Student extends Model
         return $query->whereHas('classroom', function ($q) use ($level) {
             $q->where('level', $level);
         });
+    }
+
+    public function scopeByAcademicYear($query, $year = null)
+    {
+        return $query->where('academic_year', $year ?? now()->year);
     }
 }

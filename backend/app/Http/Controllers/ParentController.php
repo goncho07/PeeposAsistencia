@@ -1,25 +1,30 @@
 <?php
 
-namespace App\Http\Controllers\Parents;
+namespace App\Http\Controllers;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parents\ParentStoreRequest;
 use App\Http\Requests\Parents\ParentUpdateRequest;
 use App\Http\Resources\ParentResource;
 use App\Services\ParentService;
+use App\Traits\ParsesExpandParameter;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ParentController extends Controller
 {
+    use ParsesExpandParameter;
+
     public function __construct(
         private ParentService $parentService
     ) {}
 
     /**
-     * Display a listing of parents
+     * Display a listing of parents.
      *
      * GET /api/parents
+     * GET /api/parents?search=juan
+     * GET /api/parents?expand=students
      *
      * @param Request $request
      * @return JsonResponse
@@ -28,8 +33,9 @@ class ParentController extends Controller
     {
         try {
             $search = $request->query('search');
+            $expand = $this->parseExpand($request);
 
-            $parents = $this->parentService->getAllParents($search);
+            $parents = $this->parentService->getAllParents($search, $expand);
 
             return $this->success(
                 ParentResource::collection($parents),
@@ -41,17 +47,20 @@ class ParentController extends Controller
     }
 
     /**
-     * Display the specified parent
+     * Display the specified parent.
      *
      * GET /api/parents/{id}
+     * GET /api/parents/{id}?expand=students
      *
+     * @param Request $request
      * @param int $id
      * @return JsonResponse
      */
-    public function show(int $id): JsonResponse
+    public function show(Request $request, int $id): JsonResponse
     {
         try {
-            $parent = $this->parentService->findById($id);
+            $expand = $this->parseExpand($request);
+            $parent = $this->parentService->findById($id, $expand);
 
             return $this->success(
                 new ParentResource($parent),

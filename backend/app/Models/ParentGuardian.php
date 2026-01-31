@@ -19,9 +19,12 @@ class ParentGuardian extends Model
         'name',
         'paternal_surname',
         'maternal_surname',
-        'phone_number',
-        'email',
         'photo_url',
+        'phone_number',
+        'phone_number_secondary',
+        'email',
+        'address',
+        'workplace',
     ];
 
     protected $appends = [
@@ -47,5 +50,17 @@ class ParentGuardian extends Model
     public function getFullNameAttribute()
     {
         return "{$this->name} {$this->paternal_surname} {$this->maternal_surname}";
+    }
+
+    public function getPrimaryPhoneAttribute()
+    {
+        return $this->phone_number ?? $this->phone_number_secondary;
+    }
+
+    public function scopeReceivesNotifications($query)
+    {
+        return $query->whereHas('students', function ($q) {
+            $q->wherePivot('receives_notifications', true);
+        });
     }
 }

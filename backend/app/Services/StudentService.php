@@ -7,21 +7,22 @@ use App\Models\Classroom;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Hash;
 
 class StudentService
 {
     use LogsActivity;
 
     /**
-     * Get all students with optional search and filters
+     * Get all students with optional search and filters.
+     * Relations are loaded based on ?expand= parameter.
+     *
+     * @param string|null $search
+     * @param int|null $classroomId
+     * @param array $expand Relations to expand (classroom, parents)
      */
-    public function getAllStudents(?string $search = null, ?int $classroomId = null): Collection
+    public function getAllStudents(?string $search = null, ?int $classroomId = null, array $expand = []): Collection
     {
-        $query = Student::with([
-                'classroom:id,level,grade,section,shift,status',
-                'parents:id,name,paternal_surname,maternal_surname,document_type,document_number,phone_number,email'
-            ])
+        $query = Student::query()
             ->when($search, function ($q) use ($search) {
                 $q->where(function ($query) use ($search) {
                     $query->where('student_code', 'like', "%{$search}%")
@@ -36,16 +37,31 @@ class StudentService
             ->orderBy('maternal_surname')
             ->orderBy('name');
 
+        $relations = $this->buildRelationsFromExpand($expand);
+        if (!empty($relations)) {
+            $query->with($relations);
+        }
+
         return $query->get();
     }
 
     /**
-     * Find student by ID
+     * Find student by ID.
+     * Relations are loaded based on ?expand= parameter.
+     *
+     * @param int $id
+     * @param array $expand Relations to expand
      */
-    public function findById(int $id): Student
+    public function findById(int $id, array $expand = []): Student
     {
-        return Student::with(['classroom.teacher', 'parents'])
-            ->findOrFail($id);
+        $query = Student::query();
+        
+        $relations = $this->buildRelationsFromExpand($expand, true);
+        if (!empty($relations)) {
+            $query->with($relations);
+        }
+
+        return $query->findOrFail($id);
     }
 
     /**
@@ -72,7 +88,7 @@ class StudentService
                 $this->syncParents($student, $parentsData);
             }
 
-            $student->load(['classroom.teacher', 'parents']);
+            $student->load(['classroom.tutor', 'parents']);
 
             $this->logActivity('student_created', $student, [
                 'student_code' => $student->student_code,
@@ -106,7 +122,7 @@ class StudentService
                 $this->syncParents($student, $parentsData);
             }
 
-            $student->load(['classroom.teacher', 'parents']);
+            $student->load(['classroom.tutor', 'parents']);
 
             $newValues = $student->only(array_keys($oldValues));
             $this->logActivityWithChanges('student_updated', $student, $oldValues, $newValues);
@@ -132,6 +148,27 @@ class StudentService
 
             $student->delete();
         });
+    }
+
+    /**
+     * Build relations array from expand parameter.
+     *
+     * @param array $expand
+     * @param bool $isDetailView If true, may load more relations by default
+     */
+    private function buildRelationsFromExpand(array $expand, bool $isDetailView = false): array
+    {
+        $relations = [];
+
+        if (in_array('classroom', $expand)) {
+            $relations[] = 'classroom.tutor';
+        }
+
+        if (in_array('parents', $expand)) {
+            $relations[] = 'parents';
+        }
+
+        return $relations;
     }
 
     /**
@@ -163,6 +200,10 @@ class StudentService
 
         if ($classroom->status !== 'ACTIVO') {
             throw new \Exception('El aula seleccionada no está activa.');
+        }
+
+        if (!$classroom->hasCapacity()) {
+            throw new \Exception('El aula seleccionada ya ha alcanzado su capacidad máxima.');
         }
     }
 

@@ -2,18 +2,19 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Controllers\Students\StudentController;
-use App\Http\Controllers\Teachers\TeacherController;
-use App\Http\Controllers\Parents\ParentController;
-use App\Http\Controllers\Users\UserController;
 use App\Http\Controllers\Classrooms\ClassroomController;
 use App\Http\Controllers\Attendance\ScannerController;
 use App\Http\Controllers\Attendance\AttendanceController;
 use App\Http\Controllers\Attendance\JustificationController;
+use App\Http\Controllers\Incidents\IncidentController;
 use App\Http\Controllers\Carnets\CarnetController;
+use App\Http\Controllers\StudentController;
+use App\Http\Controllers\TeacherController;
+use App\Http\Controllers\ParentController;
+use App\Http\Controllers\UserController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\TenantController;
-use App\Http\Controllers\Incidents\IncidentController;
+use App\Http\Controllers\Calendar\CalendarEventController;
 
 Route::get('/ping', function () {
     return response()->json(['message' => 'Pong!']);
@@ -101,9 +102,6 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::put('/{id}', [ClassroomController::class, 'update']);
         Route::patch('/{id}', [ClassroomController::class, 'update']);
         Route::delete('/{id}', [ClassroomController::class, 'destroy']);
-
-        Route::get('/by-level/{level}', [ClassroomController::class, 'byLevel']);
-        Route::get('/by-teacher/{teacherId}', [ClassroomController::class, 'byTeacher']);
     });
 
     Route::prefix('scanner')->group(function () {
@@ -141,5 +139,16 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
     Route::prefix('settings')->group(function () {
         Route::get('/', [SettingController::class, 'index']);
         Route::put('/', [SettingController::class, 'update']);
+    });
+
+    Route::prefix('calendar')->group(function () {
+        Route::get('/events', [CalendarEventController::class, 'index']);
+        Route::get('/events/{id}', [CalendarEventController::class, 'show']);
+
+        Route::middleware('tenant.role:DIRECTOR')->group(function () {
+            Route::post('/events', [CalendarEventController::class, 'store']);
+            Route::put('/events/{id}', [CalendarEventController::class, 'update']);
+            Route::delete('/events/{id}', [CalendarEventController::class, 'destroy']);
+        });
     });
 });

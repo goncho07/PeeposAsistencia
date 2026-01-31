@@ -19,25 +19,26 @@ return new class extends Migration
             $table->morphs('attendable');
 
             $table->date('date');
-
             $table->enum('shift', ['MAÑANA', 'TARDE', 'NOCHE'])->nullable();
+
             $table->time('entry_time')->nullable();
-            $table->time('exit_time')->nullable();
-
             $table->enum('entry_status', ['COMPLETO', 'TARDANZA', 'FALTA', 'FALTA_JUSTIFICADA'])->default('FALTA');
-            $table->enum('exit_status', ['COMPLETO', 'SALIDA_ANTICIPADA', 'SALIDA_ANTICIPADA_JUSTIFICADA', 'SIN_SALIDA'])->default('SIN_SALIDA');
 
-            $table->text('entry_observation')->nullable();
-            $table->text('exit_observation')->nullable();
+            $table->time('exit_time')->nullable();
+            $table->enum('exit_status', ['COMPLETO', 'SALIDA_ANTICIPADA', 'SALIDA_ANTICIPADA_JUSTIFICADA', 'SIN_SALIDA'])->default('SIN_SALIDA');
+    
+            $table->foreignId('recorded_by')->nullable()->constrained('users')->onDelete('set null');
+            $table->enum('device_type', ['SCANNER', 'MANUAL', 'APP', 'IMPORTACION'])->default('SCANNER');
 
             $table->boolean('whatsapp_sent')->default(false);
-        
+            
             $table->timestamps();
 
             $table->index(['tenant_id', 'date']);
-            $table->index(['tenant_id', 'attendable_type', 'attendable_id', 'date']);
+            $table->index(['tenant_id', 'attendable_type', 'attendable_id', 'date'], 'idx_attendance_entity_date');
             $table->index(['tenant_id', 'date', 'entry_status']);
             $table->index(['tenant_id', 'shift', 'date']);
+            $table->index(['tenant_id', 'recorded_by']);
         });
     }
 

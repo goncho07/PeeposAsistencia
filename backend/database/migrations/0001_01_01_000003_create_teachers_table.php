@@ -16,33 +16,26 @@ return new class extends Migration
 
             $table->foreignId('tenant_id')->constrained('tenants')->onDelete('cascade');
 
-            $table->string('dni', 8);
+            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
+
             $table->string('qr_code', 50);
-            $table->string('photo_url')->nullable();
-        
-            $table->string('name', 100);
-            $table->string('paternal_surname', 50);
-            $table->string('maternal_surname', 50);
-            $table->date('birth_date')->nullable();
-            $table->enum('gender', ['M', 'F'])->nullable();
 
             $table->enum('level', ['INICIAL', 'PRIMARIA', 'SECUNDARIA']);
-            $table->string('area', 30)->nullable();
+            $table->string('specialty', 100)->nullable()->comment('Especialidad: Matemática, Comunicación, etc.');
+            $table->enum('contract_type', ['NOMBRADO', 'CONTRATADO', 'CAS', 'PRACTICANTE'])->default('CONTRATADO');
+            $table->date('hire_date')->nullable();
 
-            $table->string('email')->nullable();
-            $table->string('phone_number', 15)->nullable();
-        
             $table->enum('status', ['ACTIVO', 'INACTIVO', 'LICENCIA', 'CESADO'])->default('ACTIVO');
 
             $table->timestamps();
-            
-            $table->unique(['tenant_id', 'dni']);
+            $table->softDeletes();
+
+            $table->unique('user_id');
             $table->unique(['tenant_id', 'qr_code']);
-            $table->unique(['tenant_id', 'email']);
 
             $table->index(['tenant_id', 'status']);
             $table->index(['tenant_id', 'level']);
-            $table->index(['name', 'paternal_surname', 'maternal_surname'], 'idx_teachers_search');
+            $table->index(['tenant_id', 'contract_type']);
         });
     }
 

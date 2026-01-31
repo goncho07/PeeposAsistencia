@@ -62,6 +62,8 @@ class AttendanceService
                 $existing->update([
                     'entry_time' => $now,
                     'entry_status' => $status,
+                    'recorded_by' => $userId,
+                    'device_type' => 'SCANNER',
                 ]);
                 $attendance = $existing;
             } else {
@@ -72,6 +74,8 @@ class AttendanceService
                     'shift' => $shift,
                     'entry_time' => $now,
                     'entry_status' => $status,
+                    'recorded_by' => $userId,
+                    'device_type' => 'SCANNER',
                     'whatsapp_sent' => false,
                 ]);
             }
@@ -140,6 +144,7 @@ class AttendanceService
             $attendance->update([
                 'exit_time' => $now,
                 'exit_status' => $status,
+                'recorded_by' => $userId,
             ]);
 
             if ($attendable instanceof Student) {
@@ -254,6 +259,7 @@ class AttendanceService
                 'shift' => $student->classroom->shift ?? 'MAÑANA',
                 'entry_status' => 'FALTA',
                 'exit_status' => 'SIN_SALIDA',
+                'device_type' => 'IMPORTACION',
                 'whatsapp_sent' => false,
             ]);
 
@@ -277,6 +283,7 @@ class AttendanceService
                 'shift' => 'MAÑANA',
                 'entry_status' => 'FALTA',
                 'exit_status' => 'SIN_SALIDA',
+                'device_type' => 'IMPORTACION',
                 'whatsapp_sent' => false,
             ]);
         }

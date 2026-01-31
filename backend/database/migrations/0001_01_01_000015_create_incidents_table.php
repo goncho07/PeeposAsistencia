@@ -23,34 +23,37 @@ return new class extends Migration
             $table->time('time');
 
             $table->enum('type', [
-                'USO_CELULAR',           // Uso de celular en clase
-                'INTERRUPCION',          // Interrupción/bulla en clase
-                'FALTA_RESPETO',         // Falta de respeto a docente o compañero
-                'INCUMPLIMIENTO_TAREA',  // No presentó tarea/material
-                'UNIFORME_INCOMPLETO',   // Uniforme incompleto o inadecuado
-                'LLEGADA_TARDE',         // Llegada tarde a clase (no al colegio)
-                'DETERIORO_MATERIAL',    // Deterioro de material/mobiliario
-                'PELEA',                 // Pelea o agresión física
-                'ACOSO',                 // Acoso o bullying
-                'SALIDA_NO_AUTORIZADA',  // Salida del aula sin permiso
-                'OTRO',                  // Otro tipo de incidencia
+                'USO_CELULAR',
+                'INTERRUPCION',
+                'FALTA_RESPETO',
+                'INCUMPLIMIENTO_TAREA',
+                'DESOBEDIENCIA',
+                'CONVERSACION_EXCESIVA',
+                'UNIFORME_INCOMPLETO',
+                'LLEGADA_TARDE',
+                'AUSENCIA_INJUSTIFICADA',
+                'SALIDA_NO_AUTORIZADA',
+                'PELEA',
+                'ACOSO',
+                'DISCRIMINACION',
+                'ROBO',
+                'AMENAZA',
+                'VANDALISMO',
+                'POSESION_SUSTANCIAS',
+                'CONSUMO_SUSTANCIAS',
+                'ARMA_PELIGROSA',
+                'FUEGO_PELIGROSO',
+                'USO_RED_SOCIAL_INADECUADO',
+                'PLAGIO',
+                'TRAMPA_EVALUACION',
+                'DETERIORO_MATERIAL',
+                'ACTITUD_DESCUIDADA'
             ]);
 
-            $table->enum('severity', [
-                'LEVE',      // Amonestación verbal, registro
-                'MODERADA',  // Citación a padre/apoderado
-                'GRAVE',     // Suspensión temporal, informe a dirección
-            ])->default('LEVE');
+            $table->enum('severity', ['LEVE', 'MODERADA', 'GRAVE'])->default('LEVE');
 
-            $table->text('description')->nullable(); // Detalles adicionales opcionales
+            $table->text('description')->nullable();
 
-            $table->enum('status', [
-                'REGISTRADA',    // Recién registrada
-                'EN_SEGUIMIENTO', // Se está dando seguimiento
-                'RESUELTA',      // Ya se resolvió
-            ])->default('REGISTRADA');
-
-            $table->text('resolution_notes')->nullable(); // Notas de resolución
             $table->foreignId('resolved_by')->nullable()->constrained('users');
             $table->timestamp('resolved_at')->nullable();
 

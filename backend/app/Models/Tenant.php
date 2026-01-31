@@ -11,10 +11,12 @@ class Tenant extends Model
     use HasFactory, SoftDeletes;
 
     protected $fillable = [
-        'code',
-        'name',
+        'modular_code',
         'slug',
         'ruc',
+        'name',
+        'director_name',
+        'founded_year',
         'institution_type',
         'level',
         'email',
@@ -25,7 +27,6 @@ class Tenant extends Model
         'district',
         'ugel',
         'ubigeo',
-        'settings',
         'logo_url',
         'banner_url',
         'background_url',
@@ -36,9 +37,9 @@ class Tenant extends Model
     ];
 
     protected $casts = [
-        'settings' => 'array',
         'is_active' => 'boolean',
         'last_activity_at' => 'datetime',
+        'founded_year' => 'integer',
     ];
 
     protected static function boot()

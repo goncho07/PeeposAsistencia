@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -10,19 +11,20 @@ use App\Traits\BelongsToTenant;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, BelongsToTenant;
+    use HasApiTokens, HasFactory, Notifiable, BelongsToTenant, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
+        'document_type',
+        'document_number',
         'name',
         'paternal_surname',
         'maternal_surname',
-        'dni',
+        'photo_url',
         'email',
         'password',
         'role',
         'phone_number',
-        'photo_url',
         'status',
         'last_login_at',
         'last_login_ip',
@@ -48,6 +50,21 @@ class User extends Authenticatable
         return $this->belongsTo(Tenant::class);
     }
 
+    public function teacher()
+    {
+        return $this->hasOne(Teacher::class);
+    }
+
+    public function attendances()
+    {
+        return $this->morphMany(Attendance::class, 'attendable');
+    }
+
+    public function justifications()
+    {
+        return $this->morphMany(Justification::class, 'justifiable');
+    }
+
     public function notifications()
     {
         return $this->hasMany(Notification::class);
@@ -56,6 +73,11 @@ class User extends Authenticatable
     public function createdJustifications()
     {
         return $this->hasMany(Justification::class, 'created_by');
+    }
+
+    public function recordedAttendances()
+    {
+        return $this->hasMany(Attendance::class, 'recorded_by');
     }
 
     public function activityLogs()
@@ -91,6 +113,16 @@ class User extends Authenticatable
     public function isSuperAdmin()
     {
         return $this->role === 'SUPERADMIN';
+    }
+
+    public function isTeacher()
+    {
+        return $this->role === 'DOCENTE';
+    }
+
+    public function hasTeacherProfile()
+    {
+        return $this->teacher()->exists();
     }
 
     public function updateLastLogin($ipAddress = null)

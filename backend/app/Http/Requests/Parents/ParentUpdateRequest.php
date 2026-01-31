@@ -40,6 +40,7 @@ class ParentUpdateRequest extends FormRequest
             'paternal_surname' => ['sometimes', 'required', 'string', 'max:50'],
             'maternal_surname' => ['sometimes', 'required', 'string', 'max:50'],
             'phone_number' => ['sometimes', 'nullable', 'string', 'max:15'],
+            'phone_number_secondary' => ['sometimes', 'nullable', 'string', 'max:15'],
             'email' => [
                 'sometimes',
                 'nullable',
@@ -49,6 +50,9 @@ class ParentUpdateRequest extends FormRequest
                     ->where('tenant_id', $tenantId)
                     ->ignore($parentId)
             ],
+            'address' => ['sometimes', 'nullable', 'string', 'max:255'],
+            'occupation' => ['sometimes', 'nullable', 'string', 'max:100'],
+            'workplace' => ['sometimes', 'nullable', 'string', 'max:150'],
             'students' => ['sometimes', 'array', 'max:10'],
             'students.*.student_id' => [
                 'required',
