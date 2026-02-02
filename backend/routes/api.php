@@ -15,6 +15,7 @@ use App\Http\Controllers\UserController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\TenantController;
 use App\Http\Controllers\Calendar\CalendarEventController;
+use App\Http\Controllers\Attendance\BiometricScannerController;
 
 Route::get('/ping', function () {
     return response()->json(['message' => 'Pong!']);
@@ -107,6 +108,17 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
     Route::prefix('scanner')->group(function () {
         Route::post('/entry', [ScannerController::class, 'scanEntry']);
         Route::post('/exit', [ScannerController::class, 'scanExit']);
+    });
+
+    Route::prefix('biometric')->group(function () {
+        Route::post('/scan/entry', [BiometricScannerController::class, 'scanEntry']);
+        Route::post('/scan/exit', [BiometricScannerController::class, 'scanExit']);
+        Route::get('/health', [BiometricScannerController::class, 'health']);
+        Route::get('/status/{type}/{id}', [BiometricScannerController::class, 'status']);
+
+        Route::middleware('tenant.role:DIRECTOR,SUBDIRECTOR')->group(function () {
+            Route::post('/enroll', [BiometricScannerController::class, 'enroll']);
+        });
     });
 
     Route::prefix('attendance')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {

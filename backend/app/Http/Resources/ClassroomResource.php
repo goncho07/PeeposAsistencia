@@ -13,10 +13,10 @@ class ClassroomResource extends JsonResource
      * Transform the resource into an array.
      *
      * Usage:
-     * - GET /api/classrooms                     → Solo datos básicos + tutor_id
-     * - GET /api/classrooms?expand=tutor        → Con objeto tutor
-     * - GET /api/classrooms?expand=teachers     → Con docentes que enseñan
-     * - GET /api/classrooms?expand=students     → Con lista de estudiantes
+     * - GET /api/classrooms
+     * - GET /api/classrooms?expand=tutor     
+     * - GET /api/classrooms?expand=teachers
+     * - GET /api/classrooms?expand=students
      *
      * @return array<string, mixed>
      */

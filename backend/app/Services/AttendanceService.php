@@ -2,20 +2,29 @@
 
 namespace App\Services;
 
+use App\Exceptions\BiometricException;
 use App\Models\Attendance;
+use App\Models\FaceEmbedding;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\Justification;
 use App\Exceptions\BusinessException;
+use App\Services\Biometric\FaceRecognitionService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceService
 {
     public function __construct(
         private SettingService $settingService,
-        private WhatsAppService $whatsAppService
-    ) {}
+        private WhatsAppService $whatsAppService,
+        private ?FaceRecognitionService $faceService = null
+    ) {
+        if ($this->faceService === null && config('biometric.enabled')) {
+            $this->faceService = app(FaceRecognitionService::class);
+        }
+    }
 
     /**
      * Register entry attendance by scanning QR code
@@ -348,5 +357,225 @@ class AttendanceService
             'SALIDA_ANTICIPADA' => "{$type}: {$name} - Salida anticipada a las {$hora}",
             default => "{$type}: {$name} - Salida registrada"
         };
+    }
+
+    /**
+     * Register entry attendance via biometric face scan.
+     *
+     * @param string $imageBase64 Base64 encoded image
+     * @param int $tenantId Tenant ID
+     * @param int $userId User ID registering the attendance
+     * @param array $filters Optional filters (classroom_id, level)
+     * @return array
+     * @throws BiometricException
+     */
+    public function scanEntryByFace(string $imageBase64, int $tenantId, int $userId, array $filters = []): array
+    {
+        return DB::transaction(function () use ($imageBase64, $tenantId, $userId, $filters) {
+            $result = $this->faceService->search($tenantId, $imageBase64);
+
+            if (empty($result['matches'])) {
+                throw BiometricException::noMatch();
+            }
+
+            $match = $result['matches'][0];
+            $confidence = $match['confidence'];
+
+            $minThreshold = config('biometric.thresholds.match_low', 60.0);
+            if ($confidence < $minThreshold) {
+                throw BiometricException::lowConfidence($confidence);
+            }
+
+            $parsed = FaceEmbedding::parseExternalId($match['external_id']);
+            if (!$parsed) {
+                Log::error('Invalid external_id from face service', ['external_id' => $match['external_id']]);
+                throw BiometricException::noMatch();
+            }
+
+            $attendable = $parsed['type']::find($parsed['id']);
+            if (!$attendable) {
+                throw BiometricException::noMatch();
+            }
+
+            $today = now()->startOfDay();
+
+            $existing = Attendance::where('attendable_type', get_class($attendable))
+                ->where('attendable_id', $attendable->id)
+                ->where('date', $today)
+                ->first();
+
+            if ($existing && $existing->entry_time) {
+                throw new BusinessException(
+                    'Ya se registró la entrada de ' . $attendable->full_name .
+                        ' a las ' . $existing->entry_time->format('H:i')
+                );
+            }
+
+            $now = now();
+            $nivel = $attendable instanceof Student ? $attendable->classroom->level : $attendable->level;
+            $shift = $attendable instanceof Student ? $attendable->classroom->shift : 'MAÑANA';
+
+            $schedule = $this->settingService->getScheduleForLevel($nivel, $shift);
+            $toleranceMinutes = $this->settingService->getToleranceMinutes();
+
+            $entryTimeLimit = Carbon::parse($schedule['entrada'])->addMinutes($toleranceMinutes);
+            $status = $now->format('H:i') <= $entryTimeLimit->format('H:i') ? 'COMPLETO' : 'TARDANZA';
+
+            if ($existing) {
+                $existing->update([
+                    'entry_time' => $now,
+                    'entry_status' => $status,
+                    'recorded_by' => $userId,
+                    'device_type' => 'BIOMETRIC',
+                    'face_match_confidence' => $confidence,
+                ]);
+                $attendance = $existing;
+            } else {
+                $attendance = Attendance::create([
+                    'attendable_type' => get_class($attendable),
+                    'attendable_id' => $attendable->id,
+                    'date' => $today,
+                    'shift' => $shift,
+                    'entry_time' => $now,
+                    'entry_status' => $status,
+                    'recorded_by' => $userId,
+                    'device_type' => 'BIOMETRIC',
+                    'face_match_confidence' => $confidence,
+                    'whatsapp_sent' => false,
+                ]);
+            }
+
+            if ($attendable instanceof Student) {
+                $this->whatsAppService->sendAttendanceNotification($attendable, $attendance, 'ENTRADA');
+            }
+
+            Log::info('Biometric entry registered', [
+                'external_id' => $match['external_id'],
+                'confidence' => $confidence,
+                'status' => $status,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => $this->getEntryMessage($attendable, $status, $now),
+                'attendance' => [
+                    'id' => $attendance->id,
+                    'status' => $status,
+                    'entry_time' => $now->format('H:i:s'),
+                ],
+                'person' => [
+                    'id' => $attendable->id,
+                    'type' => $attendable instanceof Student ? 'student' : 'teacher',
+                    'full_name' => $attendable->full_name,
+                    'classroom' => $attendable instanceof Student ? $attendable->classroom?->full_name : null,
+                ],
+                'match' => [
+                    'confidence' => $confidence,
+                ],
+            ];
+        });
+    }
+
+    /**
+     * Register exit attendance via biometric face scan.
+     *
+     * @param string $imageBase64 Base64 encoded image
+     * @param int $tenantId Tenant ID
+     * @param int $userId User ID registering the attendance
+     * @param array $filters Optional filters
+     * @return array
+     * @throws BiometricException
+     */
+    public function scanExitByFace(string $imageBase64, int $tenantId, int $userId, array $filters = []): array
+    {
+        return DB::transaction(function () use ($imageBase64, $tenantId, $userId, $filters) {
+            $result = $this->faceService->search($tenantId, $imageBase64);
+
+            if (empty($result['matches'])) {
+                throw BiometricException::noMatch();
+            }
+
+            $match = $result['matches'][0];
+            $confidence = $match['confidence'];
+
+            $minThreshold = config('biometric.thresholds.match_low', 60.0);
+            if ($confidence < $minThreshold) {
+                throw BiometricException::lowConfidence($confidence);
+            }
+
+            $parsed = FaceEmbedding::parseExternalId($match['external_id']);
+            if (!$parsed) {
+                throw BiometricException::noMatch();
+            }
+
+            $attendable = $parsed['type']::find($parsed['id']);
+            if (!$attendable) {
+                throw BiometricException::noMatch();
+            }
+
+            $today = now()->startOfDay();
+            $attendance = Attendance::where('attendable_type', get_class($attendable))
+                ->where('attendable_id', $attendable->id)
+                ->where('date', $today)
+                ->first();
+
+            if (!$attendance || !$attendance->entry_time) {
+                throw new BusinessException(
+                    'No se puede registrar salida sin entrada previa para ' . $attendable->full_name
+                );
+            }
+
+            if ($attendance->exit_time) {
+                throw new BusinessException(
+                    'Ya se registró la salida de ' . $attendable->full_name .
+                        ' a las ' . $attendance->exit_time->format('H:i')
+                );
+            }
+
+            $now = now();
+            $nivel = $attendable instanceof Student ? $attendable->classroom->level : $attendable->level;
+            $shift = $attendable instanceof Student ? $attendable->classroom->shift : 'MAÑANA';
+
+            $schedule = $this->settingService->getScheduleForLevel($nivel, $shift);
+            $exitTimeLimit = Carbon::parse($schedule['salida']);
+            $status = $now->format('H:i') >= $exitTimeLimit->format('H:i')
+                ? 'COMPLETO'
+                : 'SALIDA_ANTICIPADA';
+
+            $attendance->update([
+                'exit_time' => $now,
+                'exit_status' => $status,
+                'recorded_by' => $userId,
+            ]);
+
+            if ($attendable instanceof Student) {
+                $this->whatsAppService->sendAttendanceNotification($attendable, $attendance, 'SALIDA');
+            }
+
+            Log::info('Biometric exit registered', [
+                'external_id' => $match['external_id'],
+                'confidence' => $confidence,
+                'status' => $status,
+            ]);
+
+            return [
+                'success' => true,
+                'message' => $this->getExitMessage($attendable, $status, $now),
+                'attendance' => [
+                    'id' => $attendance->id,
+                    'status' => $status,
+                    'exit_time' => $now->format('H:i:s'),
+                ],
+                'person' => [
+                    'id' => $attendable->id,
+                    'type' => $attendable instanceof Student ? 'student' : 'teacher',
+                    'full_name' => $attendable->full_name,
+                    'classroom' => $attendable instanceof Student ? $attendable->classroom?->full_name : null,
+                ],
+                'match' => [
+                    'confidence' => $confidence,
+                ],
+            ];
+        });
     }
 }

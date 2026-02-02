@@ -63,6 +63,16 @@ class Teacher extends Model
         return $this->morphMany(Justification::class, 'justifiable');
     }
 
+    public function faceEmbedding()
+    {
+        return $this->morphOne(FaceEmbedding::class, 'embeddable');
+    }
+
+    public function hasFaceEnrolled(): bool
+    {
+        return $this->faceEmbedding()->where('status', FaceEmbedding::STATUS_ACTIVE)->exists();
+    }
+
     public function getFullNameAttribute()
     {
         return $this->user?->full_name ?? '';
