@@ -23,31 +23,26 @@ return new class extends Migration
             $table->time('time');
 
             $table->enum('type', [
-                'USO_CELULAR',
-                'INTERRUPCION',
-                'FALTA_RESPETO',
-                'INCUMPLIMIENTO_TAREA',
-                'DESOBEDIENCIA',
-                'CONVERSACION_EXCESIVA',
+                'USO_JOYAS',
+                'UÑAS_PINTADAS',
+                'CABELLO_SUELTO',
+                'FALTA_ASEO_PERSONAL',
                 'UNIFORME_INCOMPLETO',
-                'LLEGADA_TARDE',
-                'AUSENCIA_INJUSTIFICADA',
+                'NO_TRAJO_UTILes',
+                'INCUMPLIMIENTO_TAREAS',
+                'INDISCIPLINA_FORMACION',
+                'INDISCIPLINA_AULA',
+                'FALTA_RESPETO_SIMBOLOS_PATRIOS',
+                'FALTA_RESPETO_DOCENTE',
+                'AGRESION_VERBAL',
+                'USO_CELULAR',
+                'DAÑO_INFRAESTRUCTURA',
+                'ESCANDALO_AULA',
                 'SALIDA_NO_AUTORIZADA',
-                'PELEA',
-                'ACOSO',
-                'DISCRIMINACION',
-                'ROBO',
-                'AMENAZA',
-                'VANDALISMO',
-                'POSESION_SUSTANCIAS',
-                'CONSUMO_SUSTANCIAS',
-                'ARMA_PELIGROSA',
-                'FUEGO_PELIGROSO',
-                'USO_RED_SOCIAL_INADECUADO',
-                'PLAGIO',
-                'TRAMPA_EVALUACION',
-                'DETERIORO_MATERIAL',
-                'ACTITUD_DESCUIDADA'
+                'AGRESION_FISICA',
+                'ACOSO_ESCOLAR',
+                'CONSUMO_DROGAS',
+                'PORTE_ARMAS'
             ]);
 
             $table->enum('severity', ['LEVE', 'MODERADA', 'GRAVE'])->default('LEVE');
@@ -62,7 +57,6 @@ return new class extends Migration
             $table->index(['tenant_id', 'classroom_id', 'date']);
             $table->index(['tenant_id', 'student_id', 'date']);
             $table->index(['tenant_id', 'date', 'severity']);
-            $table->index(['tenant_id', 'status']);
         });
     }
 

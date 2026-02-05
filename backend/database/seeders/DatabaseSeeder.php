@@ -11,14 +11,24 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        $this->command->warn('Cargando eventos del calendario...');
-        $this->call(CalendarEventSeeder::class);
-        $this->command->info('Eventos del calendario cargados correctamente');
+        $this->command->warn('Cargando tenants predeterminados...');
+        $this->call(TenantSeeder::class);
         $this->command->info('');
 
-        $this->command->warn('Cargando datos desde CSV...');
-        $this->call(CsvSeeder::class);
-        $this->command->info('Datos de CSV cargados correctamente');
+        $this->command->warn('Cargando usuarios del sistema...');
+        $this->call(UserSeeder::class);
+        $this->command->info('');
+
+        $this->command->warn('Cargando aulas de cada tenant...');
+        $this->call(ClassroomSeeder::class);
+        $this->command->info('');
+
+        $this->command->warn('Cargando eventos del calendario...');
+        $this->call(CalendarEventSeeder::class);
+        $this->command->info('');
+
+        $this->command->warn('Cargando configuraciones predeterminadas de cada tenant...');
+        $this->call(SettingSeeder::class);
         $this->command->info('');
     }
 }

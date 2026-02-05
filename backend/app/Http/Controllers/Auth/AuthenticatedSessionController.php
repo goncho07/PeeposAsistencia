@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Auth\LoginRequest;
-use App\Models\ActivityLog;
 use App\Models\User;
 use App\Traits\LogsActivity;
 use Illuminate\Http\JsonResponse;
@@ -18,12 +17,9 @@ class AuthenticatedSessionController extends Controller
     use LogsActivity;
     
     /**
-     * Handle login request
-     * 
+     * Handle login request.
+     *
      * POST /api/auth/login
-     * 
-     * @param LoginRequest $request
-     * @return JsonResponse
      */
     public function login(LoginRequest $request): JsonResponse
     {
@@ -31,7 +27,6 @@ class AuthenticatedSessionController extends Controller
         app()->forgetInstance('current_tenant_id');
 
         $credentials = $request->validated();
-
         $user = User::where('email', $credentials['email'])->first();
 
         if (!$user || !Hash::check($credentials['password'], $user->password)) {
@@ -40,33 +35,30 @@ class AuthenticatedSessionController extends Controller
             ]);
         }
 
-        if ($request->has('tenant_slug') && $request->tenant_slug) {
-            $tenant = \App\Models\Tenant::where('slug', $request->tenant_slug)->first();
-
-            if (!$tenant) {
-                return response()->json([
-                    'message' => 'Institución no encontrada.',
-                ], 404);
-            }
-
-            if ($user->tenant_id !== $tenant->id) {
-                return response()->json([
-                    'message' => 'No tienes acceso a esta institución. Verifica tus credenciales.',
-                ], 403);
-            }
+        if ($user->isInactive()) {
+            return $this->error('Tu cuenta está inactiva. Contacta al administrador.', null, 403);
         }
 
-        if ($user->status !== 'ACTIVO') {
-            return response()->json([
-                'message' => 'Tu cuenta está inactiva. Contacta al administrador.',
-            ], 403);
-        }
+        if ($user->role !== 'SUPERADMIN') {
+            if (!$user->tenant) {
+                return $this->error('No tienes una institución asignada.', null, 403);
+            }
 
-        if (!$user->tenant || !$user->tenant->is_active) {
-            return response()->json([
-                'message' => 'Tu institución está inactiva. Contacta al soporte.',
-                'error' => 'TENANT_INACTIVE',
-            ], 403);
+            if (!$user->tenant->is_active) {
+                return $this->error('Tu institución está inactiva. Contacta al soporte.', ['error' => 'TENANT_INACTIVE'], 403);
+            }
+
+            if ($request->filled('tenant_slug')) {
+                $tenant = \App\Models\Tenant::where('slug', $request->tenant_slug)->first();
+
+                if (!$tenant) {
+                    return $this->error('Institución no encontrada.', null, 404);
+                }
+
+                if ($user->tenant_id !== $tenant->id) {
+                    return $this->error('No tienes acceso a esta institución.', null, 403);
+                }
+            }
         }
 
         $deviceName = $request->input('device_name', 'api-client');
@@ -88,38 +80,40 @@ class AuthenticatedSessionController extends Controller
             'user_agent' => $request->userAgent(),
         ], $user);
 
-        return response()->json([
-            'message' => 'Inicio de sesión exitoso',
+        $userData = [
+            'id' => $user->id,
+            'name' => $user->full_name,
+            'email' => $user->email,
+            'role' => $user->role,
+            'tenant_id' => $user->tenant_id,
+            'tenant' => $user->tenant ? [
+                'id' => $user->tenant->id,
+                'name' => $user->tenant->name,
+                'modular_code' => $user->tenant->modular_code,
+                'ugel' => $user->tenant->ugel,
+                'slug' => $user->tenant->slug,
+                'logo_url' => get_storage_url($user->tenant->logo_url),
+                'banner_url' => get_storage_url($user->tenant->banner_url),
+                'background_url' => get_storage_url($user->tenant->background_url),
+            ] : null,
+        ];
+
+        if ($user->role === 'SUPERADMIN' && $user->tenant_id) {
+            $userData['viewing_tenant'] = true;
+        }
+
+        return $this->success([
             'access_token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_at' => $token->accessToken->expires_at,
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->full_name,
-                'email' => $user->email,
-                'role' => $user->role,
-                'tenant_id' => $user->tenant_id,
-                'tenant' => [
-                    'id' => $user->tenant->id,
-                    'name' => $user->tenant->name,
-                    'code' => $user->tenant->code,
-                    'ugel' => $user->tenant->ugel,
-                    'slug' => $user->tenant->slug,
-                    'logo_url' => get_storage_url($user->tenant->logo_url),
-                    'banner_url' => get_storage_url($user->tenant->banner_url),
-                    'background_url' => get_storage_url($user->tenant->background_url),
-                ],
-            ],
-        ], 200);
+            'user' => $userData,
+        ], 'Inicio de sesión exitoso');
     }
 
     /**
-     * Handle logout request
-     * 
+     * Handle logout request.
+     *
      * POST /api/auth/logout
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function logout(Request $request): JsonResponse
     {
@@ -131,24 +125,19 @@ class AuthenticatedSessionController extends Controller
 
         $request->user()->currentAccessToken()->delete();
 
-        return response()->json([
-            'message' => 'Sesión cerrada exitosamente',
-        ], 200);
+        return $this->success(null, 'Sesión cerrada exitosamente');
     }
 
     /**
-     * Logout from all devices
-     * 
+     * Logout from all devices.
+     *
      * POST /api/auth/logout-all
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function logoutAll(Request $request): JsonResponse
     {
         $user = $request->user();
         $tokensCount = $user->tokens()->count();
-        
+
         $this->logActivity('user_logout_all_devices', null, [
             'ip_address' => $request->ip(),
             'tokens_revoked' => $tokensCount,
@@ -156,61 +145,56 @@ class AuthenticatedSessionController extends Controller
 
         $user->tokens()->delete();
 
-        return response()->json([
-            'message' => 'Sesión cerrada en todos los dispositivos',
-        ], 200);
+        return $this->success(null, 'Sesión cerrada en todos los dispositivos');
     }
 
     /**
-     * Get authenticated user information
-     * 
+     * Get authenticated user information.
+     *
      * GET /api/auth/user
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function user(Request $request): JsonResponse
     {
         $user = $request->user();
 
-        return response()->json([
-            'user' => [
-                'id' => $user->id,
-                'name' => $user->full_name,
-                'first_name' => $user->name,
-                'paternal_surname' => $user->paternal_surname,
-                'maternal_surname' => $user->maternal_surname,
-                'email' => $user->email,
-                'dni' => $user->dni,
-                'role' => $user->role,
-                'status' => $user->status,
-                'phone_number' => $user->phone_number,
-                'avatar_url' => $user->avatar_url,
-                'last_login_at' => $user->last_login_at,
-                'tenant_id' => $user->tenant_id,
-                'tenant' => [
-                    'id' => $user->tenant->id,
-                    'name' => $user->tenant->name,
-                    'code' => $user->tenant->code,
-                    'slug' => $user->tenant->slug,
-                    'logo_url' => get_storage_url($user->tenant->logo_url),
-                    'banner_url' => get_storage_url($user->tenant->banner_url),
-                    'background_url' => get_storage_url($user->tenant->background_url),
-                    'institution_type' => $user->tenant->institution_type,
-                    'level' => $user->tenant->level,
-                    'timezone' => $user->tenant->timezone,
-                ],
-            ],
-        ], 200);
+        $userData = [
+            'id' => $user->id,
+            'name' => $user->full_name,
+            'first_name' => $user->name,
+            'paternal_surname' => $user->paternal_surname,
+            'maternal_surname' => $user->maternal_surname,
+            'email' => $user->email,
+            'document_type' => $user->document_type,
+            'document_number' => $user->document_number,
+            'role' => $user->role,
+            'status' => $user->status,
+            'phone_number' => $user->phone_number,
+            'photo_url' => get_storage_url($user->photo_url),
+            'last_login_at' => $user->last_login_at,
+            'tenant_id' => $user->tenant_id,
+            'tenant' => $user->tenant ? [
+                'id' => $user->tenant->id,
+                'name' => $user->tenant->name,
+                'modular_code' => $user->tenant->modular_code,
+                'slug' => $user->tenant->slug,
+                'logo_url' => get_storage_url($user->tenant->logo_url),
+                'banner_url' => get_storage_url($user->tenant->banner_url),
+                'background_url' => get_storage_url($user->tenant->background_url),
+                'timezone' => $user->tenant->timezone,
+            ] : null,
+        ];
+
+        if ($user->role === 'SUPERADMIN' && $user->tenant_id) {
+            $userData['viewing_tenant'] = true;
+        }
+
+        return $this->success(['user' => $userData]);
     }
 
     /**
-     * Refresh token
-     * 
+     * Refresh token.
+     *
      * POST /api/auth/refresh
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function refresh(Request $request): JsonResponse
     {
@@ -232,21 +216,17 @@ class AuthenticatedSessionController extends Controller
             'ip_address' => $request->ip(),
         ], $user);
 
-        return response()->json([
-            'message' => 'Token renovado exitosamente',
+        return $this->success([
             'access_token' => $token->plainTextToken,
             'token_type' => 'Bearer',
             'expires_at' => $token->accessToken->expires_at,
-        ], 200);
+        ], 'Token renovado exitosamente');
     }
 
     /**
-     * Get all active tokens/sessions
-     * 
+     * Get all active tokens/sessions.
+     *
      * GET /api/auth/sessions
-     * 
-     * @param Request $request
-     * @return JsonResponse
      */
     public function sessions(Request $request): JsonResponse
     {
@@ -263,36 +243,25 @@ class AuthenticatedSessionController extends Controller
             ];
         });
 
-        return response()->json([
-            'sessions' => $tokens,
-        ], 200);
+        return $this->success(['sessions' => $tokens]);
     }
 
     /**
-     * Revoke a specific token/session
-     * 
+     * Revoke a specific token/session.
+     *
      * DELETE /api/auth/sessions/{tokenId}
-     * 
-     * @param Request $request
-     * @param int $tokenId
-     * @return JsonResponse
      */
     public function revokeSession(Request $request, int $tokenId): JsonResponse
     {
         $user = $request->user();
-
         $token = $user->tokens()->find($tokenId);
 
         if (!$token) {
-            return response()->json([
-                'message' => 'Token no encontrado',
-            ], 404);
+            return $this->error('Token no encontrado', null, 404);
         }
-        
+
         if ($token->id === $request->user()->currentAccessToken()->id) {
-            return response()->json([
-                'message' => 'No puedes revocar la sesión actual. Usa el endpoint de logout.',
-            ], 400);
+            return $this->error('No puedes revocar la sesión actual. Usa el endpoint de logout.', null, 400);
         }
 
         $this->logActivity('session_revoked', null, [
@@ -302,8 +271,6 @@ class AuthenticatedSessionController extends Controller
 
         $token->delete();
 
-        return response()->json([
-            'message' => 'Sesión revocada exitosamente',
-        ], 200);
+        return $this->success(null, 'Sesión revocada exitosamente');
     }
 }

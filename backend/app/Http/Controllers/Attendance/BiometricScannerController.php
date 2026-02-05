@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Attendance;
 
 use App\Exceptions\BiometricException;
+use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Biometric\BiometricScanRequest;
 use App\Models\FaceEmbedding;
@@ -46,6 +47,8 @@ class BiometricScannerController extends Controller
             );
 
             return $this->success($result, $result['message']);
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), ['error_code' => 'ALREADY_REGISTERED'], 422);
         } catch (BiometricException $e) {
             return $this->error($e->getMessage(), [
                 'error_code' => $e->getErrorCode(),
@@ -81,6 +84,8 @@ class BiometricScannerController extends Controller
 
             return $this->success($result, $result['message']);
 
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), ['error_code' => 'ALREADY_REGISTERED'], 422);
         } catch (BiometricException $e) {
             return $this->error($e->getMessage(), [
                 'error_code' => $e->getErrorCode(),

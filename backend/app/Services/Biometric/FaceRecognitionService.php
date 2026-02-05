@@ -20,7 +20,7 @@ class FaceRecognitionService
     }
 
     /**
-     * Enroll a face from an image URL.
+     * Enroll a face from an image URL (GCS or any public URL).
      *
      * @param int $tenantId
      * @param string $externalId Format: "student_123" or "teacher_456"
@@ -28,48 +28,15 @@ class FaceRecognitionService
      * @return array{success: bool, confidence: ?float, error: ?string}
      * @throws BiometricException
      */
-    public function enrollFromUrl(int $tenantId, string $externalId, string $imageUrl): array
+    public function enroll(int $tenantId, string $externalId, string $imageUrl): array
     {
-        return $this->enroll($tenantId, $externalId, imageUrl: $imageUrl);
-    }
-
-    /**
-     * Enroll a face from base64 image data.
-     *
-     * @param int $tenantId
-     * @param string $externalId
-     * @param string $imageBase64
-     * @return array{success: bool, confidence: ?float, error: ?string}
-     * @throws BiometricException
-     */
-    public function enrollFromBase64(int $tenantId, string $externalId, string $imageBase64): array
-    {
-        return $this->enroll($tenantId, $externalId, imageBase64: $imageBase64);
-    }
-
-    /**
-     * Enroll a face into the recognition system.
-     */
-    protected function enroll(
-        int $tenantId,
-        string $externalId,
-        ?string $imageUrl = null,
-        ?string $imageBase64 = null
-    ): array {
         try {
-            $payload = [
-                'tenant_id' => $tenantId,
-                'external_id' => $externalId,
-            ];
-
-            if ($imageUrl) {
-                $payload['image_url'] = $imageUrl;
-            } else {
-                $payload['image_base64'] = $imageBase64;
-            }
-
             $response = Http::timeout($this->timeout)
-                ->post("{$this->baseUrl}/enroll", $payload);
+                ->post("{$this->baseUrl}/enroll", [
+                    'tenant_id' => $tenantId,
+                    'external_id' => $externalId,
+                    'image_url' => $imageUrl,
+                ]);
 
             if (!$response->successful()) {
                 Log::error('Face service enrollment failed', [

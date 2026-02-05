@@ -8,10 +8,16 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 use App\Traits\BelongsToTenant;
+use App\Traits\HasActiveStatus;
+use App\Traits\HasFullName;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, HasFactory, Notifiable, BelongsToTenant, SoftDeletes;
+    use HasApiTokens, HasFactory, HasFullName, HasActiveStatus, Notifiable, BelongsToTenant, SoftDeletes;
+
+    public const ROLE_SUPERADMIN = 'SUPERADMIN';
+    public const ROLE_DIRECTOR = 'DIRECTOR';
+    public const ROLE_TEACHER = 'DOCENTE';
 
     protected $fillable = [
         'tenant_id',
@@ -95,16 +101,6 @@ class User extends Authenticatable
         return $this->hasMany(Incident::class, 'resolved_by');
     }
 
-    public function getFullNameAttribute()
-    {
-        return "{$this->name} {$this->paternal_surname} {$this->maternal_surname}";
-    }
-
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'ACTIVO');
-    }
-
     public function scopeByRole($query, $role)
     {
         return $query->where('role', $role);
@@ -131,5 +127,16 @@ class User extends Authenticatable
             'last_login_at' => now(),
             'last_login_ip' => $ipAddress ?? client_ip(),
         ]);
+    }
+
+    public function scopeSearch($query, $search)
+    {
+        return $query->where(function ($q) use ($search) {
+            $q->where('document_number', 'like', "%{$search}%")
+                ->orWhere('name', 'like', "%{$search}%")
+                ->orWhere('paternal_surname', 'like', "%{$search}%")
+                ->orWhere('maternal_surname', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%");
+        });
     }
 }

@@ -5,7 +5,6 @@ namespace App\Models;
 use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Support\Facades\Auth;
 
 class Setting extends Model
 {
@@ -54,27 +53,13 @@ class Setting extends Model
 
     public static function getValue(string $key, mixed $default = null): mixed
     {
-        $tenantId = Auth::user()?->tenant_id;
-
-        if (!$tenantId) {
-            return $default;
-        }
-
-        $setting = static::where('tenant_id', $tenantId)
-            ->where('key', $key)
-            ->first();
+        $setting = static::where('key', $key)->first();
 
         return $setting ? $setting->getTypedValue() : $default;
     }
 
     public static function setValue(string $key, mixed $value, string $type = 'string', string $group = 'general'): ?self
     {
-        $tenantId = Auth::user()?->tenant_id;
-
-        if (!$tenantId) {
-            return null;
-        }
-
         $storedValue = match ($type) {
             'boolean' => $value ? 'true' : 'false',
             'json', 'array' => is_string($value) ? $value : json_encode($value),
@@ -82,10 +67,7 @@ class Setting extends Model
         };
 
         return static::updateOrCreate(
-            [
-                'tenant_id' => $tenantId,
-                'key' => $key,
-            ],
+            ['key' => $key],
             [
                 'value' => $storedValue,
                 'type' => $type,
@@ -96,15 +78,7 @@ class Setting extends Model
 
     public static function getByGroup(string $group): array
     {
-        $tenantId = Auth::user()?->tenant_id;
-
-        if (!$tenantId) {
-            return [];
-        }
-
-        $settings = static::where('tenant_id', $tenantId)
-            ->where('group', $group)
-            ->get();
+        $settings = static::where('group', $group)->get();
 
         $result = [];
         foreach ($settings as $setting) {

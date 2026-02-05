@@ -2,17 +2,21 @@
 
 namespace App\Services;
 
+use App\Exceptions\BusinessException;
 use App\Models\Teacher;
 use App\Models\User;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Support\Str;
 
 class TeacherService
 {
     use LogsActivity;
+
+    public function __construct(
+        protected QRCodeService $qrCodeService
+    ) {}
 
     /**
      * Get all teachers with optional search and filters.
@@ -28,22 +32,14 @@ class TeacherService
         $query = Teacher::query()
             ->when($search, fn($q) => $q->search($search))
             ->when($level, fn($q) => $q->byLevel($level))
-            ->when($status, fn($q) => $q->where('status', $status))
+            ->when($status, fn($q) => $q->byStatus($status))
             ->join('users', 'teachers.user_id', '=', 'users.id')
             ->orderBy('users.paternal_surname')
             ->orderBy('users.maternal_surname')
             ->orderBy('users.name')
             ->select('teachers.*');
 
-        $relations = ['user'];
-
-        if (in_array('classrooms', $expand)) {
-            $relations[] = 'classrooms';
-        }
-        if (in_array('tutoredClassrooms', $expand)) {
-            $relations[] = 'tutoredClassrooms';
-        }
-
+        $relations = $this->buildRelationsFromExpand($expand);
         $query->with($relations);
 
         return $query->get();
@@ -58,6 +54,16 @@ class TeacherService
      */
     public function findById(int $id, array $expand = []): Teacher
     {
+        $relations = $this->buildRelationsFromExpand($expand);
+
+        return Teacher::with($relations)->findOrFail($id);
+    }
+
+    /**
+     * Build relations array from expand parameter.
+     */
+    private function buildRelationsFromExpand(array $expand): array
+    {
         $relations = ['user'];
 
         if (in_array('classrooms', $expand)) {
@@ -67,7 +73,7 @@ class TeacherService
             $relations[] = 'tutoredClassrooms';
         }
 
-        return Teacher::with($relations)->findOrFail($id);
+        return $relations;
     }
 
     /**
@@ -99,7 +105,7 @@ class TeacherService
    
             $teacherData = [
                 'user_id' => $user->id,
-                'qr_code' => $data['qr_code'] ?? $this->generateQRCode($data['document_number']),
+                'qr_code' => $data['qr_code'] ?? $this->qrCodeService->generate($data['document_number']),
                 'level' => $data['level'],
                 'specialty' => $data['specialty'] ?? null,
                 'contract_type' => $data['contract_type'] ?? 'CONTRATADO',
@@ -182,12 +188,12 @@ class TeacherService
         DB::transaction(function () use ($id, $deleteUser) {
             $teacher = Teacher::with('user')->findOrFail($id);
 
-            if ($teacher->tutoredClassrooms()->where('status', 'ACTIVO')->exists()) {
-                throw new \Exception('No se puede eliminar el docente porque es tutor de aulas activas.');
+            if ($teacher->tutoredClassrooms()->active()->exists()) {
+                throw new BusinessException('No se puede eliminar el docente porque es tutor de aulas activas.');
             }
 
             if ($teacher->classrooms()->exists()) {
-                throw new \Exception('No se puede eliminar el docente porque tiene aulas asignadas para enseñar.');
+                throw new BusinessException('No se puede eliminar el docente porque tiene aulas asignadas para enseñar.');
             }
 
             $this->logActivity('teacher_deleted', $teacher, [
@@ -204,15 +210,6 @@ class TeacherService
                 $user->delete();
             }
         });
-    }
-
-    /**
-     * Generate QR code for teacher
-     */
-    private function generateQRCode(string $documentNumber): string
-    {
-        $hash = strtoupper(substr(hash('crc32', $documentNumber . time()), 0, 8));
-        return $hash;
     }
 
     /**

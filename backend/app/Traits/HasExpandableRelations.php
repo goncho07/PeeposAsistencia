@@ -2,30 +2,38 @@
 
 namespace App\Traits;
 
-trait ExpandableResource
+use Illuminate\Http\Request;
+
+trait HasExpandableRelations
 {
     /**
-     * Get the list of relations to expand from the request.
+     * Parse the ?expand= query parameter into an array of relation names.
      *
-     * @return array
+     * Usage:
+     * - ?expand=classroom           => ['classroom']
+     * - ?expand=classroom,parents   => ['classroom', 'parents']
+     * - (no parameter)              => []
+     *
+     * @param Request $request
+     */
+    protected function parseExpand(Request $request): array
+    {
+        return $this->parseExpandString($request->query('expand', ''));
+    }
+
+    /**
+     * Get the list of relations to expand from the current request.
+     * Used primarily in Resources where we don't have direct access to Request.
      */
     protected function getExpandedRelations(): array
     {
-        $request = request();
-        $expand = $request->query('expand', '');
-
-        if (empty($expand)) {
-            return [];
-        }
-
-        return array_map('trim', explode(',', $expand));
+        return $this->parseExpandString(request()->query('expand', ''));
     }
 
     /**
      * Check if a specific relation should be expanded.
      *
      * @param string $relation
-     * @return bool
      */
     protected function shouldExpand(string $relation): bool
     {
@@ -65,5 +73,17 @@ trait ExpandableResource
         }
 
         return $fallback;
+    }
+
+    /**
+     * Parse an expand string into an array.
+     */
+    private function parseExpandString(string $expand): array
+    {
+        if (empty($expand)) {
+            return [];
+        }
+
+        return array_map('trim', explode(',', $expand));
     }
 }

@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\Classrooms;
 
+use App\Constants\ValidationConstants;
+use App\Models\Classroom;
+use App\Validation\Messages;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -12,8 +15,7 @@ class ClassroomUpdateRequest extends FormRequest
      */
     public function authorize(): bool
     {
-        $classroom = $this->route('classroom');
-        return $this->user()->can('update', $classroom);
+        return true;
     }
 
     /**
@@ -33,13 +35,13 @@ class ClassroomUpdateRequest extends FormRequest
                     ->where('tenant_id', $tenantId)
                     ->where('status', 'ACTIVO')
             ],
-            'level' => ['sometimes', 'required', 'in:INICIAL,PRIMARIA,SECUNDARIA'],
+            'level' => ['sometimes', 'required', ValidationConstants::LEVELS_RULE],
             'grade' => ['sometimes', 'required', 'integer', 'min:1', 'max:6'],
             'section' => ['sometimes', 'required', 'string', 'max:10'],
-            'shift' => ['sometimes', 'nullable', 'in:MAÑANA,TARDE,NOCHE'],
+            'shift' => ['sometimes', 'nullable', ValidationConstants::SHIFTS_RULE],
             'room_number' => ['sometimes', 'nullable', 'string', 'max:20'],
             'capacity' => ['sometimes', 'nullable', 'integer', 'min:1', 'max:100'],
-            'status' => ['sometimes', 'in:ACTIVO,INACTIVO,CERRADO'],
+            'status' => ['sometimes', ValidationConstants::CLASSROOM_STATUSES_RULE],
         ];
     }
 
@@ -52,31 +54,21 @@ class ClassroomUpdateRequest extends FormRequest
             $level = $this->input('level');
             $grade = $this->input('grade');
 
-            if ($level && $grade) {
-                $maxGrades = [
-                    'INICIAL' => 3,
-                    'PRIMARIA' => 6,
-                    'SECUNDARIA' => 5,
-                ];
-
-                if (isset($maxGrades[$level]) && $grade > $maxGrades[$level]) {
-                    $validator->errors()->add('grade', "El grado no puede ser mayor a {$maxGrades[$level]} para el nivel {$level}.");
-                }
+            if ($level && $grade && !ValidationConstants::isValidGradeForLevel($level, $grade)) {
+                $maxGrade = ValidationConstants::getMaxGrade($level);
+                $validator->errors()->add('grade', "El grado no puede ser mayor a {$maxGrade} para el nivel {$level}.");
             }
 
             if ($this->hasAny(['level', 'grade', 'section', 'shift'])) {
                 $classroomId = $this->route('classroom');
-                $tenantId = $this->user()->tenant_id;
-
-                $currentClassroom = \App\Models\Classroom::findOrFail($classroomId);
+                $currentClassroom = Classroom::findOrFail($classroomId);
 
                 $level = $this->input('level', $currentClassroom->level);
                 $grade = $this->input('grade', $currentClassroom->grade);
                 $section = $this->input('section', $currentClassroom->section);
                 $shift = $this->input('shift', $currentClassroom->shift);
 
-                $exists = \App\Models\Classroom::where('tenant_id', $tenantId)
-                    ->where('level', $level)
+                $exists = Classroom::where('level', $level)
                     ->where('grade', $grade)
                     ->where('section', $section)
                     ->where('shift', $shift)
@@ -97,22 +89,6 @@ class ClassroomUpdateRequest extends FormRequest
      */
     public function messages(): array
     {
-        return [
-            'tutor_id.exists' => 'El tutor seleccionado no existe o está inactivo.',
-            'level.required' => 'El nivel es obligatorio.',
-            'level.in' => 'El nivel debe ser INICIAL, PRIMARIA o SECUNDARIA.',
-            'grade.required' => 'El grado es obligatorio.',
-            'grade.integer' => 'El grado debe ser un número.',
-            'grade.min' => 'El grado debe ser al menos 1.',
-            'grade.max' => 'El grado no puede ser mayor a 6.',
-            'section.required' => 'La sección es obligatoria.',
-            'section.max' => 'La sección no puede tener más de 10 caracteres.',
-            'shift.in' => 'El turno debe ser MAÑANA, TARDE o NOCHE.',
-            'room_number.max' => 'El número de aula no puede tener más de 20 caracteres.',
-            'capacity.integer' => 'La capacidad debe ser un número.',
-            'capacity.min' => 'La capacidad debe ser al menos 1.',
-            'capacity.max' => 'La capacidad no puede ser mayor a 100.',
-            'status.in' => 'El estado no es válido.',
-        ];
+        return Messages::classroom();
     }
 }

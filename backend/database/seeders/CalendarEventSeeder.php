@@ -227,7 +227,7 @@ class CalendarEventSeeder extends Seeder
         ];
 
         foreach ($events as $event) {
-            CalendarEvent::create(array_merge($event, [
+            CalendarEvent::updateOrCreate(array_merge($event, [
                 'tenant_id' => null,
             ]));
         }

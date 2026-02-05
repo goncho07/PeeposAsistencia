@@ -14,14 +14,15 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $superadmin = User::withoutGlobalScope('tenant')->create([
+        $superadmin = User::withoutGlobalScope('tenant')->updateOrCreate([
             'tenant_id' => null,
+            'document_type' => 'DNI',
+            'document_number' => '00000000',
             'name' => 'Peepos',
             'paternal_surname' => 'Sistema',
             'maternal_surname' => 'Global',
-            'dni' => '00000000',
             'email' => 'peepos@peeposaasistencias.com',
-            'password' => Hash::make('PeeposKey1806$'),
+            'password' => Hash::make('marvelrivals123'),
             'role' => 'SUPERADMIN',
             'phone_number' => '999999999',
             'status' => 'ACTIVO',
@@ -29,7 +30,7 @@ class UserSeeder extends Seeder
         ]);
 
         $this->command->info("SUPERADMIN creado: {$superadmin->email}");
-        $this->command->warn("Password: PeeposKey1806$");
+        $this->command->warn("Password: marvelrivals123");
         $this->command->info('');
 
         $tenants = Tenant::all();
@@ -39,15 +40,16 @@ class UserSeeder extends Seeder
             return;
         }
 
-        $tenant1 = $tenants->firstWhere('code', '0325464');
+        $tenant1 = $tenants->firstWhere('modular_code', '0325464');
 
         if ($tenant1) {
             $users = [
                 [
+                    'document_type' => 'DNI',
+                    'document_number' => '12345678',
                     'name' => 'Ricardo',
                     'paternal_surname' => 'Palma',
                     'maternal_surname' => 'Soriano',
-                    'dni' => '12345678',
                     'email' => 'ricardopalma@ieericardopalma.edu.pe',
                     'password' => Hash::make('$RicardoPalma123'),
                     'role' => 'DIRECTOR',
@@ -60,7 +62,7 @@ class UserSeeder extends Seeder
                 $userData['tenant_id'] = $tenant1->id;
                 $userData['email_verified_at'] = now();
 
-                User::create($userData);
+                User::updateOrCreate($userData);
             }
 
             $this->command->info(" Usuarios creados para: {$tenant1->name}");
@@ -71,10 +73,11 @@ class UserSeeder extends Seeder
         if ($tenant2) {
             $users = [
                 [
+                    'document_type' => 'DNI',
+                    'document_number' => '78901234',
                     'name' => 'Francisco',
                     'paternal_surname' => 'Bolognesi',
                     'maternal_surname' => 'Cervantes',
-                    'dni' => '78901234',
                     'email' => 'franciscobolognesi@gmail.com',
                     'password' => Hash::make('312FranciscoBolognesi%'),
                     'role' => 'DIRECTOR',
@@ -87,7 +90,7 @@ class UserSeeder extends Seeder
                 $userData['tenant_id'] = $tenant2->id;
                 $userData['email_verified_at'] = now();
 
-                User::create($userData);
+                User::updateOrCreate($userData);
             }
 
             $this->command->info(" Usuarios creados para: {$tenant2->name}");

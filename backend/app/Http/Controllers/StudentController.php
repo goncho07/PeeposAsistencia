@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Students\StudentStoreRequest;
 use App\Http\Requests\Students\StudentUpdateRequest;
 use App\Http\Resources\StudentResource;
 use App\Services\StudentService;
-use App\Traits\ParsesExpandParameter;
+use App\Traits\HasExpandableRelations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class StudentController extends Controller
 {
-    use ParsesExpandParameter;
+    use HasExpandableRelations;
 
     public function __construct(
         private StudentService $studentService
@@ -23,6 +24,7 @@ class StudentController extends Controller
      * Display a listing of students
      *
      * GET /api/students
+     * GET /api/students?search=peeporana
      * GET /api/students?expand=classroom
      * GET /api/students?expand=classroom,parents
      *
@@ -91,6 +93,8 @@ class StudentController extends Controller
                 new StudentResource($student),
                 'Estudiante creado exitosamente'
             );
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al crear estudiante: ' . $e->getMessage(), null, 500);
         }
@@ -116,6 +120,8 @@ class StudentController extends Controller
             );
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Estudiante no encontrado', null, 404);
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al actualizar estudiante: ' . $e->getMessage(), null, 500);
         }

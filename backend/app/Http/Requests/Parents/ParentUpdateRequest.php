@@ -2,6 +2,8 @@
 
 namespace App\Http\Requests\Parents;
 
+use App\Constants\ValidationConstants;
+use App\Validation\Messages;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -26,7 +28,7 @@ class ParentUpdateRequest extends FormRequest
         $parentId = $this->route('id');
 
         return [
-            'document_type' => ['sometimes', 'required', 'in:DNI,CE,PAS,CI,PTP'],
+            'document_type' => ['sometimes', 'required', ValidationConstants::DOCUMENT_TYPES_RULE],
             'document_number' => [
                 'sometimes',
                 'required',
@@ -59,7 +61,7 @@ class ParentUpdateRequest extends FormRequest
                 Rule::exists('students', 'id')
                     ->where('tenant_id', $tenantId)
             ],
-            'students.*.relationship_type' => ['required', 'in:PADRE,MADRE,APODERADO'],
+            'students.*.relationship_type' => ['required', ValidationConstants::RELATIONSHIP_TYPES_RULE],
             'students.*.custom_relationship_label' => ['nullable', 'string', 'max:50'],
             'students.*.is_primary_contact' => ['boolean'],
             'students.*.receives_notifications' => ['boolean'],
@@ -74,22 +76,10 @@ class ParentUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'document_type.required' => 'El tipo de documento es obligatorio.',
-            'document_type.in' => 'El tipo de documento no es válido.',
-            'document_number.required' => 'El número de documento es obligatorio.',
-            'document_number.unique' => 'El número de documento ya está registrado en esta institución.',
-            'name.required' => 'El nombre es obligatorio.',
-            'name.max' => 'El nombre no puede tener más de 100 caracteres.',
-            'paternal_surname.required' => 'El apellido paterno es obligatorio.',
-            'maternal_surname.required' => 'El apellido materno es obligatorio.',
-            'phone_number.max' => 'El número de teléfono no puede tener más de 15 caracteres.',
-            'email.email' => 'El correo electrónico no es válido.',
-            'email.unique' => 'El correo electrónico ya está registrado en esta institución.',
-            'students.max' => 'No se pueden asignar más de 10 estudiantes a un apoderado.',
-            'students.*.student_id.required' => 'El ID del estudiante es obligatorio.',
-            'students.*.student_id.exists' => 'Uno de los estudiantes seleccionados no existe.',
-            'students.*.relationship_type.required' => 'El tipo de relación es obligatorio.',
-            'students.*.relationship_type.in' => 'El tipo de relación no es válido.',
+            ...Messages::document(),
+            ...Messages::personName(),
+            ...Messages::contact(),
+            ...Messages::studentRelationship(),
         ];
     }
 }

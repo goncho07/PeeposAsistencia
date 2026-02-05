@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\BusinessException;
 use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\Tenant;
@@ -35,7 +36,7 @@ class CarnetService
         $tenant = app()->bound('current_tenant') ? app('current_tenant') : null;
 
         if (!$tenant) {
-            throw new \Exception('Tenant no encontrado en el contexto actual');
+            throw new BusinessException('Tenant no encontrado en el contexto actual');
         }
 
         return $tenant;
@@ -64,7 +65,7 @@ class CarnetService
         $totalUsers = $this->getUserCount($filters);
 
         if ($totalUsers === 0) {
-            throw new \Exception('No se encontraron usuarios con los filtros especificados');
+            throw new BusinessException('No se encontraron usuarios con los filtros especificados');
         }
 
         Log::info("Generando carnets para {$totalUsers} usuarios");

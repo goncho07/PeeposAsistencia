@@ -20,7 +20,7 @@ return new class extends Migration
 
             $table->enum('level', ['INICIAL', 'PRIMARIA', 'SECUNDARIA']);
             $table->unsignedTinyInteger('grade');
-            $table->string('section', 10);
+            $table->string('section', 50);
             $table->enum('shift', ['MAÑANA', 'TARDE', 'NOCHE'])->nullable();
 
             $table->unsignedSmallInteger('capacity')->nullable()->comment('Aforo máximo');
@@ -33,7 +33,7 @@ return new class extends Migration
 
             $table->index(['tenant_id', 'status']);
             $table->index(['tenant_id', 'level', 'grade']);
-            $table->index(['tenant_id', 'teacher_id']);
+            $table->index(['tenant_id', 'tutor_id']);
             $table->index(['tenant_id', 'shift']);
         });
     }

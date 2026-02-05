@@ -45,10 +45,8 @@ class SettingService
 
         $cacheKey = "settings.{$tenantId}.{$group}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($group, $tenantId) {
-            $settings = Setting::where('tenant_id', $tenantId)
-                ->byGroup($group)
-                ->get();
+        return Cache::remember($cacheKey, 3600, function () use ($group) {
+            $settings = Setting::byGroup($group)->get();
 
             $result = [];
             foreach ($settings as $setting) {
@@ -68,10 +66,8 @@ class SettingService
 
         $cacheKey = "setting.{$tenantId}.{$key}";
 
-        return Cache::remember($cacheKey, 3600, function () use ($key, $default, $tenantId) {
-            $setting = Setting::where('tenant_id', $tenantId)
-                ->byKey($key)
-                ->first();
+        return Cache::remember($cacheKey, 3600, function () use ($key, $default) {
+            $setting = Setting::byKey($key)->first();
 
             return $setting ? $setting->getTypedValue() : $default;
         });
@@ -115,14 +111,11 @@ class SettingService
         $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
         foreach ($settings as $key => $value) {
-            $setting = Setting::where('tenant_id', $tenantId)
-                ->byKey($key)
-                ->first();
+            $setting = Setting::byKey($key)->first();
 
             if ($setting) {
                 $this->set($key, $value, $setting->type, $setting->group, $tenantId);
             } elseif (is_array($value)) {
-                // Handle nested arrays
                 $this->updateSettings($value, $tenantId);
             }
         }
@@ -288,9 +281,8 @@ class SettingService
             Cache::forget("settings.{$tenantId}.{$group}");
         }
 
-        $settings = Setting::where('tenant_id', $tenantId)->get();
-        foreach ($settings as $setting) {
+        Setting::all()->each(function ($setting) use ($tenantId) {
             Cache::forget("setting.{$tenantId}.{$setting->key}");
-        }
+        });
     }
 }

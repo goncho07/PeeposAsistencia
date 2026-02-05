@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Parents\ParentStoreRequest;
 use App\Http\Requests\Parents\ParentUpdateRequest;
 use App\Http\Resources\ParentResource;
 use App\Services\ParentService;
-use App\Traits\ParsesExpandParameter;
+use App\Traits\HasExpandableRelations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ParentController extends Controller
 {
-    use ParsesExpandParameter;
+    use HasExpandableRelations;
 
     public function __construct(
         private ParentService $parentService
@@ -23,7 +24,7 @@ class ParentController extends Controller
      * Display a listing of parents.
      *
      * GET /api/parents
-     * GET /api/parents?search=juan
+     * GET /api/parents?search=marvelrivals
      * GET /api/parents?expand=students
      *
      * @param Request $request
@@ -136,6 +137,8 @@ class ParentController extends Controller
             return $this->success(null, 'Apoderado eliminado exitosamente');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Apoderado no encontrado', null, 404);
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al eliminar apoderado: ' . $e->getMessage(), null, 500);
         }

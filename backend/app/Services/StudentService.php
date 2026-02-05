@@ -2,15 +2,24 @@
 
 namespace App\Services;
 
+use App\Exceptions\BusinessException;
 use App\Models\Student;
 use App\Models\Classroom;
+use App\Services\Biometric\FaceEnrollmentService;
 use App\Traits\LogsActivity;
+use App\Traits\HasPhotoUpload;
+use App\Traits\SyncsPivotRelations;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class StudentService
 {
-    use LogsActivity;
+    use LogsActivity, HasPhotoUpload, SyncsPivotRelations;
+
+    public function __construct(
+        protected FaceEnrollmentService $faceEnrollmentService,
+        protected QRCodeService $qrCodeService
+    ) {}
 
     /**
      * Get all students with optional search and filters.
@@ -23,16 +32,8 @@ class StudentService
     public function getAllStudents(?string $search = null, ?int $classroomId = null, array $expand = []): Collection
     {
         $query = Student::query()
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($query) use ($search) {
-                    $query->where('student_code', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('paternal_surname', 'like', "%{$search}%")
-                        ->orWhere('maternal_surname', 'like', "%{$search}%")
-                        ->orWhere('document_number', 'like', "%{$search}%");
-                });
-            })
-            ->when($classroomId, fn($q) => $q->where('classroom_id', $classroomId))
+            ->when($search, fn($q) => $q->search($search))
+            ->when($classroomId, fn($q) => $q->byClassroom($classroomId))
             ->orderBy('paternal_surname')
             ->orderBy('maternal_surname')
             ->orderBy('name');
@@ -73,11 +74,16 @@ class StudentService
             $this->validateClassroomCapacity($data['classroom_id']);
 
             if (!isset($data['qr_code'])) {
-                $data['qr_code'] = $this->generateQRCode($data['document_number']);
+                $data['qr_code'] = $this->qrCodeService->generate($data['document_number']);
             }
 
             $data['academic_year'] = $data['academic_year'] ?? now()->year;
             $data['enrollment_status'] = $data['enrollment_status'] ?? 'MATRICULADO';
+
+            if (isset($data['photo'])) {
+                $data['photo_url'] = $this->uploadPhoto($data['photo'], 'students');
+                unset($data['photo']);
+            }
 
             $parentsData = $data['parents'] ?? [];
             unset($data['parents']);
@@ -85,7 +91,11 @@ class StudentService
             $student = Student::create($data);
 
             if (!empty($parentsData)) {
-                $this->syncParents($student, $parentsData);
+                $this->syncParentsRelation($student, $parentsData);
+            }
+
+            if ($student->photo_url && config('biometric.enabled')) {
+                $this->faceEnrollmentService->enrollStudent($student);
             }
 
             $student->load(['classroom.tutor', 'parents']);
@@ -108,9 +118,17 @@ class StudentService
             $student = Student::findOrFail($id);
 
             $oldValues = $student->only(['student_code', 'name', 'classroom_id', 'enrollment_status']);
+            $oldPhotoUrl = $student->photo_url;
 
             if (isset($data['classroom_id']) && $data['classroom_id'] != $student->classroom_id) {
                 $this->validateClassroomCapacity($data['classroom_id']);
+            }
+
+            $photoChanged = false;
+            if (isset($data['photo'])) {
+                $data['photo_url'] = $this->uploadPhoto($data['photo'], 'students', $oldPhotoUrl);
+                $photoChanged = true;
+                unset($data['photo']);
             }
 
             $parentsData = $data['parents'] ?? null;
@@ -119,7 +137,11 @@ class StudentService
             $student->update($data);
 
             if ($parentsData !== null) {
-                $this->syncParents($student, $parentsData);
+                $this->syncParentsRelation($student, $parentsData);
+            }
+
+            if ($photoChanged && $student->photo_url && config('biometric.enabled')) {
+                $this->faceEnrollmentService->enrollStudent($student);
             }
 
             $student->load(['classroom.tutor', 'parents']);
@@ -143,6 +165,14 @@ class StudentService
                 'student_code' => $student->student_code,
                 'full_name' => $student->full_name,
             ]);
+
+            if ($student->photo_url) {
+                $this->deletePhoto($student->photo_url);
+            }
+
+            if ($student->faceEmbedding && config('biometric.enabled')) {
+                $this->faceEnrollmentService->delete($student->faceEmbedding);
+            }
 
             $student->parents()->detach();
 
@@ -172,47 +202,19 @@ class StudentService
     }
 
     /**
-     * Sync parents with student
-     */
-    private function syncParents(Student $student, array $parentsData): void
-    {
-        $syncData = [];
-
-        foreach ($parentsData as $parentData) {
-            $syncData[$parentData['parent_id']] = [
-                'tenant_id' => $student->tenant_id,
-                'relationship_type' => $parentData['relationship_type'],
-                'custom_relationship_label' => $parentData['custom_relationship_label'] ?? null,
-                'is_primary_contact' => $parentData['is_primary_contact'] ?? false,
-                'receives_notifications' => $parentData['receives_notifications'] ?? true,
-            ];
-        }
-
-        $student->parents()->sync($syncData);
-    }
-
-    /**
      * Validate classroom capacity
      */
     private function validateClassroomCapacity(int $classroomId): void
     {
         $classroom = Classroom::findOrFail($classroomId);
 
-        if ($classroom->status !== 'ACTIVO') {
-            throw new \Exception('El aula seleccionada no está activa.');
+        if ($classroom->isInactive()) {
+            throw new BusinessException('El aula seleccionada no está activa.');
         }
 
         if (!$classroom->hasCapacity()) {
-            throw new \Exception('El aula seleccionada ya ha alcanzado su capacidad máxima.');
+            throw new BusinessException('El aula seleccionada ya ha alcanzado su capacidad máxima.');
         }
     }
 
-    /**
-     * Generate QR code for student
-     */
-    private function generateQRCode(string $documentNumber): string
-    {
-        $hash = strtoupper(substr(hash('crc32', $documentNumber . time()), 0, 8));
-        return $hash;
-    }
 }

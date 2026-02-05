@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\BusinessException;
 use App\Models\Classroom;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Collection;
@@ -37,7 +38,7 @@ class ClassroomService
             ->when($search, fn($q) => $q->search($search))
             ->when($level, fn($q) => $q->byLevel($level))
             ->when($shift, fn($q) => $q->byShift($shift))
-            ->when($status, fn($q) => $q->where('status', $status))
+            ->when($status, fn($q) => $q->byStatus($status))
             ->when($tutorId, fn($q) => $q->where('tutor_id', $tutorId))
             ->when($teacherId, fn($q) => $q->byTeacher($teacherId))
             ->orderBy('level')
@@ -159,7 +160,7 @@ class ClassroomService
                 ->count();
 
             if ($activeStudentsCount > 0) {
-                throw new \Exception("No se puede eliminar el aula porque tiene {$activeStudentsCount} estudiante(s) matriculado(s).");
+                throw new BusinessException("No se puede eliminar el aula porque tiene {$activeStudentsCount} estudiante(s) matriculado(s).");
             }
 
             $this->logActivity('classroom_deleted', $classroom, [
@@ -185,13 +186,56 @@ class ClassroomService
         $teacher = \App\Models\Teacher::findOrFail($tutorId);
 
         if ($teacher->level !== $level) {
-            throw new \Exception(
+            throw new BusinessException(
                 "El tutor está asignado al nivel {$teacher->level} y no puede ser asignado a un aula de nivel {$level}."
             );
         }
 
-        if ($teacher->status !== 'ACTIVO') {
-            throw new \Exception('El tutor no está activo y no puede ser asignado a un aula.');
+        if ($teacher->isInactive()) {
+            throw new BusinessException('El tutor no está activo y no puede ser asignado a un aula.');
         }
+    }
+
+    /**
+     * Bulk create classrooms.
+     *
+     * @param array $data Contains: level, grades[], sections (string), shift?, capacity?
+     * @return array ['created' => int, 'skipped' => int]
+     */
+    public function bulkCreate(array $data): array
+    {
+        $sections = array_map('trim', str_split(strtoupper($data['sections'])));
+        $created = 0;
+        $skipped = 0;
+
+        foreach ($data['grades'] as $grade) {
+            foreach ($sections as $section) {
+                if (empty($section)) {
+                    continue;
+                }
+
+                $exists = Classroom::where('level', $data['level'])
+                    ->where('grade', $grade)
+                    ->where('section', $section)
+                    ->exists();
+
+                if ($exists) {
+                    $skipped++;
+                    continue;
+                }
+
+                Classroom::create([
+                    'level' => $data['level'],
+                    'grade' => $grade,
+                    'section' => $section,
+                    'shift' => $data['shift'] ?? 'MAÑANA',
+                    'capacity' => $data['capacity'] ?? 30,
+                    'status' => 'ACTIVO',
+                ]);
+                $created++;
+            }
+        }
+
+        return compact('created', 'skipped');
     }
 }

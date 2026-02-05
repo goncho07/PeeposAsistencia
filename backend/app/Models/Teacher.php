@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
-use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\BelongsToTenant;
+use App\Traits\HasActiveStatus;
 
 class Teacher extends Model
 {
-    use HasFactory, BelongsToTenant, SoftDeletes;
+    use HasFactory, HasActiveStatus, BelongsToTenant, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -24,6 +25,10 @@ class Teacher extends Model
 
     protected $casts = [
         'hire_date' => 'date',
+    ];
+
+    protected $with = [
+        'user'
     ];
 
     protected $appends = [
@@ -116,11 +121,6 @@ class Teacher extends Model
     public function getPhotoUrlAttribute()
     {
         return $this->user?->photo_url;
-    }
-
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'ACTIVO');
     }
 
     public function scopeByLevel($query, $level)

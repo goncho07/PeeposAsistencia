@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
-use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\BelongsToTenant;
+use App\Traits\HasActiveStatus;
 
 class Classroom extends Model
 {
-    use HasFactory, BelongsToTenant;
+    use HasFactory, HasActiveStatus, BelongsToTenant;
 
     protected $fillable = [
         'tenant_id',
@@ -76,11 +77,6 @@ class Classroom extends Model
 
         $names = $gradeNames[$this->level] ?? [];
         return $names[$this->grade - 1] ?? "{$this->grade}° grado";
-    }
-
-    public function scopeActive($query)
-    {
-        return $query->where('status', 'ACTIVO');
     }
 
     public function scopeByLevel($query, $level)

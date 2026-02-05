@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Exceptions\BusinessException;
 use App\Models\User;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Collection;
@@ -14,35 +15,65 @@ class UserService
     use LogsActivity;
 
     /**
-     * Get all admin users with optional search and filters
+     * Get all admin users with optional search and filters.
+     *
+     * @param string|null $search
+     * @param string|null $role
+     * @param string|null $status
+     * @param array $expand Relations to expand (teacher)
      */
-    public function getAllAdminUsers(?string $search = null, ?string $role = null, ?string $status = null): Collection
-    {
+    public function getAllAdminUsers(
+        ?string $search = null,
+        ?string $role = null,
+        ?string $status = null,
+        array $expand = []
+    ): Collection {
         $query = User::query()
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($query) use ($search) {
-                    $query->where('document_number', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('paternal_surname', 'like', "%{$search}%")
-                        ->orWhere('maternal_surname', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                });
-            })
-            ->when($role, fn($q) => $q->where('role', $role))
-            ->when($status, fn($q) => $q->where('status', $status))
+            ->when($search, fn($q) => $q->search($search))
+            ->when($role, fn($q) => $q->byRole($role))
+            ->when($status, fn($q) => $q->byStatus($status))
             ->orderBy('paternal_surname')
             ->orderBy('maternal_surname')
             ->orderBy('name');
+
+        $relations = $this->buildRelationsFromExpand($expand);
+        if (!empty($relations)) {
+            $query->with($relations)    ;
+        }
 
         return $query->get();
     }
 
     /**
-     * Find admin user by ID
+     * Find admin user by ID.
+     *
+     * @param int $id
+     * @param array $expand Relations to expand
      */
-    public function findById(int $id): User
+    public function findById(int $id, array $expand = []): User
     {
-        return User::with('teacher')->findOrFail($id);
+        $query = User::query();
+
+        $relations = $this->buildRelationsFromExpand($expand);
+        if (!empty($relations)) {
+            $query->with($relations);
+        }
+
+        return $query->findOrFail($id);
+    }
+
+    /**
+     * Build relations array from expand parameter.
+     */
+    private function buildRelationsFromExpand(array $expand): array
+    {
+        $relations = [];
+
+        if (in_array('teacher', $expand)) {
+            $relations[] = 'teacher';
+        }
+
+        return $relations;
     }
 
     /**
@@ -99,11 +130,11 @@ class UserService
             $user = User::findOrFail($id);
 
             if ($user->id === Auth::id()) {
-                throw new \Exception('No puedes eliminar tu propia cuenta.');
+                throw new BusinessException('No puedes eliminar tu propia cuenta.');
             }
 
             if ($user->role === 'SUPERADMIN') {
-                throw new \Exception('No puedes eliminar un SUPERADMIN.');
+                throw new BusinessException('No puedes eliminar un SUPERADMIN.');
             }
 
             $this->logActivity('user_deleted', $user, [

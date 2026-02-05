@@ -1,19 +1,19 @@
 <?php
 
-namespace App\Http\Controllers\Classrooms;
+namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
+use App\Exceptions\BusinessException;
 use App\Http\Requests\Classrooms\ClassroomStoreRequest;
 use App\Http\Requests\Classrooms\ClassroomUpdateRequest;
 use App\Http\Resources\ClassroomResource;
 use App\Services\ClassroomService;
-use App\Traits\ParsesExpandParameter;
+use App\Traits\HasExpandableRelations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class ClassroomController extends Controller
 {
-    use ParsesExpandParameter;
+    use HasExpandableRelations;
 
     public function __construct(
         private ClassroomService $classroomService
@@ -107,6 +107,8 @@ class ClassroomController extends Controller
                 new ClassroomResource($classroom),
                 'Aula creada exitosamente'
             );
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al crear aula: ' . $e->getMessage(), null, 500);
         }
@@ -132,6 +134,8 @@ class ClassroomController extends Controller
             );
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Aula no encontrada', null, 404);
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al actualizar aula: ' . $e->getMessage(), null, 500);
         }
@@ -141,9 +145,6 @@ class ClassroomController extends Controller
      * Remove the specified classroom
      *
      * DELETE /api/classrooms/{id}
-     *
-     * @param int $id
-     * @return JsonResponse
      */
     public function destroy(int $id): JsonResponse
     {
@@ -153,8 +154,43 @@ class ClassroomController extends Controller
             return $this->success(null, 'Aula eliminada exitosamente');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Aula no encontrada', null, 404);
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al eliminar aula: ' . $e->getMessage(), null, 500);
+        }
+    }
+
+    /**
+     * Bulk create classrooms.
+     *
+     * POST /api/classrooms/bulk
+     */
+    public function bulkStore(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'level' => 'required|string|in:INICIAL,PRIMARIA,SECUNDARIA',
+            'grades' => 'required|array|min:1',
+            'grades.*' => 'integer|min:1|max:6',
+            'sections' => 'required|string',
+            'shift' => 'nullable|string|in:MAÑANA,TARDE',
+            'capacity' => 'nullable|integer|min:1|max:100',
+        ]);
+
+        try {
+            $result = $this->classroomService->bulkCreate($validated);
+
+            $message = "Se crearon {$result['created']} aulas";
+            if ($result['skipped'] > 0) {
+                $message .= " ({$result['skipped']} ya existían)";
+            }
+
+            return $this->success([
+                'created' => $result['created'],
+                'skipped' => $result['skipped'],
+            ], $message);
+        } catch (\Exception $e) {
+            return $this->error('Error al crear aulas: ' . $e->getMessage(), null, 500);
         }
     }
 }

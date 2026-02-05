@@ -11,6 +11,7 @@ class BusinessException extends Exception
     public function render($request)
     {
         return response()->json([
+            'success' => false,
             'message' => $this->getMessage(),
         ], $this->code);
     }

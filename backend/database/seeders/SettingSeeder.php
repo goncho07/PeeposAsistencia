@@ -42,7 +42,7 @@ class SettingSeeder extends Seeder
         foreach ($allSettings as $settingData) {
             $settingData['tenant_id'] = $tenant->id;
 
-            Setting::create($settingData);
+            Setting::updateOrCreate($settingData);
             $createdCount++;
         }
 

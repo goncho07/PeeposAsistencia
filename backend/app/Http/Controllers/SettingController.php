@@ -13,7 +13,8 @@ class SettingController extends Controller
     public function index(): JsonResponse
     {
         $settings = $this->settingService->getAllSettings();
-        return response()->json($settings);
+
+        return $this->success($settings, 'Configuración obtenida exitosamente');
     }
 
     public function update(Request $request): JsonResponse
@@ -24,8 +25,6 @@ class SettingController extends Controller
 
         $this->settingService->updateSettings($request->settings);
 
-        return response()->json([
-            'message' => 'Configuración actualizada exitosamente',
-        ]);
+        return $this->success(null, 'Configuración actualizada exitosamente');
     }
 }

@@ -2,27 +2,42 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
-use App\Http\Controllers\Classrooms\ClassroomController;
 use App\Http\Controllers\Attendance\ScannerController;
+use App\Http\Controllers\Attendance\BiometricScannerController;
 use App\Http\Controllers\Attendance\AttendanceController;
 use App\Http\Controllers\Attendance\JustificationController;
 use App\Http\Controllers\Incidents\IncidentController;
 use App\Http\Controllers\Carnets\CarnetController;
+use App\Http\Controllers\Calendar\CalendarEventController;
+use App\Http\Controllers\ClassroomController;
 use App\Http\Controllers\StudentController;
 use App\Http\Controllers\TeacherController;
 use App\Http\Controllers\ParentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\TenantController;
-use App\Http\Controllers\Calendar\CalendarEventController;
-use App\Http\Controllers\Attendance\BiometricScannerController;
-
-Route::get('/ping', function () {
-    return response()->json(['message' => 'Pong!']);
-});
+use App\Http\Controllers\ImportController;
 
 Route::get('/tenants/{slug}', [TenantController::class, 'getBySlug'])
     ->name('tenants.show');
+
+Route::prefix('superadmin')->middleware(['auth:sanctum', 'tenant.role:SUPERADMIN'])->group(function () {
+    Route::get('/stats', [TenantController::class, 'stats']);
+
+    Route::post('/tenants/{id}/enter', [TenantController::class, 'enterTenant']);
+    Route::post('/exit', [TenantController::class, 'exitTenant']);
+
+    Route::get('/tenants', [TenantController::class, 'index']);
+    Route::post('/tenants', [TenantController::class, 'store']);
+    Route::get('/tenants/{id}', [TenantController::class, 'show']);
+    Route::put('/tenants/{id}', [TenantController::class, 'update']);
+    Route::delete('/tenants/{id}', [TenantController::class, 'destroy']);
+    Route::post('/tenants/{id}/toggle-active', [TenantController::class, 'toggleActive']);
+    Route::post('/tenants/{id}/upload-image', [TenantController::class, 'uploadImage']);
+
+    Route::post('/validate', [ImportController::class, 'validate']);
+    Route::post('/execute', [ImportController::class, 'execute']);
+});
 
 Route::prefix('auth')->group(function () {
     Route::post('/login', [AuthenticatedSessionController::class, 'login'])

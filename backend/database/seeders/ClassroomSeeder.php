@@ -20,7 +20,7 @@ class ClassroomSeeder extends Seeder
             return;
         }
 
-        $tenant1 = $tenants->firstWhere('code', '0325464');
+        $tenant1 = $tenants->firstWhere('modular_code', '0325464');
 
         if ($tenant1) {
             $classroomsTenant1 = [
@@ -50,9 +50,9 @@ class ClassroomSeeder extends Seeder
             $this->command->info(" Aulas creadas para: {$tenant1->name} (Todas turno MAÑANA)");
         }
 
-        $tenant2 = $tenants->firstWhere('code', '0325265');
+        $tenant2 = $tenants->firstWhere('modular_code', '0325265');
 
-        $tenant2 = $tenants->firstWhere('code', '0325265');
+        $tenant2 = $tenants->firstWhere('modular_code', '0325265');
 
         if ($tenant2) {
             $this->createClassroomsWithShift($tenant2, [
@@ -144,7 +144,7 @@ class ClassroomSeeder extends Seeder
                         'grade' => $grade,
                         'section' => $section,
                     ], [
-                        'teacher_id' => null,
+                        'tutor_id' => null,
                         'shift' => $shift,
                         'status' => 'ACTIVO',
                     ]);

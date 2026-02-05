@@ -2,57 +2,54 @@
 
 namespace App\Http\Controllers\Incidents;
 
+use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
 use App\Models\Incident;
-use App\Models\Student;
 use App\Http\Requests\Incidents\IncidentStoreRequest;
 use App\Http\Requests\Incidents\IncidentUpdateRequest;
 use App\Http\Resources\IncidentResource;
+use App\Services\IncidentService;
 use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Support\Facades\DB;
 
 class IncidentController extends Controller
 {
+    public function __construct(
+        private IncidentService $incidentService
+    ) {}
+
     /**
      * Display a listing of incidents.
+     *
+     * GET /api/incidents
+     * GET /api/incidents?classroom_id=1
+     * GET /api/incidents?student_id=1
+     * GET /api/incidents?type=CONDUCTA
+     * GET /api/incidents?severity=GRAVE
+     * GET /api/incidents?status=REGISTRADA
+     * GET /api/incidents?date=2024-01-15
+     * GET /api/incidents?date_from=2024-01-01&date_to=2024-01-31
      */
     public function index(Request $request): JsonResponse
     {
         try {
-            $query = Incident::with(['classroom', 'student', 'reporter', 'resolver']);
+            $filters = $request->only([
+                'classroom_id',
+                'student_id',
+                'type',
+                'severity',
+                'status',
+                'date',
+                'date_from',
+                'date_to',
+                'per_page',
+            ]);
 
-            if ($request->query('classroom_id')) {
-                $query->byClassroom($request->query('classroom_id'));
-            }
+            $incidents = $this->incidentService->getAllIncidents($filters);
 
-            if ($request->query('student_id')) {
-                $query->byStudent($request->query('student_id'));
-            }
-
-            if ($request->query('type')) {
-                $query->byType($request->query('type'));
-            }
-
-            if ($request->query('severity')) {
-                $query->bySeverity($request->query('severity'));
-            }
-
-            if ($request->query('status')) {
-                $query->byStatus($request->query('status'));
-            }
-
-            if ($request->query('date')) {
-                $query->forDate($request->query('date'));
-            }
-
-            if ($request->query('date_from') && $request->query('date_to')) {
-                $query->betweenDates($request->query('date_from'), $request->query('date_to'));
-            }
-
-            $incidents = $query->latest('date')->latest('time')->paginate(20);
-
-            return $this->success(IncidentResource::collection($incidents)->response()->getData(true));
+            return $this->success(
+                IncidentResource::collection($incidents)->response()->getData(true)
+            );
         } catch (\Exception $e) {
             return $this->error('Error al obtener incidencias: ' . $e->getMessage(), null, 500);
         }
@@ -60,34 +57,20 @@ class IncidentController extends Controller
 
     /**
      * Store a newly created incident.
+     *
+     * POST /api/incidents
      */
     public function store(IncidentStoreRequest $request): JsonResponse
     {
         try {
-            $data = $request->validated();
-
-            $student = Student::findOrFail($data['student_id']);
-            if ($student->classroom_id !== (int) $data['classroom_id']) {
-                return $this->error(
-                    'El estudiante no pertenece al aula especificada',
-                    null,
-                    422
-                );
-            }
-
-            $data['tenant_id'] = $request->user()->tenant_id;
-            $data['reported_by'] = $request->user()->id;
-
-            $incident = DB::transaction(function () use ($data) {
-                return Incident::create($data);
-            });
-
-            $incident->load(['classroom', 'student', 'reporter']);
+            $incident = $this->incidentService->create($request->validated());
 
             return $this->created(
                 new IncidentResource($incident),
                 'Incidencia registrada exitosamente'
             );
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al registrar incidencia: ' . $e->getMessage(), null, 500);
         }
@@ -95,55 +78,40 @@ class IncidentController extends Controller
 
     /**
      * Display the specified incident.
+     *
+     * GET /api/incidents/{id}
      */
     public function show(int $id): JsonResponse
     {
         try {
-            $incident = Incident::with(['classroom', 'student', 'reporter', 'resolver'])
-                ->findOrFail($id);
+            $incident = $this->incidentService->findById($id);
 
             return $this->success(new IncidentResource($incident));
-        } catch (\Exception $e) {
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Incidencia no encontrada', null, 404);
+        } catch (\Exception $e) {
+            return $this->error('Error al obtener incidencia: ' . $e->getMessage(), null, 500);
         }
     }
 
     /**
      * Update the specified incident.
+     *
+     * PUT/PATCH /api/incidents/{id}
      */
     public function update(IncidentUpdateRequest $request, int $id): JsonResponse
     {
         try {
-            $incident = Incident::findOrFail($id);
-            $data = $request->validated();
-
-            if (isset($data['student_id']) && $data['student_id'] !== $incident->student_id) {
-                $student = Student::findOrFail($data['student_id']);
-                $classroomId = $data['classroom_id'] ?? $incident->classroom_id;
-                if ($student->classroom_id !== $classroomId) {
-                    return $this->error(
-                        'El estudiante no pertenece al aula especificada',
-                        null,
-                        422
-                    );
-                }
-            }
-
-            if (isset($data['status']) && $data['status'] === 'RESUELTA' && $incident->status !== 'RESUELTA') {
-                $data['resolved_by'] = $request->user()->id;
-                $data['resolved_at'] = now();
-            }
-
-            DB::transaction(function () use ($incident, $data) {
-                $incident->update($data);
-            });
-
-            $incident->load(['classroom', 'student', 'reporter', 'resolver']);
+            $incident = $this->incidentService->update($id, $request->validated());
 
             return $this->success(
                 new IncidentResource($incident),
                 'Incidencia actualizada exitosamente'
             );
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Incidencia no encontrada', null, 404);
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al actualizar incidencia: ' . $e->getMessage(), null, 500);
         }
@@ -151,17 +119,17 @@ class IncidentController extends Controller
 
     /**
      * Remove the specified incident.
+     *
+     * DELETE /api/incidents/{id}
      */
     public function destroy(int $id): JsonResponse
     {
         try {
-            $incident = Incident::findOrFail($id);
-
-            DB::transaction(function () use ($incident) {
-                $incident->delete();
-            });
+            $this->incidentService->delete($id);
 
             return $this->success(null, 'Incidencia eliminada exitosamente');
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
+            return $this->error('Incidencia no encontrada', null, 404);
         } catch (\Exception $e) {
             return $this->error('Error al eliminar incidencia: ' . $e->getMessage(), null, 500);
         }
@@ -169,36 +137,16 @@ class IncidentController extends Controller
 
     /**
      * Get incident statistics for a classroom or period.
+     *
+     * GET /api/incidents/statistics
+     * GET /api/incidents/statistics?classroom_id=1
+     * GET /api/incidents/statistics?date_from=2024-01-01&date_to=2024-01-31
      */
     public function statistics(Request $request): JsonResponse
     {
         try {
-            $query = Incident::query();
-
-            if ($request->query('classroom_id')) {
-                $query->byClassroom($request->query('classroom_id'));
-            }
-
-            if ($request->query('date_from') && $request->query('date_to')) {
-                $query->betweenDates($request->query('date_from'), $request->query('date_to'));
-            }
-
-            $incidents = $query->get();
-
-            $statistics = [
-                'total' => $incidents->count(),
-                'by_severity' => [
-                    'LEVE' => $incidents->where('severity', 'LEVE')->count(),
-                    'MODERADA' => $incidents->where('severity', 'MODERADA')->count(),
-                    'GRAVE' => $incidents->where('severity', 'GRAVE')->count(),
-                ],
-                'by_status' => [
-                    'REGISTRADA' => $incidents->where('status', 'REGISTRADA')->count(),
-                    'EN_SEGUIMIENTO' => $incidents->where('status', 'EN_SEGUIMIENTO')->count(),
-                    'RESUELTA' => $incidents->where('status', 'RESUELTA')->count(),
-                ],
-                'by_type' => $incidents->groupBy('type')->map->count(),
-            ];
+            $filters = $request->only(['classroom_id', 'date_from', 'date_to']);
+            $statistics = $this->incidentService->getStatistics($filters);
 
             return $this->success($statistics);
         } catch (\Exception $e) {
@@ -208,15 +156,13 @@ class IncidentController extends Controller
 
     /**
      * Get incidents by student.
+     *
+     * GET /api/incidents/student/{studentId}
      */
     public function byStudent(int $studentId): JsonResponse
     {
         try {
-            $incidents = Incident::with(['classroom', 'reporter', 'resolver'])
-                ->byStudent($studentId)
-                ->latest('date')
-                ->latest('time')
-                ->get();
+            $incidents = $this->incidentService->getByStudent($studentId);
 
             return $this->success(IncidentResource::collection($incidents));
         } catch (\Exception $e) {
@@ -226,6 +172,8 @@ class IncidentController extends Controller
 
     /**
      * Get available incident types.
+     *
+     * GET /api/incidents/types
      */
     public function types(): JsonResponse
     {
@@ -234,6 +182,8 @@ class IncidentController extends Controller
 
     /**
      * Get available severities.
+     *
+     * GET /api/incidents/severities
      */
     public function severities(): JsonResponse
     {

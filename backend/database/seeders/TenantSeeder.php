@@ -14,10 +14,12 @@ class TenantSeeder extends Seeder
     {
         $tenants = [
             [
-                'code' => '0325464',
-                'name' => 'I.E.E 6049 Ricardo Palma',
+                'modular_code' => '0325464',
                 'slug' => 'iee-6049-ricardo-palma',
                 'ruc' => '20506159360',
+                'name' => 'I.E.E 6049 Ricardo Palma',
+                'director_name' => 'Hetwer Gumer Vega Villaorduña',
+                'founded_year' => '1948',
                 'institution_type' => 'ESTATAL',
                 'level' => 'MULTIPLE',
                 'email' => 'mesadepartes@ieericardopalma.edu.pe',
@@ -35,10 +37,12 @@ class TenantSeeder extends Seeder
                 'background_url' => 'tenants/iee-6049-ricardo-palma/background.jpg',
             ],
             [
-                'code' => '0325265',
-                'name' => 'I.E Francisco Bolognesi Cervantes',
+                'modular_code' => '0325265',
                 'slug' => 'ie-francisco-bolognesi-cervantes',
                 'ruc' => '00000000001',
+                'name' => 'I.E Francisco Bolognesi Cervantes',
+                'director_name' => 'Bernabé Medina Zela',
+                'founded_year' => '1976',
                 'institution_type' => 'ESTATAL',
                 'level' => 'MULTIPLE',
                 'email' => 'mesadepartesiefbc@gmail.com',
@@ -60,7 +64,7 @@ class TenantSeeder extends Seeder
 
         foreach ($tenants as $tenantData) {
             $tenant = Tenant::updateOrCreate(
-                ['code' => $tenantData['code']],
+                ['modular_code' => $tenantData['modular_code']],
                 $tenantData
             );
 
@@ -76,7 +80,7 @@ class TenantSeeder extends Seeder
             ['ID', 'Código', 'Nombre', 'Estado', 'Nivel'],
             Tenant::all()->map(fn($t) => [
                 $t->id,
-                $t->code,
+                $t->modular_code,
                 $t->name,
                 $t->level,
             ])->toArray()

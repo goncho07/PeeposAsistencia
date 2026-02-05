@@ -2,18 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Teachers\TeacherStoreRequest;
 use App\Http\Requests\Teachers\TeacherUpdateRequest;
 use App\Http\Resources\TeacherResource;
 use App\Services\TeacherService;
-use App\Traits\ParsesExpandParameter;
+use App\Traits\HasExpandableRelations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class TeacherController extends Controller
 {
-    use ParsesExpandParameter;
+    use HasExpandableRelations;
 
     public function __construct(
         private TeacherService $teacherService
@@ -23,6 +24,9 @@ class TeacherController extends Controller
      * Display a listing of teachers
      *
      * GET /api/teachers
+     * GET /api/teachers?search=idk
+     * GET /api/teachers?level=inicial
+     * GET /api/teachers?status=activo
      * GET /api/teachers?expand=user
      * GET /api/teachers?expand=classrooms,tutoredClassrooms
      *
@@ -138,6 +142,8 @@ class TeacherController extends Controller
             return $this->success(null, 'Docente eliminado exitosamente');
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Docente no encontrado', null, 404);
+        } catch (BusinessException $e) {
+            return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
             return $this->error('Error al eliminar docente: ' . $e->getMessage(), null, 500);
         }

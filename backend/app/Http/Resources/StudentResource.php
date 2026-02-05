@@ -2,12 +2,12 @@
 
 namespace App\Http\Resources;
 
-use App\Traits\ExpandableResource;
+use App\Traits\HasExpandableRelations;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class StudentResource extends JsonResource
 {
-    use ExpandableResource;
+    use HasExpandableRelations;
 
     /**
      * Transform the resource into an array.

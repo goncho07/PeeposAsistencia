@@ -2,6 +2,9 @@
 
 namespace App\Http\Requests\Teachers;
 
+use App\Constants\ValidationConstants;
+use App\Validation\Messages;
+use App\Validation\PasswordRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -28,8 +31,7 @@ class TeacherStoreRequest extends FormRequest
         $tenantId = $this->user()->tenant_id;
 
         return [
-            // Personal data (for User creation)
-            'document_type' => ['required', 'in:DNI,CE,PAS,CI,PTP'],
+            'document_type' => ['required', ValidationConstants::DOCUMENT_TYPES_RULE],
             'document_number' => [
                 'required',
                 'string',
@@ -49,14 +51,13 @@ class TeacherStoreRequest extends FormRequest
             ],
             'phone_number' => ['nullable', 'string', 'max:15'],
             'photo_url' => ['nullable', 'string', 'max:500'],
-            'password' => ['nullable', 'string', 'min:6', 'max:100'],
+            'password' => PasswordRules::optional(),
 
-            // Teacher-specific data
-            'level' => ['required', 'in:INICIAL,PRIMARIA,SECUNDARIA'],
+            'level' => ['required', ValidationConstants::LEVELS_RULE],
             'specialty' => ['nullable', 'string', 'max:100'],
-            'contract_type' => ['nullable', 'in:NOMBRADO,CONTRATADO,CAS,PRACTICANTE'],
+            'contract_type' => ['nullable', ValidationConstants::CONTRACT_TYPES_RULE],
             'hire_date' => ['nullable', 'date'],
-            'status' => ['nullable', 'in:ACTIVO,INACTIVO,LICENCIA,CESADO'],
+            'status' => ['nullable', ValidationConstants::TEACHER_STATUSES_RULE],
         ];
     }
 
@@ -68,23 +69,11 @@ class TeacherStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'document_type.required' => 'El tipo de documento es obligatorio.',
-            'document_type.in' => 'El tipo de documento no es válido.',
-            'document_number.required' => 'El número de documento es obligatorio.',
-            'document_number.unique' => 'El número de documento ya está registrado como usuario en esta institución.',
-            'name.required' => 'El nombre es obligatorio.',
-            'name.max' => 'El nombre no puede tener más de 100 caracteres.',
-            'paternal_surname.required' => 'El apellido paterno es obligatorio.',
-            'maternal_surname.required' => 'El apellido materno es obligatorio.',
-            'email.required' => 'El correo electrónico es obligatorio para crear la cuenta de acceso.',
-            'email.email' => 'El correo electrónico no es válido.',
-            'email.unique' => 'El correo electrónico ya está registrado en esta institución.',
-            'password.min' => 'La contraseña debe tener al menos 6 caracteres.',
-            'level.required' => 'El nivel es obligatorio.',
-            'level.in' => 'El nivel no es válido. Debe ser INICIAL, PRIMARIA o SECUNDARIA.',
-            'specialty.max' => 'La especialidad no puede tener más de 100 caracteres.',
-            'contract_type.in' => 'El tipo de contrato no es válido.',
-            'status.in' => 'El estado no es válido.',
+            ...Messages::document(),
+            ...Messages::personName(),
+            ...Messages::contact(),
+            ...PasswordRules::messages(),
+            ...Messages::teacher(),
         ];
     }
 }

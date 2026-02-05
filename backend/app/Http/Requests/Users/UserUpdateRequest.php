@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests\Users;
 
+use App\Constants\ValidationConstants;
+use App\Validation\Messages;
+use App\Validation\PasswordRules;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\Rules\Password;
 
 class UserUpdateRequest extends FormRequest
 {
@@ -27,7 +29,7 @@ class UserUpdateRequest extends FormRequest
         $userId = $this->route('id');
 
         return [
-            'document_type' => ['sometimes', 'in:DNI,CE,PAS,CI,PTP'],
+            'document_type' => ['sometimes', ValidationConstants::DOCUMENT_TYPES_RULE],
             'document_number' => [
                 'sometimes',
                 'nullable',
@@ -49,11 +51,11 @@ class UserUpdateRequest extends FormRequest
                     ->where('tenant_id', $tenantId)
                     ->ignore($userId)
             ],
-            'password' => ['sometimes', Password::min(8)->mixedCase()->numbers()->symbols()],
-            'role' => ['sometimes', 'in:SUPERADMIN,DIRECTOR,SUBDIRECTOR,SECRETARIO,COORDINADOR,AUXILIAR,DOCENTE,ESCANER'],
+            'password' => PasswordRules::optional(),
+            'role' => ['sometimes', ValidationConstants::USER_ROLES_RULE],
             'phone_number' => ['sometimes', 'nullable', 'string', 'max:15'],
             'photo_url' => ['sometimes', 'nullable', 'string', 'max:500'],
-            'status' => ['sometimes', 'in:ACTIVO,INACTIVO,SUSPENDIDO'],
+            'status' => ['sometimes', ValidationConstants::USER_STATUSES_RULE],
         ];
     }
 
@@ -65,19 +67,11 @@ class UserUpdateRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'document_type.in' => 'El tipo de documento no es válido.',
-            'document_number.unique' => 'El número de documento ya está registrado en esta institución.',
-            'name.required' => 'El nombre es obligatorio.',
-            'name.max' => 'El nombre no puede tener más de 100 caracteres.',
-            'paternal_surname.required' => 'El apellido paterno es obligatorio.',
-            'maternal_surname.required' => 'El apellido materno es obligatorio.',
-            'email.required' => 'El correo electrónico es obligatorio.',
-            'email.email' => 'El correo electrónico no es válido.',
-            'email.unique' => 'El correo electrónico ya está registrado en esta institución.',
-            'password.min' => 'La contraseña debe tener al menos 8 caracteres.',
-            'role.in' => 'El rol no es válido.',
-            'phone_number.max' => 'El número de teléfono no puede tener más de 15 caracteres.',
-            'status.in' => 'El estado no es válido.',
+            ...Messages::document(),
+            ...Messages::personName(),
+            ...Messages::contact(),
+            ...PasswordRules::messages(),
+            ...Messages::userRole(),
         ];
     }
 }

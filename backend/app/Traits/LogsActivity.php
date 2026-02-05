@@ -13,9 +13,6 @@ trait LogsActivity
     /**
      * Log a simple activity.
      *
-     * Usage:
-     *   $this->logActivity('student_created', $student, ['full_name' => $student->full_name]);
-     *   $this->logActivity('user_login');  // subject defaults to current user
      *
      * @param string $action Action identifier (e.g., 'student_created', 'user_login')
      * @param Model|null $subject The model being acted upon (defaults to current user)
@@ -62,12 +59,6 @@ trait LogsActivity
 
     /**
      * Log an activity with before/after values for update operations.
-     *
-     * Usage:
-     *   $oldValues = $student->only(['name', 'email', 'classroom_id']);
-     *   $student->update($data);
-     *   $newValues = $student->only(['name', 'email', 'classroom_id']);
-     *   $this->logActivityWithChanges('student_updated', $student, $oldValues, $newValues);
      *
      * @param string $action Action identifier (e.g., 'student_updated')
      * @param Model $subject The model being updated

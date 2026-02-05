@@ -67,10 +67,12 @@ class FaceEnrollmentService
         }
 
         try {
-            $result = $this->faceService->enrollFromUrl(
+            $fullImageUrl = get_storage_url($photoUrl);
+
+            $result = $this->faceService->enroll(
                 $entity->tenant_id,
                 $externalId,
-                $photoUrl
+                $fullImageUrl
             );
 
             if ($result['success']) {

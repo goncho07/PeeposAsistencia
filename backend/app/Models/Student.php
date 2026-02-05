@@ -2,14 +2,15 @@
 
 namespace App\Models;
 
-use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Traits\BelongsToTenant;
+use App\Traits\HasFullName;
 
 class Student extends Model
 {
-    use HasFactory, BelongsToTenant, SoftDeletes;
+    use HasFactory, HasFullName, BelongsToTenant, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -90,11 +91,6 @@ class Student extends Model
         return $this->faceEmbedding()->where('status', FaceEmbedding::STATUS_ACTIVE)->exists();
     }
 
-    public function getFullNameAttribute()
-    {
-        return "{$this->name} {$this->paternal_surname} {$this->maternal_surname}";
-    }
-
     public function getAgeAttribute()
     {
         return $this->birth_date ? $this->birth_date->age : null;
@@ -120,5 +116,16 @@ class Student extends Model
     public function scopeByAcademicYear($query, $year = null)
     {
         return $query->where('academic_year', $year ?? now()->year);
+    }
+
+    public function scopeSearch($query, $search)
+    {
+        return $query->where(function ($q) use ($search) {
+            $q->where('student_code', 'like', "%{$search}%")
+                ->orWhere('document_number', 'like', "%{$search}%")
+                ->orWhere('name', 'like', "%{$search}%")
+                ->orWhere('paternal_surname', 'like', "%{$search}%")
+                ->orWhere('maternal_surname', 'like', "%{$search}%");
+        });
     }
 }

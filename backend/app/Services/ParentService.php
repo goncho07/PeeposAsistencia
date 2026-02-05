@@ -2,14 +2,16 @@
 
 namespace App\Services;
 
+use App\Exceptions\BusinessException;
 use App\Models\ParentGuardian;
 use App\Traits\LogsActivity;
+use App\Traits\SyncsPivotRelations;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 
 class ParentService
 {
-    use LogsActivity;
+    use LogsActivity, SyncsPivotRelations;
 
     /**
      * Get all parents with optional search.
@@ -22,25 +24,14 @@ class ParentService
     {
         $query = ParentGuardian::query()
             ->withCount('students')
-            ->when($search, function ($q) use ($search) {
-                $q->where(function ($query) use ($search) {
-                    $query->where('document_number', 'like', "%{$search}%")
-                        ->orWhere('name', 'like', "%{$search}%")
-                        ->orWhere('paternal_surname', 'like', "%{$search}%")
-                        ->orWhere('maternal_surname', 'like', "%{$search}%")
-                        ->orWhere('phone_number', 'like', "%{$search}%")
-                        ->orWhere('email', 'like', "%{$search}%");
-                });
-            })
+            ->when($search, fn($q) => $q->search($search))
             ->orderBy('paternal_surname')
             ->orderBy('maternal_surname')
             ->orderBy('name');
 
-        if (in_array('students', $expand)) {
-            $query->with([
-                'students:id,student_code,name,paternal_surname,maternal_surname,document_number,enrollment_status,classroom_id',
-                'students.classroom:id,level,grade,section'
-            ]);
+        $relations = $this->buildRelationsFromExpand($expand);
+        if (!empty($relations)) {
+            $query->with($relations);
         }
 
         return $query->get();
@@ -57,11 +48,26 @@ class ParentService
     {
         $query = ParentGuardian::query();
 
-        if (in_array('students', $expand)) {
-            $query->with(['students.classroom']);
+        $relations = $this->buildRelationsFromExpand($expand);
+        if (!empty($relations)) {
+            $query->with($relations);
         }
 
         return $query->findOrFail($id);
+    }
+
+    /**
+     * Build relations array from expand parameter.
+     */
+    private function buildRelationsFromExpand(array $expand): array
+    {
+        $relations = [];
+
+        if (in_array('students', $expand)) {
+            $relations[] = 'students.classroom';
+        }
+
+        return $relations;
     }
 
     /**
@@ -76,7 +82,7 @@ class ParentService
             $parent = ParentGuardian::create($data);
 
             if (!empty($studentsData)) {
-                $this->syncStudents($parent, $studentsData);
+                $this->syncStudentsRelation($parent, $studentsData);
             }
 
             $parent->load(['students.classroom']);
@@ -106,7 +112,7 @@ class ParentService
             $parent->update($data);
 
             if ($studentsData !== null) {
-                $this->syncStudents($parent, $studentsData);
+                $this->syncStudentsRelation($parent, $studentsData);
             }
 
             $parent->load(['students.classroom']);
@@ -131,7 +137,7 @@ class ParentService
                 ->exists();
 
             if ($hasPrimaryContact) {
-                throw new \Exception('No se puede eliminar el apoderado porque es el contacto principal de uno o más estudiantes.');
+                throw new BusinessException('No se puede eliminar el apoderado porque es el contacto principal de uno o más estudiantes.');
             }
 
             $this->logActivity('parent_deleted', $parent, [
@@ -145,23 +151,4 @@ class ParentService
         });
     }
 
-    /**
-     * Sync students with parent
-     */
-    private function syncStudents(ParentGuardian $parent, array $studentsData): void
-    {
-        $syncData = [];
-
-        foreach ($studentsData as $studentData) {
-            $syncData[$studentData['student_id']] = [
-                'tenant_id' => $parent->tenant_id,
-                'relationship_type' => $studentData['relationship_type'],
-                'custom_relationship_label' => $studentData['custom_relationship_label'] ?? null,
-                'is_primary_contact' => $studentData['is_primary_contact'] ?? false,
-                'receives_notifications' => $studentData['receives_notifications'] ?? true,
-            ];
-        }
-
-        $parent->students()->sync($syncData);
-    }
 }

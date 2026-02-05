@@ -22,8 +22,6 @@ class JustificationStoreRequest extends FormRequest
      */
     public function rules(): array
     {
-        $tenantId = $this->user()->tenant_id;
-
         return [
             'justifiable_type' => [
                 'required',
@@ -33,23 +31,15 @@ class JustificationStoreRequest extends FormRequest
             'justifiable_id' => [
                 'required',
                 'integer',
-                function ($attribute, $value, $fail) use ($tenantId) {
+                function ($attribute, $value, $fail) {
                     $type = $this->input('justifiable_type');
 
                     if ($type === 'App\Models\Student') {
-                        $exists = \App\Models\Student::where('tenant_id', $tenantId)
-                            ->where('id', $value)
-                            ->exists();
-
-                        if (!$exists) {
+                        if (!\App\Models\Student::where('id', $value)->exists()) {
                             $fail('El estudiante seleccionado no existe o no pertenece a su institución.');
                         }
                     } elseif ($type === 'App\Models\Teacher') {
-                        $exists = \App\Models\Teacher::where('tenant_id', $tenantId)
-                            ->where('id', $value)
-                            ->exists();
-
-                        if (!$exists) {
+                        if (!\App\Models\Teacher::where('id', $value)->exists()) {
                             $fail('El docente seleccionado no existe o no pertenece a su institución.');
                         }
                     }

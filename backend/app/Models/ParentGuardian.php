@@ -2,13 +2,14 @@
 
 namespace App\Models;
 
-use App\Traits\BelongsToTenant;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Traits\BelongsToTenant;
+use App\Traits\HasFullName;
 
 class ParentGuardian extends Model
 {
-    use HasFactory, BelongsToTenant;
+    use HasFactory, HasFullName, BelongsToTenant;
 
     protected $table = 'parents';
 
@@ -47,11 +48,6 @@ class ParentGuardian extends Model
         ])->withTimestamps();
     }
 
-    public function getFullNameAttribute()
-    {
-        return "{$this->name} {$this->paternal_surname} {$this->maternal_surname}";
-    }
-
     public function getPrimaryPhoneAttribute()
     {
         return $this->phone_number ?? $this->phone_number_secondary;
@@ -61,6 +57,18 @@ class ParentGuardian extends Model
     {
         return $query->whereHas('students', function ($q) {
             $q->wherePivot('receives_notifications', true);
+        });
+    }
+
+    public function scopeSearch($query, $search)
+    {
+        return $query->where(function ($q) use ($search) {
+            $q->where('document_number', 'like', "%{$search}%")
+                ->orWhere('name', 'like', "%{$search}%")
+                ->orWhere('paternal_surname', 'like', "%{$search}%")
+                ->orWhere('maternal_surname', 'like', "%{$search}%")
+                ->orWhere('phone_number', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%");
         });
     }
 }
