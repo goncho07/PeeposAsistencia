@@ -7,6 +7,7 @@ use App\Http\Requests\Tenants\TenantImageUploadRequest;
 use App\Http\Requests\Tenants\TenantStoreRequest;
 use App\Http\Requests\Tenants\TenantUpdateRequest;
 use App\Http\Resources\TenantResource;
+use App\Services\AcademicYearService;
 use App\Services\TenantService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -14,7 +15,8 @@ use Illuminate\Http\Request;
 class TenantController extends Controller
 {
     public function __construct(
-        private TenantService $tenantService
+        private TenantService $tenantService,
+        private AcademicYearService $academicYearService
     ) {}
 
     /**
@@ -239,6 +241,34 @@ class TenantController extends Controller
             return $this->error('Tenant no encontrado', null, 404);
         } catch (\Exception $e) {
             return $this->error('Error al subir imagen: ' . $e->getMessage(), null, 500);
+        }
+    }
+
+    /**
+     * Bulk-create an academic year for all active tenants.
+     *
+     * POST /api/superadmin/academic-years/bulk
+     */
+    public function bulkCreateAcademicYear(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'year' => 'required|integer|min:2020|max:2099',
+            'bimesters' => 'required|array|size:4',
+            'bimesters.*.start_date' => 'required|date',
+            'bimesters.*.end_date' => 'required|date|after:bimesters.*.start_date',
+        ]);
+
+        try {
+            $result = $this->academicYearService->bulkCreateForAllTenants($validated);
+
+            $message = "Año {$validated['year']} creado en {$result['created']} institución(es)";
+            if ($result['skipped'] > 0) {
+                $message .= ", {$result['skipped']} omitida(s) (ya existía)";
+            }
+
+            return $this->success($result, $message);
+        } catch (\Exception $e) {
+            return $this->error('Error al crear año académico global: ' . $e->getMessage(), null, 500);
         }
     }
 }

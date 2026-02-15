@@ -173,7 +173,8 @@ class CsvSeeder extends Seeder
                 'gender' => $gender,
                 'birth_date' => $this->parseDate($row['FECHA DE NACIMIENTO'] ?? null),
                 'classroom_id' => $classroom->id,
-                'academic_year' => now()->year,
+                'academic_year' => $this->tenant->currentAcademicYear?->year ?? now()->year,
+                'academic_year_id' => $this->tenant->current_academic_year_id,
                 'enrollment_status' => 'MATRICULADO',
                 'photo_url' => null,
             ]

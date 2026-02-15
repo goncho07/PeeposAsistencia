@@ -15,12 +15,6 @@ class CheckTenantRole
      */
     public function handle(Request $request, Closure $next, ...$roles): Response
     {
-        if (!$request->user()) {
-            return response()->json([
-                'message' => 'Unauthenticated',
-            ], 401);
-        }
-
         if ($request->user()->role === 'SUPERADMIN') {
             return $next($request);
         }

@@ -212,7 +212,7 @@ class CarnetService
         $users = collect();
 
         if (in_array($filters['type'], ['all', 'student'])) {
-            $studentsQuery = Student::with(['classroom.teacher']);
+            $studentsQuery = Student::with(['classroom.tutor']);
 
             if (!empty($filters['level']) && $filters['level'] !== 'all' && $filters['type'] !== 'all') {
                 $studentsQuery->whereHas('classroom', function ($q) use ($filters) {

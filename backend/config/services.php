@@ -35,8 +35,7 @@ return [
         ],
     ],
     'whatsapp' => [
-        'api_url' => env('WAPI_API_URL', 'https://wapiapp.com/api/v1'),
-        'token' => env('WAPI_TOKEN'),
-        'instance_id' => env('WAPI_INSTANCE_ID'),
+        'base_ip' => env('WAHA_API_BASE_IP', '34.41.116.18'),
+        'token' => env('WAHA_TOKEN', '1d08af99dbd14e87bc9a277175fdd338'),
     ],
 ];

@@ -64,9 +64,6 @@ class TeacherUpdateRequest extends FormRequest
 
             'level' => ['sometimes', 'required', ValidationConstants::LEVELS_RULE],
             'specialty' => ['sometimes', 'nullable', 'string', 'max:100'],
-            'contract_type' => ['sometimes', 'nullable', ValidationConstants::CONTRACT_TYPES_RULE],
-            'hire_date' => ['sometimes', 'nullable', 'date'],
-            'status' => ['sometimes', ValidationConstants::TEACHER_STATUSES_RULE],
             'qr_code' => [
                 'sometimes',
                 'string',

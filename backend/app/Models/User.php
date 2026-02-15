@@ -31,6 +31,7 @@ class User extends Authenticatable
         'password',
         'role',
         'phone_number',
+        'qr_code',
         'status',
         'last_login_at',
         'last_login_ip',
@@ -79,11 +80,6 @@ class User extends Authenticatable
     public function createdJustifications()
     {
         return $this->hasMany(Justification::class, 'created_by');
-    }
-
-    public function recordedAttendances()
-    {
-        return $this->hasMany(Attendance::class, 'recorded_by');
     }
 
     public function activityLogs()

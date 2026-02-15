@@ -19,6 +19,8 @@ class IncidentUpdateRequest extends FormRequest
 
     /**
      * Get the validation rules that apply to the request.
+     *
+     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
@@ -33,13 +35,9 @@ class IncidentUpdateRequest extends FormRequest
                 'sometimes',
                 Rule::exists('students', 'id')->where('tenant_id', $tenantId)
             ],
-            'date' => 'sometimes|date|before_or_equal:today',
-            'time' => 'sometimes|date_format:H:i',
             'type' => 'sometimes|in:' . implode(',', array_keys(Incident::TYPES)),
             'severity' => 'sometimes|in:' . implode(',', array_keys(Incident::SEVERITIES)),
             'description' => 'nullable|string|max:1000',
-            'status' => 'sometimes|in:' . implode(',', array_keys(Incident::STATUSES)),
-            'resolution_notes' => 'nullable|string|max:1000',
         ];
     }
 
@@ -50,7 +48,7 @@ class IncidentUpdateRequest extends FormRequest
     {
         $validator->after(function ($validator) {
             if ($this->hasAny(['classroom_id', 'student_id'])) {
-                $incident = Incident::find($this->route('incident'));
+                $incident = Incident::find($this->route('id'));
                 if (!$incident) {
                     return;
                 }
@@ -72,20 +70,17 @@ class IncidentUpdateRequest extends FormRequest
 
     /**
      * Get custom messages for validator errors.
+     *
+     * @return array<string, string>
      */
     public function messages(): array
     {
         return [
             'classroom_id.exists' => 'El aula seleccionada no existe.',
             'student_id.exists' => 'El estudiante seleccionado no existe.',
-            'date.date' => 'La fecha no es válida.',
-            'date.before_or_equal' => 'La fecha no puede ser futura.',
-            'time.date_format' => 'El formato de hora no es válido (use HH:MM).',
             'type.in' => 'El tipo de incidencia no es válido.',
             'severity.in' => 'La gravedad seleccionada no es válida.',
-            'status.in' => 'El estado seleccionado no es válido.',
             'description.max' => 'La descripción no puede exceder 1000 caracteres.',
-            'resolution_notes.max' => 'Las notas de resolución no pueden exceder 1000 caracteres.',
         ];
     }
 }

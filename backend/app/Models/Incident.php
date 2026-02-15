@@ -12,6 +12,7 @@ class Incident extends Model
 
     protected $fillable = [
         'tenant_id',
+        'academic_year_id',
         'classroom_id',
         'student_id',
         'reported_by',
@@ -20,8 +21,6 @@ class Incident extends Model
         'type',
         'severity',
         'description',
-        'status',
-        'resolution_notes',
         'resolved_by',
         'resolved_at',
     ];
@@ -33,17 +32,26 @@ class Incident extends Model
     ];
 
     public const TYPES = [
-        'USO_CELULAR' => 'Uso de celular en clase',
-        'INTERRUPCION' => 'Interrupción/bulla en clase',
-        'FALTA_RESPETO' => 'Falta de respeto',
-        'INCUMPLIMIENTO_TAREA' => 'No presentó tarea/material',
+        'USO_JOYAS' => 'Uso de joyas',
+        'UÑAS_PINTADAS' => 'Uñas pintadas',
+        'CABELLO_SUELTO' => 'Cabello suelto',
+        'FALTA_ASEO_PERSONAL' => 'Falta de aseo personal',
         'UNIFORME_INCOMPLETO' => 'Uniforme incompleto',
-        'LLEGADA_TARDE' => 'Llegada tarde a clase',
-        'DETERIORO_MATERIAL' => 'Deterioro de material/mobiliario',
-        'PELEA' => 'Pelea o agresión física',
-        'ACOSO' => 'Acoso o bullying',
-        'SALIDA_NO_AUTORIZADA' => 'Salida del aula sin permiso',
-        'OTRO' => 'Otro',
+        'NO_TRAJO_UTILes' => 'No trajo útiles',
+        'INCUMPLIMIENTO_TAREAS' => 'Incumplimiento de tareas',
+        'INDISCIPLINA_FORMACION' => 'Indisciplina en formación',
+        'INDISCIPLINA_AULA' => 'Indisciplina en aula',
+        'FALTA_RESPETO_SIMBOLOS_PATRIOS' => 'Falta de respeto a símbolos patrios',
+        'FALTA_RESPETO_DOCENTE' => 'Falta de respeto al docente',
+        'AGRESION_VERBAL' => 'Agresión verbal',
+        'USO_CELULAR' => 'Uso de celular',
+        'DAÑO_INFRAESTRUCTURA' => 'Daño a infraestructura',
+        'ESCANDALO_AULA' => 'Escándalo en aula',
+        'SALIDA_NO_AUTORIZADA' => 'Salida no autorizada',
+        'AGRESION_FISICA' => 'Agresión física',
+        'ACOSO_ESCOLAR' => 'Acoso escolar',
+        'CONSUMO_DROGAS' => 'Consumo de drogas',
+        'PORTE_ARMAS' => 'Porte de armas',
     ];
 
     public const SEVERITIES = [
@@ -52,11 +60,47 @@ class Incident extends Model
         'GRAVE' => 'Grave',
     ];
 
-    public const STATUSES = [
-        'REGISTRADA' => 'Registrada',
-        'EN_SEGUIMIENTO' => 'En seguimiento',
-        'RESUELTA' => 'Resuelta',
+    /**
+     * Map each incident type to its automatic severity.
+     */
+    public const TYPE_SEVERITY_MAP = [
+        // Leves
+        'USO_JOYAS' => 'LEVE',
+        'UÑAS_PINTADAS' => 'LEVE',
+        'CABELLO_SUELTO' => 'LEVE',
+        'FALTA_ASEO_PERSONAL' => 'LEVE',
+        'UNIFORME_INCOMPLETO' => 'LEVE',
+        'NO_TRAJO_UTILes' => 'LEVE',
+        'INCUMPLIMIENTO_TAREAS' => 'LEVE',
+        // Moderadas
+        'INDISCIPLINA_FORMACION' => 'MODERADA',
+        'INDISCIPLINA_AULA' => 'MODERADA',
+        'FALTA_RESPETO_SIMBOLOS_PATRIOS' => 'MODERADA',
+        'FALTA_RESPETO_DOCENTE' => 'MODERADA',
+        'AGRESION_VERBAL' => 'MODERADA',
+        'USO_CELULAR' => 'MODERADA',
+        'DAÑO_INFRAESTRUCTURA' => 'MODERADA',
+        'ESCANDALO_AULA' => 'MODERADA',
+        // Graves
+        'SALIDA_NO_AUTORIZADA' => 'GRAVE',
+        'AGRESION_FISICA' => 'GRAVE',
+        'ACOSO_ESCOLAR' => 'GRAVE',
+        'CONSUMO_DROGAS' => 'GRAVE',
+        'PORTE_ARMAS' => 'GRAVE',
     ];
+
+    /**
+     * Get the severity for a given incident type.
+     */
+    public static function getSeverityForType(string $type): string
+    {
+        return self::TYPE_SEVERITY_MAP[$type] ?? 'LEVE';
+    }
+
+    public function academicYear()
+    {
+        return $this->belongsTo(AcademicYear::class);
+    }
 
     public function classroom()
     {
@@ -88,9 +132,9 @@ class Incident extends Model
         return self::SEVERITIES[$this->severity] ?? $this->severity;
     }
 
-    public function getStatusLabelAttribute()
+    public function scopeByAcademicYear($query, int $academicYearId)
     {
-        return self::STATUSES[$this->status] ?? $this->status;
+        return $query->where('academic_year_id', $academicYearId);
     }
 
     public function scopeByClassroom($query, $classroomId)
@@ -108,11 +152,6 @@ class Incident extends Model
         return $query->where('severity', $severity);
     }
 
-    public function scopeByStatus($query, $status)
-    {
-        return $query->where('status', $status);
-    }
-
     public function scopeByType($query, $type)
     {
         return $query->where('type', $type);
@@ -126,15 +165,5 @@ class Incident extends Model
     public function scopeBetweenDates($query, $from, $to)
     {
         return $query->whereBetween('date', [$from, $to]);
-    }
-
-    public function scopePending($query)
-    {
-        return $query->whereIn('status', ['REGISTRADA', 'EN_SEGUIMIENTO']);
-    }
-
-    public function scopeResolved($query)
-    {
-        return $query->where('status', 'RESUELTA');
     }
 }

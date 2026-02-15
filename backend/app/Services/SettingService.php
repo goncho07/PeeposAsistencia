@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\Setting;
-use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Cache;
 
@@ -32,7 +31,6 @@ class SettingService
             'general' => $this->getGroup('general', $tenantId),
             'horarios' => $this->getGroup('horarios', $tenantId),
             'whatsapp' => $this->getGroup('whatsapp', $tenantId),
-            'bimestres' => $this->getGroup('bimestres', $tenantId),
         ];
     }
 
@@ -149,13 +147,15 @@ class SettingService
     }
 
     /**
-     * Get WhatsApp phone number for a specific level
+     * Get WAHA instance port for a specific education level
      */
-    public function getWhatsAppPhone(string $level, ?int $tenantId = null): ?string
+    public function getWahaPort(string $level, ?int $tenantId = null): ?int
     {
         $tenantId = $tenantId ?? $this->getCurrentTenantId();
         $levelLower = strtolower($level);
-        return $this->get("whatsapp_{$levelLower}_phone", null, $tenantId);
+        $port = $this->get("waha_{$levelLower}_port", null, $tenantId);
+
+        return $port ? (int) $port : null;
     }
 
     /**
@@ -195,36 +195,43 @@ class SettingService
     }
 
     /**
-     * Get current bimester based on date
+     * Get allowed attendable types for the tenant.
+     * Returns array of model classes that can be scanned for attendance.
+     *
+     * @return string[] Array of short type names: 'student', 'teacher', 'user'
      */
-    public function getCurrentBimester(?Carbon $date = null, ?int $tenantId = null): ?int
+    public function getAttendableTypes(?int $tenantId = null): array
     {
         $tenantId = $tenantId ?? $this->getCurrentTenantId();
-        $date = $date ?? now();
+        $types = $this->get('attendable_types', ['student'], $tenantId);
 
-        for ($i = 1; $i <= 4; $i++) {
-            $inicio = Carbon::parse($this->get("bimestre_{$i}_inicio", null, $tenantId));
-            $fin = Carbon::parse($this->get("bimestre_{$i}_fin", null, $tenantId));
-
-            if ($date->between($inicio, $fin)) {
-                return $i;
-            }
-        }
-
-        return null;
+        return is_array($types) ? $types : ['student'];
     }
 
     /**
-     * Get bimester dates
+     * Get allowed attendable model classes for the tenant.
+     *
+     * @return string[] Array of fully qualified class names
      */
-    public function getBimesterDates(int $bimester, ?int $tenantId = null): array
+    public function getAttendableModelClasses(?int $tenantId = null): array
     {
-        $tenantId = $tenantId ?? $this->getCurrentTenantId();
-
-        return [
-            'inicio' => $this->get("bimestre_{$bimester}_inicio", null, $tenantId),
-            'fin' => $this->get("bimestre_{$bimester}_fin", null, $tenantId),
+        $typeMap = [
+            'student' => \App\Models\Student::class,
+            'teacher' => \App\Models\Teacher::class,
+            'user' => \App\Models\User::class,
         ];
+
+        $allowed = $this->getAttendableTypes($tenantId);
+
+        return array_values(array_intersect_key($typeMap, array_flip($allowed)));
+    }
+
+    /**
+     * Check if a specific attendable type is allowed for the tenant.
+     */
+    public function isAttendableTypeAllowed(string $type, ?int $tenantId = null): bool
+    {
+        return in_array($type, $this->getAttendableTypes($tenantId));
     }
 
     /**
@@ -275,7 +282,7 @@ class SettingService
     {
         $tenantId = $tenantId ?? $this->getCurrentTenantId();
 
-        $groups = ['general', 'horarios', 'whatsapp', 'bimestres'];
+        $groups = ['general', 'horarios', 'whatsapp'];
 
         foreach ($groups as $group) {
             Cache::forget("settings.{$tenantId}.{$group}");

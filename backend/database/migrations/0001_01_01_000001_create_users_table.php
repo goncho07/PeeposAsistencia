@@ -31,6 +31,7 @@ return new class extends Migration
             $table->enum('role', ['SUPERADMIN', 'DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO', 'COORDINADOR', 'AUXILIAR', 'DOCENTE', 'ESCANER'])->default('ESCANER');
 
             $table->string('phone_number', 15)->nullable();
+            $table->string('qr_code', 50)->nullable();
             $table->enum('status', ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'])->default('ACTIVO');
 
             $table->rememberToken();
@@ -42,6 +43,7 @@ return new class extends Migration
 
             $table->unique(['tenant_id', 'document_number']);
             $table->unique(['tenant_id', 'email']);
+            $table->unique(['tenant_id', 'qr_code']);
 
             $table->index(['tenant_id', 'status']);
             $table->index(['tenant_id', 'role']);

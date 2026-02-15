@@ -5,12 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use App\Services\AcademicYearService;
 use App\Traits\BelongsToTenant;
-use App\Traits\HasActiveStatus;
 
 class Teacher extends Model
 {
-    use HasFactory, HasActiveStatus, BelongsToTenant, SoftDeletes;
+    use HasFactory, BelongsToTenant, SoftDeletes;
 
     protected $fillable = [
         'tenant_id',
@@ -18,17 +18,6 @@ class Teacher extends Model
         'qr_code',
         'level',
         'specialty',
-        'contract_type',
-        'hire_date',
-        'status',
-    ];
-
-    protected $casts = [
-        'hire_date' => 'date',
-    ];
-
-    protected $with = [
-        'user'
     ];
 
     protected $appends = [
@@ -128,11 +117,6 @@ class Teacher extends Model
         return $query->where('level', $level);
     }
 
-    public function scopeByContractType($query, $contractType)
-    {
-        return $query->where('contract_type', $contractType);
-    }
-
     public function scopeSearch($query, $search)
     {
         return $query->whereHas('user', function ($q) use ($search) {
@@ -144,25 +128,9 @@ class Teacher extends Model
         });
     }
 
-    /**
-     * Get the teacher's complete weekly schedule.
-     *
-     * Combines schedules from all classroom assignments into a single
-     * weekly view with classroom and subject information.
-     *
-     * Schedule JSON structure per classroom_teacher:
-     * {
-     *   "LUNES": [{"start": "08:00", "end": "09:30"}, ...],
-     *   "MARTES": [...],
-     *   ...
-     * }
-     *
-     * @param int|null $academicYear Filter by academic year (defaults to current year)
-     * @return array Weekly schedule grouped by day
-     */
     public function getWeeklySchedule(?int $academicYear = null): array
     {
-        $academicYear = $academicYear ?? now()->year;
+        $academicYear = $academicYear ?? app(AcademicYearService::class)->getCurrentYearNumber();
 
         $days = ['LUNES', 'MARTES', 'MIERCOLES', 'JUEVES', 'VIERNES', 'SABADO'];
         $weeklySchedule = array_fill_keys($days, []);
@@ -211,27 +179,12 @@ class Teacher extends Model
         return $weeklySchedule;
     }
 
-    /**
-     * Get schedule for a specific day.
-     *
-     * @param string $day Day name (LUNES, MARTES, etc.)
-     * @param int|null $academicYear
-     * @return array
-     */
     public function getScheduleForDay(string $day, ?int $academicYear = null): array
     {
         $schedule = $this->getWeeklySchedule($academicYear);
         return $schedule[strtoupper($day)] ?? [];
     }
 
-    /**
-     * Check if teacher has classes on a specific day and time.
-     *
-     * @param string $day
-     * @param string $time Format: "HH:MM"
-     * @param int|null $academicYear
-     * @return array|null The class block if found, null otherwise
-     */
     public function getClassAt(string $day, string $time, ?int $academicYear = null): ?array
     {
         $daySchedule = $this->getScheduleForDay($day, $academicYear);

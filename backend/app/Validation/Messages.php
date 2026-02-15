@@ -78,8 +78,6 @@ class Messages
             'level.required' => 'El nivel es obligatorio.',
             'level.in' => 'El nivel no es válido. Debe ser INICIAL, PRIMARIA o SECUNDARIA.',
             'specialty.max' => 'La especialidad no puede tener más de 100 caracteres.',
-            'contract_type.in' => 'El tipo de contrato no es válido.',
-            'status.in' => 'El estado no es válido.',
             'qr_code.unique' => 'El código QR ya está asignado a otro docente.',
         ];
     }

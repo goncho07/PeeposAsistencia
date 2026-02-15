@@ -26,9 +26,9 @@ return new class extends Migration
 
             $table->time('exit_time')->nullable();
             $table->enum('exit_status', ['COMPLETO', 'SALIDA_ANTICIPADA', 'SALIDA_ANTICIPADA_JUSTIFICADA', 'SIN_SALIDA'])->default('SIN_SALIDA');
-    
-            $table->foreignId('recorded_by')->nullable()->constrained('users')->onDelete('set null');
-            $table->enum('device_type', ['SCANNER', 'MANUAL', 'APP', 'IMPORTACION'])->default('SCANNER');
+
+            $table->enum('device_type', ['SCANNER', 'MANUAL', 'APP', 'CAMARA', 'BIOMETRIA'])->default('SCANNER');
+            $table->decimal('face_match_confidence', 5, 2)->nullable();
 
             $table->boolean('whatsapp_sent')->default(false);
             
@@ -38,7 +38,6 @@ return new class extends Migration
             $table->index(['tenant_id', 'attendable_type', 'attendable_id', 'date'], 'idx_attendance_entity_date');
             $table->index(['tenant_id', 'date', 'entry_status']);
             $table->index(['tenant_id', 'shift', 'date']);
-            $table->index(['tenant_id', 'recorded_by']);
         });
     }
 

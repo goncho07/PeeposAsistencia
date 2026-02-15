@@ -22,7 +22,6 @@ class ImportExecuteRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'type' => ['required', 'in:students,teachers,classrooms'],
             'file' => ['required', 'file', 'mimes:csv,txt', 'max:10240'],
         ];
     }
@@ -35,8 +34,6 @@ class ImportExecuteRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'type.required' => 'El tipo de importación es obligatorio.',
-            'type.in' => 'El tipo de importación debe ser: students, teachers o classrooms.',
             'file.required' => 'El archivo es obligatorio.',
             'file.file' => 'Debe subir un archivo válido.',
             'file.mimes' => 'El archivo debe ser de tipo CSV.',

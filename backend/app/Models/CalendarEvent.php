@@ -12,6 +12,7 @@ class CalendarEvent extends Model
 
     protected $fillable = [
         'tenant_id',
+        'academic_year_id',
         'title',
         'description',
         'type',
@@ -32,6 +33,11 @@ class CalendarEvent extends Model
     public function tenant()
     {
         return $this->belongsTo(Tenant::class);
+    }
+
+    public function academicYear()
+    {
+        return $this->belongsTo(AcademicYear::class);
     }
 
     public function scopeGlobal(Builder $query): Builder

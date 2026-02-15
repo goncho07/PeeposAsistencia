@@ -18,7 +18,8 @@ class StudentService
 
     public function __construct(
         protected FaceEnrollmentService $faceEnrollmentService,
-        protected QRCodeService $qrCodeService
+        protected QRCodeService $qrCodeService,
+        protected AcademicYearService $academicYearService
     ) {}
 
     /**
@@ -77,7 +78,9 @@ class StudentService
                 $data['qr_code'] = $this->qrCodeService->generate($data['document_number']);
             }
 
-            $data['academic_year'] = $data['academic_year'] ?? now()->year;
+            $currentYear = $this->academicYearService->getCurrentYear();
+            $data['academic_year'] = $data['academic_year'] ?? $currentYear->year;
+            $data['academic_year_id'] = $data['academic_year_id'] ?? $currentYear->id;
             $data['enrollment_status'] = $data['enrollment_status'] ?? 'MATRICULADO';
 
             if (isset($data['photo'])) {
@@ -207,10 +210,6 @@ class StudentService
     private function validateClassroomCapacity(int $classroomId): void
     {
         $classroom = Classroom::findOrFail($classroomId);
-
-        if ($classroom->isInactive()) {
-            throw new BusinessException('El aula seleccionada no está activa.');
-        }
 
         if (!$classroom->hasCapacity()) {
             throw new BusinessException('El aula seleccionada ya ha alcanzado su capacidad máxima.');

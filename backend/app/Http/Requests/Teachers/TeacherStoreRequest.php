@@ -55,9 +55,6 @@ class TeacherStoreRequest extends FormRequest
 
             'level' => ['required', ValidationConstants::LEVELS_RULE],
             'specialty' => ['nullable', 'string', 'max:100'],
-            'contract_type' => ['nullable', ValidationConstants::CONTRACT_TYPES_RULE],
-            'hire_date' => ['nullable', 'date'],
-            'status' => ['nullable', ValidationConstants::TEACHER_STATUSES_RULE],
         ];
     }
 

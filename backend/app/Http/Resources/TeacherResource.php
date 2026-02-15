@@ -41,9 +41,6 @@ class TeacherResource extends JsonResource
 
             'level' => $this->level,
             'specialty' => $this->specialty,
-            'contract_type' => $this->contract_type,
-            'hire_date' => $this->hire_date?->format('Y-m-d'),
-            'status' => $this->status,
 
             'user' => $this->whenExpanded('user', fn () => [
                 'id' => $this->user->id,

@@ -5,11 +5,10 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use App\Traits\BelongsToTenant;
-use App\Traits\HasActiveStatus;
 
 class Classroom extends Model
 {
-    use HasFactory, HasActiveStatus, BelongsToTenant;
+    use HasFactory, BelongsToTenant;
 
     protected $fillable = [
         'tenant_id',
@@ -19,7 +18,6 @@ class Classroom extends Model
         'section',
         'shift',
         'capacity',
-        'status',
     ];
 
     protected $casts = [
@@ -61,22 +59,16 @@ class Classroom extends Model
     public function getFullNameAttribute()
     {
         $gradeName = $this->getGradeName();
-        return "{$gradeName} '{$this->section}'";
+        return "{$gradeName}{$this->section}";
     }
 
     public function getGradeName()
     {
         if ($this->level === 'INICIAL') {
-            return "{$this->grade} años";
+            return "{$this->grade} años ";
         }
 
-        $gradeNames = [
-            'PRIMARIA' => ['1er grado', '2do grado', '3er grado', '4to grado', '5to grado', '6to grado'],
-            'SECUNDARIA' => ['1er grado', '2do grado', '3er grado', '4to grado', '5to grado'],
-        ];
-
-        $names = $gradeNames[$this->level] ?? [];
-        return $names[$this->grade - 1] ?? "{$this->grade}° grado";
+        return "{$this->grade}°";
     }
 
     public function scopeByLevel($query, $level)

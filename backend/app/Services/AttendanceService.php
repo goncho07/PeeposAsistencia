@@ -7,10 +7,13 @@ use App\Models\Attendance;
 use App\Models\FaceEmbedding;
 use App\Models\Student;
 use App\Models\Teacher;
+use App\Models\User;
 use App\Models\Justification;
 use App\Exceptions\BusinessException;
+use App\Http\Resources\AttendanceResource;
 use App\Services\Biometric\FaceRecognitionService;
 use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -19,6 +22,7 @@ class AttendanceService
     public function __construct(
         private SettingService $settingService,
         private WhatsAppService $whatsAppService,
+        private AcademicYearService $academicYearService,
         private ?FaceRecognitionService $faceService = null
     ) {
         if ($this->faceService === null && config('biometric.enabled')) {
@@ -29,49 +33,49 @@ class AttendanceService
     /**
      * Register entry attendance by scanning QR code.
      */
-    public function scanEntry(string $qrCode, int $userId): array
+    public function scanEntry(string $qrCode, string $deviceType = 'SCANNER'): array
     {
-        return DB::transaction(function () use ($qrCode, $userId) {
+        return DB::transaction(function () use ($qrCode, $deviceType) {
             $attendable = $this->findByQRCode($qrCode);
 
             if (!$attendable) {
                 throw new BusinessException('Código QR no válido');
             }
 
-            return $this->registerEntry($attendable, $userId, 'SCANNER');
+            return $this->registerEntry($attendable, $deviceType);
         });
     }
 
     /**
      * Register exit attendance by scanning QR code.
      */
-    public function scanExit(string $qrCode, int $userId): array
+    public function scanExit(string $qrCode, string $deviceType = 'SCANNER'): array
     {
-        return DB::transaction(function () use ($qrCode, $userId) {
+        return DB::transaction(function () use ($qrCode, $deviceType) {
             $attendable = $this->findByQRCode($qrCode);
 
             if (!$attendable) {
                 throw new BusinessException('Código QR no válido');
             }
 
-            return $this->registerExit($attendable, $userId);
+            return $this->registerExit($attendable, $deviceType);
         });
     }
 
     /**
      * Register entry attendance via biometric face scan.
      */
-    public function scanEntryByFace(string $imageBase64, int $tenantId, int $userId, array $filters = []): array
+    public function scanEntryByFace(string $imageBase64, int $tenantId, array $filters = []): array
     {
-        return DB::transaction(function () use ($imageBase64, $tenantId, $userId) {
+        return DB::transaction(function () use ($imageBase64, $tenantId) {
             [$attendable, $confidence] = $this->resolveAttendableByFace($imageBase64, $tenantId);
 
-            $result = $this->registerEntry($attendable, $userId, 'BIOMETRIC', $confidence);
+            $result = $this->registerEntry($attendable, 'BIOMETRIA', $confidence);
 
             Log::info('Biometric entry registered', [
                 'attendable_id' => $attendable->id,
                 'confidence' => $confidence,
-                'status' => $result['attendance']->entry_status ?? 'unknown',
+                'status' => $result['attendance']['entry_status'] ?? 'unknown',
             ]);
 
             return $this->formatBiometricResponse($result, $attendable, $confidence, 'entry');
@@ -81,17 +85,17 @@ class AttendanceService
     /**
      * Register exit attendance via biometric face scan.
      */
-    public function scanExitByFace(string $imageBase64, int $tenantId, int $userId, array $filters = []): array
+    public function scanExitByFace(string $imageBase64, int $tenantId, array $filters = []): array
     {
-        return DB::transaction(function () use ($imageBase64, $tenantId, $userId) {
+        return DB::transaction(function () use ($imageBase64, $tenantId) {
             [$attendable, $confidence] = $this->resolveAttendableByFace($imageBase64, $tenantId);
 
-            $result = $this->registerExit($attendable, $userId);
+            $result = $this->registerExit($attendable, 'BIOMETRIA');
 
             Log::info('Biometric exit registered', [
                 'attendable_id' => $attendable->id,
                 'confidence' => $confidence,
-                'status' => $result['attendance']->exit_status ?? 'unknown',
+                'status' => $result['attendance']['exit_status'] ?? 'unknown',
             ]);
 
             return $this->formatBiometricResponse($result, $attendable, $confidence, 'exit');
@@ -102,8 +106,7 @@ class AttendanceService
      * Core entry registration logic.
      */
     private function registerEntry(
-        Student|Teacher $attendable,
-        int $userId,
+        Student|Teacher|User $attendable,
         string $deviceType,
         ?float $faceConfidence = null
     ): array {
@@ -122,7 +125,6 @@ class AttendanceService
         $data = [
             'entry_time' => $now,
             'entry_status' => $status,
-            'recorded_by' => $userId,
             'device_type' => $deviceType,
         ];
 
@@ -151,15 +153,23 @@ class AttendanceService
         return [
             'success' => true,
             'message' => $this->getEntryMessage($attendable, $status, $now),
-            'attendance' => $attendance,
-            'person' => $attendable,
+            'attendance' => [
+                'id' => $attendance->id,
+                'entry_time' => $now->format('H:i:s'),
+                'entry_status' => $status,
+            ],
+            'person' => [
+                'id' => $attendable->id,
+                'full_name' => $attendable->full_name,
+                'type' => $this->getAttendableTypeName($attendable),
+            ],
         ];
     }
 
     /**
      * Core exit registration logic.
      */
-    private function registerExit(Student|Teacher $attendable, int $userId): array
+    private function registerExit(Student|Teacher|User $attendable, string $deviceType): array
     {
         $attendance = $this->findTodayAttendance($attendable);
 
@@ -182,7 +192,7 @@ class AttendanceService
         $attendance->update([
             'exit_time' => $now,
             'exit_status' => $status,
-            'recorded_by' => $userId,
+            'device_type' => $deviceType,
         ]);
 
         if ($attendable instanceof Student) {
@@ -192,15 +202,23 @@ class AttendanceService
         return [
             'success' => true,
             'message' => $this->getExitMessage($attendable, $status, $now),
-            'attendance' => $attendance,
-            'person' => $attendable,
+            'attendance' => [
+                'id' => $attendance->id,
+                'exit_time' => $now->format('H:i:s'),
+                'exit_status' => $status,
+            ],
+            'person' => [
+                'id' => $attendable->id,
+                'full_name' => $attendable->full_name,
+                'type' => $this->getAttendableTypeName($attendable),
+            ],
         ];
     }
 
     /**
      * Resolve attendable entity from face recognition.
      *
-     * @return array{0: Student|Teacher, 1: float}
+     * @return array{0: Student|Teacher|User, 1: float}
      */
     private function resolveAttendableByFace(string $imageBase64, int $tenantId): array
     {
@@ -235,18 +253,33 @@ class AttendanceService
     /**
      * Get level and shift for an attendable.
      */
-    private function getAttendableInfo(Student|Teacher $attendable): array
+    private function getAttendableInfo(Student|Teacher|User $attendable): array
     {
+        if ($attendable instanceof Student) {
+            return [
+                'level' => $attendable->classroom->level,
+                'shift' => $attendable->classroom->shift,
+            ];
+        }
+
+        if ($attendable instanceof Teacher) {
+            return [
+                'level' => $attendable->level,
+                'shift' => 'MAÑANA',
+            ];
+        }
+
+        // User (COORDINADOR, AUXILIAR, etc.) — use SECUNDARIA as default level
         return [
-            'level' => $attendable instanceof Student ? $attendable->classroom->level : $attendable->level,
-            'shift' => $attendable instanceof Student ? $attendable->classroom->shift : 'MAÑANA',
+            'level' => 'SECUNDARIA',
+            'shift' => 'MAÑANA',
         ];
     }
 
     /**
      * Find today's attendance for an attendable.
      */
-    private function findTodayAttendance(Student|Teacher $attendable): ?Attendance
+    private function findTodayAttendance(Student|Teacher|User $attendable): ?Attendance
     {
         return Attendance::where('attendable_type', get_class($attendable))
             ->where('attendable_id', $attendable->id)
@@ -280,22 +313,25 @@ class AttendanceService
     /**
      * Format response for biometric scans.
      */
-    private function formatBiometricResponse(array $result, Student|Teacher $attendable, float $confidence, string $type): array
+    private function formatBiometricResponse(array $result, Student|Teacher|User $attendable, float $confidence, string $type): array
     {
         $attendance = $result['attendance'];
-        $now = now();
 
         return [
             'success' => true,
             'message' => $result['message'],
             'attendance' => [
-                'id' => $attendance->id,
-                'status' => $type === 'entry' ? $attendance->entry_status : $attendance->exit_status,
-                "{$type}_time" => $now->format('H:i:s'),
+                'id' => $attendance['id'],
+                'status' => $type === 'entry'
+                    ? ($attendance['entry_status'] ?? null)
+                    : ($attendance['exit_status'] ?? null),
+                "{$type}_time" => $type === 'entry'
+                    ? ($attendance['entry_time'] ?? null)
+                    : ($attendance['exit_time'] ?? null),
             ],
             'person' => [
                 'id' => $attendable->id,
-                'type' => $attendable instanceof Student ? 'student' : 'teacher',
+                'type' => $this->getAttendableTypeName($attendable),
                 'full_name' => $attendable->full_name,
                 'classroom' => $attendable instanceof Student ? $attendable->classroom?->full_name : null,
             ],
@@ -306,22 +342,52 @@ class AttendanceService
     }
 
     /**
-     * Find student or teacher by QR code.
+     * Find attendable entity by QR code, respecting tenant's allowed attendable types.
      */
-    private function findByQRCode(string $qrCode): Student|Teacher|null
+    private function findByQRCode(string $qrCode): Student|Teacher|User|null
     {
-        return Student::where('qr_code', $qrCode)->first()
-            ?? Teacher::where('qr_code', $qrCode)->first();
+        $allowedTypes = $this->settingService->getAttendableTypes();
+
+        if (in_array('student', $allowedTypes)) {
+            $student = Student::where('qr_code', $qrCode)->first();
+            if ($student) return $student;
+        }
+
+        if (in_array('teacher', $allowedTypes)) {
+            $teacher = Teacher::where('qr_code', $qrCode)->first();
+            if ($teacher) return $teacher;
+        }
+
+        if (in_array('user', $allowedTypes)) {
+            $user = User::where('qr_code', $qrCode)->where('role', '!=', 'SUPERADMIN')->first();
+            if ($user) return $user;
+        }
+
+        return null;
     }
 
     /**
      * Build entry message for attendance response.
      */
-    private function getEntryMessage(Student|Teacher $attendable, string $status, Carbon $time): string
+    private function getAttendableTypeName(Student|Teacher|User $attendable): string
+    {
+        if ($attendable instanceof Student) return 'student';
+        if ($attendable instanceof Teacher) return 'teacher';
+        return 'user';
+    }
+
+    private function getAttendableLabel(Student|Teacher|User $attendable): string
+    {
+        if ($attendable instanceof Student) return 'Estudiante';
+        if ($attendable instanceof Teacher) return 'Docente';
+        return $attendable->role ?? 'Usuario';
+    }
+
+    private function getEntryMessage(Student|Teacher|User $attendable, string $status, Carbon $time): string
     {
         $name = $attendable->full_name;
         $hora = $time->format('h:i A');
-        $type = $attendable instanceof Student ? 'Estudiante' : 'Docente';
+        $type = $this->getAttendableLabel($attendable);
 
         return match ($status) {
             'COMPLETO' => "{$type}: {$name} - Entrada registrada a las {$hora}",
@@ -330,14 +396,11 @@ class AttendanceService
         };
     }
 
-    /**
-     * Build exit message for attendance response.
-     */
-    private function getExitMessage(Student|Teacher $attendable, string $status, Carbon $time): string
+    private function getExitMessage(Student|Teacher|User $attendable, string $status, Carbon $time): string
     {
         $name = $attendable->full_name;
         $hora = $time->format('h:i A');
-        $type = $attendable instanceof Student ? 'Estudiante' : 'Docente';
+        $type = $this->getAttendableLabel($attendable);
 
         return match ($status) {
             'COMPLETO' => "{$type}: {$name} - Salida registrada a las {$hora}",
@@ -347,31 +410,242 @@ class AttendanceService
     }
 
     /**
-     * Get daily attendance statistics for students and teachers.
+     * Get paginated attendance records, filtered by allowed attendable types.
+     */
+    public function getAllAttendances(
+        ?string $date = null,
+        ?string $type = null,
+        ?string $shift = null,
+        ?string $status = null,
+        ?int $perPage = null
+    ): LengthAwarePaginator {
+        $allowedTypes = $this->settingService->getAttendableTypes();
+
+        $query = Attendance::with([
+            'attendable' => function ($morphTo) {
+                $morphTo->morphWith([
+                    Student::class => ['classroom'],
+                    Teacher::class => ['classrooms'],
+                ]);
+            }
+        ]);
+
+        if ($date) {
+            $query->forDate(Carbon::parse($date));
+        }
+
+        if ($type) {
+            if (!in_array($type, $allowedTypes)) {
+                throw new BusinessException('El tipo de asistencia seleccionado no está habilitado.');
+            }
+
+            match ($type) {
+                'student' => $query->students(),
+                'teacher' => $query->teachers(),
+                'user' => $query->users(),
+                default => null,
+            };
+        } else {
+            $modelClasses = $this->settingService->getAttendableModelClasses();
+            $morphClasses = array_map(
+                fn ($class) => (new $class)->getMorphClass(),
+                $modelClasses
+            );
+            $query->whereIn('attendable_type', $morphClasses);
+        }
+
+        if ($shift) {
+            $query->byShift($shift);
+        }
+
+        if ($status) {
+            $query->byStatus($status);
+        }
+
+        return $query->latest('date')->latest('entry_time')->paginate($perPage ?? 20);
+    }
+
+    /**
+     * Get personal attendance data for the authenticated user.
+     */
+    public function getMyAttendance(User $user): array
+    {
+        $allowedTypes = $this->settingService->getAttendableTypes();
+        $attendable = null;
+        $attendableType = null;
+
+        if (in_array('teacher', $allowedTypes) && $user->hasTeacherProfile()) {
+            $attendable = $user->teacher;
+            $attendableType = Teacher::class;
+        } elseif (in_array('user', $allowedTypes)) {
+            $attendable = $user;
+            $attendableType = User::class;
+        }
+
+        if (!$attendable) {
+            return ['eligible' => false];
+        }
+
+        $today = now();
+        $weekStart = $today->copy()->startOfWeek(Carbon::MONDAY);
+        $weekEnd = $weekStart->copy()->addDays(4);
+        $monthStart = $today->copy()->startOfMonth();
+        $monthEnd = $today->copy()->endOfMonth();
+        $bimester = $this->academicYearService->getCurrentBimester($today);
+
+        $todayRecord = Attendance::where('attendable_type', $attendableType)
+            ->where('attendable_id', $attendable->id)
+            ->forDate($today)
+            ->first();
+
+        $todayStatus = $todayRecord ? [
+            'entry_status' => $todayRecord->entry_status,
+            'entry_time' => $todayRecord->entry_time?->format('H:i:s'),
+            'exit_status' => $todayRecord->exit_status,
+            'exit_time' => $todayRecord->exit_time?->format('H:i:s'),
+        ] : null;
+
+        $history = Attendance::where('attendable_type', $attendableType)
+            ->where('attendable_id', $attendable->id)
+            ->latest('date')
+            ->paginate(20);
+
+        return [
+            'eligible' => true,
+            'attendable_type' => $this->getAttendableTypeName($attendable),
+            'attendable_name' => $attendable->full_name,
+            'today' => $todayStatus,
+            'stats' => [
+                'week' => $this->getAttendanceBreakdown($attendableType, $attendable->id, $weekStart, $weekEnd),
+                'month' => $this->getAttendanceBreakdown($attendableType, $attendable->id, $monthStart, $monthEnd),
+                'bimester' => $bimester
+                    ? $this->getAttendanceBreakdown($attendableType, $attendable->id, $bimester->start_date, $bimester->end_date)
+                    : null,
+            ],
+            'bimester_info' => $bimester ? [
+                'number' => $bimester->number,
+                'start_date' => $bimester->start_date->format('Y-m-d'),
+                'end_date' => $bimester->end_date->format('Y-m-d'),
+            ] : null,
+            'history' => AttendanceResource::collection($history)->response()->getData(true),
+        ];
+    }
+
+    /**
+     * Get attendance breakdown counts for a date range.
+     */
+    private function getAttendanceBreakdown(string $attendableType, int $attendableId, Carbon $from, Carbon $to): array
+    {
+        $records = Attendance::where('attendable_type', $attendableType)
+            ->where('attendable_id', $attendableId)
+            ->whereBetween('date', [$from, $to])
+            ->get();
+
+        return [
+            'total' => $records->count(),
+            'present' => $records->where('entry_status', 'COMPLETO')->count(),
+            'late' => $records->where('entry_status', 'TARDANZA')->count(),
+            'absent' => $records->whereIn('entry_status', ['FALTA', 'FALTA_JUSTIFICADA'])->count(),
+            'justified' => $records->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
+        ];
+    }
+
+    /**
+     * Get daily attendance statistics, scoped to tenant's allowed attendable types.
      */
     public function getDailyStats(?Carbon $date = null): array
     {
         $date = $date ?? now();
+        $allowedTypes = $this->settingService->getAttendableTypes();
 
-        $students = Attendance::students()->forDate($date)->get();
-        $teachers = Attendance::teachers()->forDate($date)->get();
+        $result = [
+            'date' => $date->format('Y-m-d'),
+            'allowed_types' => $allowedTypes,
+        ];
+
+        if (in_array('student', $allowedTypes)) {
+            $students = Attendance::students()->forDate($date)->get();
+            $result['students'] = [
+                'total_registered' => Student::count(),
+                'present' => $students->where('entry_status', 'COMPLETO')->count(),
+                'late' => $students->where('entry_status', 'TARDANZA')->count(),
+                'absent' => $students->where('entry_status', 'FALTA')->count(),
+                'justified' => $students->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
+            ];
+        }
+
+        if (in_array('teacher', $allowedTypes)) {
+            $teachers = Attendance::teachers()->forDate($date)->get();
+            $result['teachers'] = [
+                'total_registered' => Teacher::count(),
+                'present' => $teachers->where('entry_status', 'COMPLETO')->count(),
+                'late' => $teachers->where('entry_status', 'TARDANZA')->count(),
+                'absent' => $teachers->where('entry_status', 'FALTA')->count(),
+            ];
+        }
+
+        if (in_array('user', $allowedTypes)) {
+            $users = Attendance::users()->forDate($date)->get();
+            $result['users'] = [
+                'total_registered' => User::whereNotNull('qr_code')->where('status', 'ACTIVO')->where('role', '!=', 'SUPERADMIN')->count(),
+                'present' => $users->where('entry_status', 'COMPLETO')->count(),
+                'late' => $users->where('entry_status', 'TARDANZA')->count(),
+                'absent' => $users->where('entry_status', 'FALTA')->count(),
+            ];
+        }
+
+        return $result;
+    }
+
+    /**
+     * Get weekly attendance statistics (Mon-Fri), aggregated across allowed attendable types.
+     */
+    public function getWeeklyStats(?Carbon $date = null): array
+    {
+        $date = $date ?? now();
+        $weekStart = $date->copy()->startOfWeek(Carbon::MONDAY);
+        $weekEnd = $weekStart->copy()->addDays(4);
+        $allowedTypes = $this->settingService->getAttendableTypes();
+
+        $days = [];
+        for ($day = $weekStart->copy(); $day->lte($weekEnd); $day->addDay()) {
+            $dayStats = $this->getDailyStats($day);
+
+            $present = 0;
+            $late = 0;
+            $absent = 0;
+            $justified = 0;
+
+            foreach ($allowedTypes as $type) {
+                $typeKey = match ($type) {
+                    'student' => 'students',
+                    'teacher' => 'teachers',
+                    'user' => 'users',
+                    default => null,
+                };
+                if ($typeKey && isset($dayStats[$typeKey])) {
+                    $present += $dayStats[$typeKey]['present'];
+                    $late += $dayStats[$typeKey]['late'];
+                    $absent += $dayStats[$typeKey]['absent'];
+                    $justified += $dayStats[$typeKey]['justified'] ?? 0;
+                }
+            }
+
+            $days[] = [
+                'date' => $day->format('Y-m-d'),
+                'day_name' => ucfirst($day->locale('es')->dayName),
+                'present' => $present,
+                'late' => $late,
+                'absent' => $absent,
+                'justified' => $justified,
+            ];
+        }
 
         return [
-            'date' => $date->format('Y-m-d'),
-            'students' => [
-                'total_registered' => Student::count(),
-                'present' => $students->whereIn('entry_status', 'COMPLETO')->count(),
-                'late' => $students->where('entry_status', 'TARDANZA')->count(),
-                'absent' => $students->whereIn('entry_status', 'FALTA')->count(),
-                'justified' => $students->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
-            ],
-            'teachers' => [
-                'total_registered' => Teacher::count(),
-                'present' => $teachers->whereIn('entry_status', 'COMPLETO')->count(),
-                'late' => $teachers->where('entry_status', 'TARDANZA')->count(),
-                'absent' => $teachers->whereIn('entry_status', 'FALTA')->count(),
-            ],
-            'notifications_sent' => Attendance::forDate($date)->where('whatsapp_sent', true)->count(),
+            'week_start' => $weekStart->format('Y-m-d'),
+            'week_end' => $weekEnd->format('Y-m-d'),
+            'allowed_types' => $allowedTypes,
+            'days' => $days,
         ];
     }
 
@@ -403,7 +677,7 @@ class AttendanceService
     }
 
     /**
-     * Generate absence records for students and teachers who didn't attend.
+     * Generate absence records for attendable types allowed by tenant config.
      */
     public function generateAbsences(Carbon $date): void
     {
@@ -411,8 +685,20 @@ class AttendanceService
             return;
         }
 
-        $this->generateStudentAbsences($date);
-        $this->generateTeacherAbsences($date);
+        $allowedTypes = $this->settingService->getAttendableTypes();
+
+        if (in_array('student', $allowedTypes)) {
+            $this->generateStudentAbsences($date);
+        }
+
+        if (in_array('teacher', $allowedTypes)) {
+            $this->generateTeacherAbsences($date);
+        }
+
+        if (in_array('user', $allowedTypes)) {
+            $this->generateUserAbsences($date);
+        }
+
         $this->applyJustifications($date);
     }
 
@@ -454,5 +740,57 @@ class AttendanceService
                 'whatsapp_sent' => false,
             ]);
         });
+    }
+
+    private function generateUserAbsences(Carbon $date): void
+    {
+        $presentIds = Attendance::users()->forDate($date)->pluck('attendable_id');
+
+        User::whereNotNull('qr_code')
+            ->where('status', 'ACTIVO')
+            ->where('role', '!=', 'SUPERADMIN')
+            ->whereNotIn('id', $presentIds)
+            ->each(function (User $user) use ($date) {
+                Attendance::create([
+                    'attendable_type' => User::class,
+                    'attendable_id' => $user->id,
+                    'date' => $date,
+                    'shift' => 'MAÑANA',
+                    'entry_status' => 'FALTA',
+                    'exit_status' => 'SIN_SALIDA',
+                    'device_type' => 'IMPORTACION',
+                    'whatsapp_sent' => false,
+                ]);
+            });
+    }
+
+    /**
+     * Get attendance stats for all students in a classroom.
+     */
+    public function getClassroomAttendanceStats(int $classroomId, ?Carbon $from = null, ?Carbon $to = null): array
+    {
+        $classroom = \App\Models\Classroom::findOrFail($classroomId);
+
+        $from = $from ?? now()->startOfMonth();
+        $to = $to ?? now();
+
+        $studentIds = $classroom->students()->pluck('id');
+
+        $records = Attendance::where('attendable_type', Student::class)
+            ->whereIn('attendable_id', $studentIds)
+            ->whereBetween('date', [$from, $to])
+            ->get();
+
+        return [
+            'classroom_id' => $classroomId,
+            'classroom_name' => $classroom->full_name,
+            'period_label' => $from->format('d/m') . ' - ' . $to->format('d/m/Y'),
+            'total_students' => $studentIds->count(),
+            'total' => $records->count(),
+            'present' => $records->where('entry_status', 'COMPLETO')->count(),
+            'late' => $records->where('entry_status', 'TARDANZA')->count(),
+            'absent' => $records->whereIn('entry_status', ['FALTA', 'FALTA_JUSTIFICADA'])->count(),
+            'justified' => $records->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
+        ];
     }
 }

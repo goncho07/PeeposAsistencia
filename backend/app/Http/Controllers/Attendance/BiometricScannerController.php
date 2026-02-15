@@ -14,7 +14,6 @@ use App\Services\Biometric\FaceEnrollmentService;
 use App\Services\Biometric\FaceRecognitionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 
 class BiometricScannerController extends Controller
 {
@@ -39,7 +38,6 @@ class BiometricScannerController extends Controller
             $result = $this->attendanceService->scanEntryByFace(
                 imageBase64: $request->input('image'),
                 tenantId: app('current_tenant_id'),
-                userId: Auth::id(),
                 filters: [
                     'classroom_id' => $request->input('classroom_id'),
                     'level' => $request->input('level'),
@@ -75,7 +73,6 @@ class BiometricScannerController extends Controller
             $result = $this->attendanceService->scanExitByFace(
                 imageBase64: $request->input('image'),
                 tenantId: app('current_tenant_id'),
-                userId: Auth::id(),
                 filters: [
                     'classroom_id' => $request->input('classroom_id'),
                     'level' => $request->input('level'),

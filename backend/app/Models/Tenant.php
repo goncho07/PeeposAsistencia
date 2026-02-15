@@ -32,6 +32,7 @@ class Tenant extends Model
         'background_url',
         'primary_color',
         'timezone',
+        'current_academic_year_id',
         'is_active',
         'last_activity_at',
     ];
@@ -81,6 +82,16 @@ class Tenant extends Model
     public function attendances()
     {
         return $this->hasMany(Attendance::class);
+    }
+
+    public function academicYears()
+    {
+        return $this->hasMany(AcademicYear::class)->orderByDesc('year');
+    }
+
+    public function currentAcademicYear()
+    {
+        return $this->belongsTo(AcademicYear::class, 'current_academic_year_id');
     }
 
     public function settings()

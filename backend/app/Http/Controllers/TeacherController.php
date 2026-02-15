@@ -11,6 +11,7 @@ use App\Services\TeacherService;
 use App\Traits\HasExpandableRelations;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class TeacherController extends Controller
 {
@@ -26,7 +27,6 @@ class TeacherController extends Controller
      * GET /api/teachers
      * GET /api/teachers?search=idk
      * GET /api/teachers?level=inicial
-     * GET /api/teachers?status=activo
      * GET /api/teachers?expand=user
      * GET /api/teachers?expand=classrooms,tutoredClassrooms
      *
@@ -38,10 +38,9 @@ class TeacherController extends Controller
         try {
             $search = $request->query('search');
             $level = $request->query('level');
-            $status = $request->query('status');
             $expand = $this->parseExpand($request);
 
-            $teachers = $this->teacherService->getAllTeachers($search, $level, $status, $expand);
+            $teachers = $this->teacherService->getAllTeachers($search, $level, $expand);
 
             return $this->success(
                 TeacherResource::collection($teachers),
@@ -147,5 +146,21 @@ class TeacherController extends Controller
         } catch (\Exception $e) {
             return $this->error('Error al eliminar docente: ' . $e->getMessage(), null, 500);
         }
+    }
+
+    /**
+     * Get the authenticated teacher's weekly schedule.
+     *
+     * GET /api/teachers/my-schedule
+     */
+    public function mySchedule(Request $request): JsonResponse
+    {
+        $teacher = $request->user()->teacher;
+
+        if (!$teacher) {
+            return $this->error('No se encontró perfil de docente', null, 404);
+        }
+
+        return $this->success($teacher->getWeeklySchedule(), 'Horario obtenido exitosamente');
     }
 }

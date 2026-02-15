@@ -33,6 +33,9 @@ trait BelongsToTenant
 
         static::updating(function (Model $model) {
             if ($model->isDirty(static::getTenantColumn())) {
+                if ($model instanceof \App\Models\User && $model->isSuperAdmin()) {
+                    return;
+                }
                 throw new \Exception('Cannot change tenant_id of an existing record');
             }
         });
@@ -95,14 +98,25 @@ trait BelongsToTenant
      *   2. Auth::user()->tenant_id if authenticated
      *   3. null if neither
      */
+    private static bool $resolvingTenantId = false;
+
     public static function getCurrentTenantId(): ?int
     {
         if (app()->bound('current_tenant_id')) {
             return app('current_tenant_id');
         }
 
-        if (Auth::check() && Auth::user()->tenant_id) {
-            return Auth::user()->tenant_id;
+        if (static::$resolvingTenantId) {
+            return null;
+        }
+
+        static::$resolvingTenantId = true;
+        try {
+            if (Auth::check() && Auth::user()->tenant_id) {
+                return Auth::user()->tenant_id;
+            }
+        } finally {
+            static::$resolvingTenantId = false;
         }
 
         return null;

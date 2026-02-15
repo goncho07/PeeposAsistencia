@@ -50,7 +50,6 @@ class StudentResource extends JsonResource
                 'grade' => $this->classroom->grade,
                 'section' => $this->classroom->section,
                 'shift' => $this->classroom->shift,
-                'status' => $this->classroom->status,
                 'tutor' => $this->classroom->tutor ? [
                     'id' => $this->classroom->tutor->id,
                     'full_name' => $this->classroom->tutor->full_name,

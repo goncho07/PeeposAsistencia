@@ -17,6 +17,13 @@ class SettingController extends Controller
         return $this->success($settings, 'Configuración obtenida exitosamente');
     }
 
+    public function attendableTypes(): JsonResponse
+    {
+        $types = $this->settingService->getAttendableTypes();
+
+        return $this->success($types);
+    }
+
     public function update(Request $request): JsonResponse
     {
         $request->validate([

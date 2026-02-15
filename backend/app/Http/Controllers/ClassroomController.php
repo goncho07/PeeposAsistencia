@@ -29,6 +29,7 @@ class ClassroomController extends Controller
      * GET /api/classrooms?tutor_id=5
      * GET /api/classrooms?teacher_id=3
      * GET /api/classrooms?expand=tutor,students
+     * GET /api/classrooms?fields=minimal => only id, full_name, level, grade, section, shift
      *
      * @param Request $request
      * @return JsonResponse
@@ -36,23 +37,41 @@ class ClassroomController extends Controller
     public function index(Request $request): JsonResponse
     {
         try {
+            $fields = $request->query('fields');
             $search = $request->query('search');
             $level = $request->query('level');
             $shift = $request->query('shift');
-            $status = $request->query('status');
             $tutorId = $request->query('tutor_id');
             $teacherId = $request->query('teacher_id');
             $expand = $this->parseExpand($request);
 
+            if ($request->user()->role === 'DOCENTE') {
+                $tutorId = $request->user()->teacher?->id;
+            }
+            
             $classrooms = $this->classroomService->getAllClassrooms(
                 $search,
                 $level,
                 $shift,
-                $status,
                 $tutorId,
                 $teacherId,
-                $expand
+                $expand,
+                $fields === 'minimal'
             );
+
+            if ($fields === 'minimal') {
+                return $this->success(
+                    $classrooms->map(fn ($c) => [
+                        'id' => $c->id,
+                        'full_name' => $c->full_name,
+                        'level' => $c->level,
+                        'grade' => $c->grade,
+                        'section' => $c->section,
+                        'shift' => $c->shift,
+                    ]),
+                    'Aulas obtenidas exitosamente'
+                );
+            }
 
             return $this->success(
                 ClassroomResource::collection($classrooms),

@@ -5,14 +5,15 @@ namespace App\Services;
 use App\Models\Attendance;
 use App\Models\Student;
 use App\Models\Teacher;
-use App\Models\Classroom;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Log;
 
 class ReportService
 {
-    public function __construct(private SettingService $settingService) {}
+    public function __construct(
+        private AcademicYearService $academicYearService,
+        private SettingService $settingService
+    ) {}
 
     /**
      * Generate attendance report based on filters
@@ -22,6 +23,12 @@ class ReportService
      */
     public function generateReport(array $filters): array
     {
+        $allowedTypes = $this->settingService->getAttendableTypes();
+
+        if (!in_array($filters['type'], $allowedTypes)) {
+            throw new \InvalidArgumentException('El tipo de reporte seleccionado no está habilitado para este tenant.');
+        }
+
         [$from, $to] = $this->getPeriodDates($filters);
 
         $query = Attendance::whereBetween('date', [$from, $to]);
@@ -56,6 +63,8 @@ class ReportService
                     $q->where('level', $filters['level']);
                 });
             }
+        } elseif ($filters['type'] === 'user') {
+            $query->users();
         }
 
         $attendances = $query->with(['attendable'])->get();
@@ -67,6 +76,7 @@ class ReportService
                 'type' => $filters['period'] ?? 'custom',
             ],
             'filters' => $filters,
+            'allowed_types' => $allowedTypes,
             'statistics' => $this->calculateStatistics($attendances),
             'details' => $this->groupAttendancesByPerson($attendances),
         ];
@@ -93,7 +103,7 @@ class ReportService
             'daily' => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
             'weekly' => [$now->copy()->startOfWeek(), $now->copy()->endOfWeek()],
             'monthly' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
-            'bimester' => $this->getBimesterPeriod($filters['bimester'] ?? $this->settingService->getCurrentBimester()),
+            'bimester' => $this->getBimesterPeriod($filters['bimester'] ?? null),
             default => [$now->copy()->startOfDay(), $now->copy()->endOfDay()],
         };
     }
@@ -101,15 +111,20 @@ class ReportService
     /**
      * Get start and end dates for a specific bimester period
      *
-     * @param int $bimester Bimester number (1-4)
+     * @param int|null $bimesterNumber Bimester number (1-4), null = current
      * @return array Array containing [Carbon $from, Carbon $to]
      */
-    private function getBimesterPeriod(int $bimester): array
+    private function getBimesterPeriod(?int $bimesterNumber): array
     {
-        $dates = $this->settingService->getBimesterDates($bimester);
+        if ($bimesterNumber) {
+            $bimester = $this->academicYearService->getBimesterByNumber($bimesterNumber);
+        } else {
+            $bimester = $this->academicYearService->getCurrentBimester();
+        }
+
         return [
-            Carbon::parse($dates['inicio']),
-            Carbon::parse($dates['fin'])
+            $bimester->start_date,
+            $bimester->end_date,
         ];
     }
 
@@ -123,7 +138,7 @@ class ReportService
     {
         return [
             'total_records' => $attendances->count(),
-            'present' => $attendances->whereIn('entry_status', 'COMPLETO')->count(),
+            'present' => $attendances->where('entry_status', 'COMPLETO')->count(),
             'late' => $attendances->where('entry_status', 'TARDANZA')->count(),
             'absent' => $attendances->where('entry_status', 'FALTA')->count(),
             'justified_absences' => $attendances->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
@@ -151,7 +166,7 @@ class ReportService
                     'document' => $person->dni ?? $person->document_number,
                     'statistics' => [
                         'total_days' => $group->count(),
-                        'present' => $group->whereIn('entry_status', 'COMPLETO')->count(),
+                        'present' => $group->where('entry_status', 'COMPLETO')->count(),
                         'late' => $group->where('entry_status', 'TARDANZA')->count(),
                         'absent' => $group->where('entry_status', 'FALTA')->count(),
                         'justified' => $group->where('entry_status', 'FALTA_JUSTIFICADA')->count(),
@@ -169,55 +184,4 @@ class ReportService
             ->toArray();
     }
 
-    /**
-     * Get behavior statistics for students based on absence count
-     *
-     * @param array $filters Report filters including period, level, grade, section, shift
-     * @return array Behavior statistics with optimal, preventive alert, and citation counts
-     */
-    public function getBehaviorStatistics(array $filters): array
-    {
-        [$from, $to] = $this->getPeriodDates($filters);
-
-        $query = Attendance::whereBetween('date', [$from, $to])
-            ->students();
-
-        if (isset($filters['level'])) {
-            $query->whereHasMorph('attendable', [Student::class], function ($q) use ($filters) {
-                $q->whereHas('classroom', function ($classroomQuery) use ($filters) {
-                    $classroomQuery->where('level', $filters['level']);
-
-                    if (isset($filters['grade'])) {
-                        $classroomQuery->where('grade', $filters['grade']);
-                    }
-
-                    if (isset($filters['section'])) {
-                        $classroomQuery->where('section', $filters['section']);
-                    }
-
-                    if (isset($filters['shift'])) {
-                        $classroomQuery->where('shift', $filters['shift']);
-                    }
-                });
-            });
-        }
-
-        $attendances = $query->with(['attendable'])->get();
-
-        $studentAbsences = $attendances->groupBy('attendable_id')
-            ->map(function ($group) {
-                return $group->where('entry_status', 'FALTA')->count();
-            });
-
-        $optimal = $studentAbsences->filter(fn($count) => $count === 0)->count();
-        $preventive = $studentAbsences->filter(fn($count) => $count >= 1 && $count <= 3)->count();
-        $citation = $studentAbsences->filter(fn($count) => $count > 3)->count();
-
-        return [
-            'optimal' => $optimal,
-            'preventive_alert' => $preventive,
-            'citation_required' => $citation,
-            'total_students' => $studentAbsences->count(),
-        ];
-    }
 }

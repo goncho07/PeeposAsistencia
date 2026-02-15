@@ -187,12 +187,10 @@ class TenantService
         $disk = config('filesystems.default');
         $field = "{$type}_url";
 
-        // Delete old image if exists
         if ($tenant->$field) {
             Storage::disk($disk)->delete($tenant->$field);
         }
 
-        // Store new image
         $path = $image->store("tenants/{$tenant->slug}", $disk);
         $tenant->update([$field => $path]);
 

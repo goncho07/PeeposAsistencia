@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Exceptions\BusinessException;
 use App\Models\Classroom;
+use App\Models\User;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -19,7 +20,6 @@ class ClassroomService
      * @param string|null $search
      * @param string|null $level
      * @param string|null $shift
-     * @param string|null $status
      * @param int|null $tutorId
      * @param int|null $teacherId
      * @param array $expand Relations to expand (tutor, teachers, students)
@@ -28,26 +28,28 @@ class ClassroomService
         ?string $search = null,
         ?string $level = null,
         ?string $shift = null,
-        ?string $status = null,
         ?int $tutorId = null,
         ?int $teacherId = null,
-        array $expand = []
+        array $expand = [],
+        bool $minimal = false
     ): Collection {
         $query = Classroom::query()
-            ->withCount('students')
+            ->when(!$minimal, fn($q) => $q->withCount('students'))
+            ->when($minimal, fn($q) => $q->select('id', 'tenant_id', 'level', 'grade', 'section', 'shift'))
             ->when($search, fn($q) => $q->search($search))
             ->when($level, fn($q) => $q->byLevel($level))
             ->when($shift, fn($q) => $q->byShift($shift))
-            ->when($status, fn($q) => $q->byStatus($status))
             ->when($tutorId, fn($q) => $q->where('tutor_id', $tutorId))
             ->when($teacherId, fn($q) => $q->byTeacher($teacherId))
             ->orderBy('level')
             ->orderBy('grade')
             ->orderBy('section');
 
-        $relations = $this->buildRelationsFromExpand($expand);
-        if (!empty($relations)) {
-            $query->with($relations);
+        if (!$minimal) {
+            $relations = $this->buildRelationsFromExpand($expand);
+            if (!empty($relations)) {
+                $query->with($relations);
+            }
         }
 
         return $query->get();
@@ -100,8 +102,6 @@ class ClassroomService
     public function create(array $data): Classroom
     {
         return DB::transaction(function () use ($data) {
-            $data['status'] = $data['status'] ?? 'ACTIVO';
-
             if (isset($data['tutor_id'])) {
                 $this->validateTutorAssignment($data['tutor_id'], $data['level']);
             }
@@ -129,7 +129,7 @@ class ClassroomService
         return DB::transaction(function () use ($id, $data) {
             $classroom = Classroom::findOrFail($id);
 
-            $oldValues = $classroom->only(['tutor_id', 'level', 'grade', 'section', 'shift', 'status']);
+            $oldValues = $classroom->only(['tutor_id', 'level', 'grade', 'section', 'shift']);
 
             if (isset($data['tutor_id']) && $data['tutor_id'] != $classroom->tutor_id) {
                 $level = $data['level'] ?? $classroom->level;
@@ -191,7 +191,7 @@ class ClassroomService
             );
         }
 
-        if ($teacher->isInactive()) {
+        if ($teacher->user->isInactive()) {
             throw new BusinessException('El tutor no está activo y no puede ser asignado a un aula.');
         }
     }
@@ -230,7 +230,6 @@ class ClassroomService
                     'section' => $section,
                     'shift' => $data['shift'] ?? 'MAÑANA',
                     'capacity' => $data['capacity'] ?? 30,
-                    'status' => 'ACTIVO',
                 ]);
                 $created++;
             }

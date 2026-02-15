@@ -24,15 +24,13 @@ class TeacherService
      *
      * @param string|null $search
      * @param string|null $level
-     * @param string|null $status
      * @param array $expand Relations to expand (user, classrooms, tutoredClassrooms)
      */
-    public function getAllTeachers(?string $search = null, ?string $level = null, ?string $status = null, array $expand = []): Collection
+    public function getAllTeachers(?string $search = null, ?string $level = null, array $expand = []): Collection
     {
         $query = Teacher::query()
             ->when($search, fn($q) => $q->search($search))
             ->when($level, fn($q) => $q->byLevel($level))
-            ->when($status, fn($q) => $q->byStatus($status))
             ->join('users', 'teachers.user_id', '=', 'users.id')
             ->orderBy('users.paternal_surname')
             ->orderBy('users.maternal_surname')
@@ -40,6 +38,9 @@ class TeacherService
             ->select('teachers.*');
 
         $relations = $this->buildRelationsFromExpand($expand);
+        if (!in_array('user', $relations)) {
+            $relations[] = 'user';
+        }
         $query->with($relations);
 
         return $query->get();
@@ -64,8 +65,11 @@ class TeacherService
      */
     private function buildRelationsFromExpand(array $expand): array
     {
-        $relations = ['user'];
+        $relations = [];
 
+        if (in_array('user', $expand)) {
+            $relations[] = 'user';
+        }
         if (in_array('classrooms', $expand)) {
             $relations[] = 'classrooms';
         }
@@ -82,7 +86,7 @@ class TeacherService
      * Expected data structure:
      * - Personal data (for User): document_type, document_number, name, paternal_surname,
      *   maternal_surname, email, phone_number, photo_url
-     * - Teacher data: level, specialty, contract_type, hire_date, status
+     * - Teacher data: level, specialty
      */
     public function create(array $data): Teacher
     {
@@ -107,10 +111,6 @@ class TeacherService
                 'user_id' => $user->id,
                 'qr_code' => $data['qr_code'] ?? $this->qrCodeService->generate($data['document_number']),
                 'level' => $data['level'],
-                'specialty' => $data['specialty'] ?? null,
-                'contract_type' => $data['contract_type'] ?? 'CONTRATADO',
-                'hire_date' => $data['hire_date'] ?? null,
-                'status' => $data['status'] ?? 'ACTIVO',
             ];
 
             $teacher = Teacher::create($teacherData);
@@ -141,7 +141,6 @@ class TeacherService
                 'email' => $user->email,
                 'level' => $teacher->level,
                 'specialty' => $teacher->specialty,
-                'status' => $teacher->status,
             ];
 
             $userFields = ['document_type', 'document_number', 'name', 'paternal_surname',
@@ -156,7 +155,7 @@ class TeacherService
                 $user->update(['password' => Hash::make($data['password'])]);
             }
 
-            $teacherFields = ['level', 'specialty', 'contract_type', 'hire_date', 'status', 'qr_code'];
+            $teacherFields = ['level', 'specialty', 'qr_code'];
             $teacherUpdate = array_intersect_key($data, array_flip($teacherFields));
 
             if (!empty($teacherUpdate)) {
@@ -171,7 +170,6 @@ class TeacherService
                 'email' => $user->email,
                 'level' => $teacher->level,
                 'specialty' => $teacher->specialty,
-                'status' => $teacher->status,
             ];
 
             $this->logActivityWithChanges('teacher_updated', $teacher, $oldValues, $newValues);
@@ -188,8 +186,8 @@ class TeacherService
         DB::transaction(function () use ($id, $deleteUser) {
             $teacher = Teacher::with('user')->findOrFail($id);
 
-            if ($teacher->tutoredClassrooms()->active()->exists()) {
-                throw new BusinessException('No se puede eliminar el docente porque es tutor de aulas activas.');
+            if ($teacher->tutoredClassrooms()->exists()) {
+                throw new BusinessException('No se puede eliminar el docente porque es tutor de aulas asignadas.');
             }
 
             if ($teacher->classrooms()->exists()) {

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\Import\ImportBatchRequest;
 use App\Http\Requests\Import\ImportExecuteRequest;
 use App\Http\Requests\Import\ImportValidateRequest;
 use App\Services\ImportService;
@@ -22,8 +23,7 @@ class ImportController extends Controller
     {
         try {
             $result = $this->importService->validateFile(
-                $request->file('file')->getPathname(),
-                $request->type
+                $request->file('file')->getPathname()
             );
 
             return $this->success($result);
@@ -33,24 +33,20 @@ class ImportController extends Controller
     }
 
     /**
-     * Execute the CSV import.
+     * Execute a batch of the CSV import.
      *
-     * POST /api/import/execute
+     * POST /api/superadmin/execute-batch
      */
-    public function execute(ImportExecuteRequest $request): JsonResponse
+    public function executeBatch(ImportBatchRequest $request): JsonResponse
     {
         try {
-            $result = $this->importService->executeImport(
+            $result = $this->importService->executeBatch(
                 $request->file('file')->getPathname(),
-                $request->type
+                (int) $request->input('offset', 0),
+                (int) $request->input('batch_size', 50),
             );
 
-            return $this->success([
-                'imported' => $result['imported'],
-                'updated' => $result['updated'],
-                'skipped' => $result['skipped'],
-                'errors' => $result['errors'],
-            ], 'Importación completada exitosamente');
+            return $this->success($result, 'Lote procesado');
         } catch (\Exception $e) {
             return $this->error('Error durante la importación: ' . $e->getMessage(), null, 500);
         }

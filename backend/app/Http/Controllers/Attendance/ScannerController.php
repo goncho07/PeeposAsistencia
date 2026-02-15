@@ -16,15 +16,16 @@ class ScannerController extends Controller
     {
         $request->validate([
             'qr_code' => 'required|string',
+            'device_type' => 'required|string|in:SCANNER,MANUAL,CAMARA,APP',
         ]);
 
         try {
             $result = $this->attendanceService->scanEntry(
                 $request->qr_code,
-                $request->user()->id
+                $request->device_type
             );
 
-            return $this->success($result, $result['message']);
+            return $this->success($result, "Entrada registrada exitosamente");
         } catch (BusinessException $e) {
             return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {
@@ -36,15 +37,16 @@ class ScannerController extends Controller
     {
         $request->validate([
             'qr_code' => 'required|string',
+            'device_type' => 'required|string|in:SCANNER,MANUAL,CAMARA,APP',
         ]);
 
         try {
             $result = $this->attendanceService->scanExit(
                 $request->qr_code,
-                $request->user()->id
+                $request->device_type
             );
 
-            return $this->success($result, $result['message']);
+            return $this->success($result, "Salida registrada exitosamente");
         } catch (BusinessException $e) {
             return $this->error($e->getMessage(), null, 422);
         } catch (\Exception $e) {

@@ -27,6 +27,7 @@ class Student extends Model
         'photo_url',
         'classroom_id',
         'academic_year',
+        'academic_year_id',
         'enrollment_status',
     ];
 
@@ -39,6 +40,11 @@ class Student extends Model
         'full_name',
         'age',
     ];
+
+    public function academicYear()
+    {
+        return $this->belongsTo(AcademicYear::class);
+    }
 
     public function classroom()
     {
@@ -113,9 +119,9 @@ class Student extends Model
         });
     }
 
-    public function scopeByAcademicYear($query, $year = null)
+    public function scopeByAcademicYear($query, int $academicYearId)
     {
-        return $query->where('academic_year', $year ?? now()->year);
+        return $query->where('academic_year_id', $academicYearId);
     }
 
     public function scopeSearch($query, $search)

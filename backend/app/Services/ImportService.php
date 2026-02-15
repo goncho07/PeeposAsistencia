@@ -2,105 +2,180 @@
 
 namespace App\Services;
 
-use App\Models\Tenant;
+use App\Models\Classroom;
 use App\Models\Student;
 use App\Models\Teacher;
-use App\Models\Classroom;
-use Illuminate\Support\Facades\Auth;
+use App\Models\User;
+use App\Traits\LogsActivity;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use League\Csv\Reader;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Auth;
 
 class ImportService
 {
+    use LogsActivity;
+
+    private const REQUIRED_HEADERS = [
+        'ROL',
+        'ETAPA',
+        'SECCIÓN',
+        'APELLIDO PATERNO',
+        'NOMBRES',
+    ];
+
     public function __construct(
-        protected QRCodeService $qrCodeService
+        protected QRCodeService $qrCodeService,
+        protected AcademicYearService $academicYearService
     ) {}
 
     /**
      * Validate CSV file and return validation results.
-     *
-     * @param string $filePath Path to the CSV file
-     * @param string $type Import type (students, teachers, classrooms)
-     * @return array Validation results with headers, counts, warnings, errors, and preview
      */
-    public function validateFile(string $filePath, string $type): array
+    public function validateFile(string $filePath): array
     {
         $csv = Reader::createFromPath($filePath, 'r');
         $csv->setHeaderOffset(0);
         $headers = $csv->getHeader();
         $records = iterator_to_array($csv->getRecords());
 
-        $validation = $this->validateRecords($records, $type, $headers);
+        $validation = $this->validateRecords($records, $headers);
 
         return [
             'success' => true,
             'headers' => $headers,
             'total_rows' => count($records),
+            'students_count' => $validation['students_count'],
+            'teachers_count' => $validation['teachers_count'],
             'valid_rows' => $validation['valid_count'],
             'warnings' => $validation['warnings'],
             'errors' => $validation['errors'],
-            'preview' => array_slice($records, 0, 5),
-            'can_import' => $validation['valid_count'] > 0,
+            'preview' => array_slice($records, 0, 10),
+            'can_import' => $validation['valid_count'] > 0 && empty($validation['errors']),
         ];
     }
 
     /**
-     * Execute the import process.
-     *
-     * @param string $filePath Path to the CSV file
-     * @param string $type Import type (students, teachers, classrooms)
-     * @return array Import results with counts and errors
+     * Execute the import process in batches.
      */
-    public function executeImport(string $filePath, string $type): array
+    public function executeBatch(string $filePath, int $offset, int $batchSize): array
     {
+        $currentTenantId = Auth::user()?->tenant_id;
+
+        if (!$currentTenantId) {
+            throw new \Exception("Contexto de institución no definido. Seleccione una institución primero.");
+        }
+
+        app()->instance('current_tenant_id', (int) $currentTenantId);
+
         $csv = Reader::createFromPath($filePath, 'r');
         $csv->setHeaderOffset(0);
         $records = iterator_to_array($csv->getRecords());
+        $total = count($records);
 
-        return DB::transaction(function () use ($records, $type) {
-            return match ($type) {
-                'students' => $this->importStudents($records),
-                'teachers' => $this->importTeachers($records),
-                'classrooms' => $this->importClassrooms($records),
-            };
+        $batch = array_slice($records, $offset, $batchSize, true);
+
+        $results = DB::transaction(function () use ($batch) {
+            $results = [
+                'students' => ['imported' => 0, 'updated' => 0, 'skipped' => 0],
+                'teachers' => ['imported' => 0, 'updated' => 0, 'skipped' => 0],
+                'errors' => [],
+            ];
+
+            foreach ($batch as $index => $row) {
+                $rowNum = $index + 2;
+                $rol = $this->normalizeRol($row['ROL'] ?? '');
+
+                try {
+                    if ($rol === 'ESTUDIANTE') {
+                        $result = $this->processStudentRow($row);
+                        $results['students'][$result]++;
+                    } elseif ($rol === 'DOCENTE') {
+                        $result = $this->processTeacherRow($row);
+                        $results['teachers'][$result]++;
+                    }
+                } catch (\Exception $e) {
+                    $results['errors'][] = [
+                        'row' => $rowNum,
+                        'message' => $e->getMessage(),
+                    ];
+                }
+            }
+
+            return $results;
         });
+
+        $hasMore = ($offset + $batchSize) < $total;
+
+        if (!$hasMore) {
+            $this->logActivity('import_completed', null, [
+                'batch_mode' => true,
+                'total_records' => $total,
+            ]);
+        }
+
+        return array_merge($results, [
+            'total' => $total,
+            'processed_offset' => $offset,
+            'processed_count' => count($batch),
+            'has_more' => $hasMore,
+        ]);
     }
 
     /**
      * Validate records against required headers and data rules.
      */
-    private function validateRecords(array $records, string $type, array $headers): array
+    private function validateRecords(array $records, array $headers): array
     {
-        $requiredHeaders = $this->getRequiredHeaders($type);
-
         $warnings = [];
         $errors = [];
         $validCount = 0;
+        $studentsCount = 0;
+        $teachersCount = 0;
 
-        $missingHeaders = array_diff($requiredHeaders, $headers);
+        $missingHeaders = array_diff(self::REQUIRED_HEADERS, $headers);
         if (!empty($missingHeaders)) {
             $errors[] = [
                 'row' => 0,
                 'message' => 'Faltan columnas requeridas: ' . implode(', ', $missingHeaders),
             ];
-            return ['valid_count' => 0, 'warnings' => $warnings, 'errors' => $errors];
+            return [
+                'valid_count' => 0,
+                'students_count' => 0,
+                'teachers_count' => 0,
+                'warnings' => $warnings,
+                'errors' => $errors,
+            ];
         }
 
         foreach ($records as $index => $row) {
             $rowNum = $index + 2;
             $hasError = false;
+            $rol = $this->normalizeRol($row['ROL'] ?? '');
 
-            foreach ($requiredHeaders as $header) {
-                if (empty(trim($row[$header] ?? ''))) {
-                    $errors[] = ['row' => $rowNum, 'message' => "Campo '{$header}' vacío"];
+            if (!in_array($rol, ['ESTUDIANTE', 'DOCENTE'])) {
+                $errors[] = ['row' => $rowNum, 'message' => "ROL inválido: '{$row['ROL']}'. Debe ser 'Estudiante' o 'Docente'"];
+                $hasError = true;
+            }
+
+            $requiredFields = ['APELLIDO PATERNO', 'NOMBRES'];
+            foreach ($requiredFields as $field) {
+                if (empty(trim($row[$field] ?? ''))) {
+                    $errors[] = ['row' => $rowNum, 'message' => "Campo '{$field}' vacío"];
                     $hasError = true;
                     break;
                 }
             }
 
-            if ($type === 'students' && !$hasError) {
-                $warning = $this->validateStudentRow($row, $rowNum);
+            $dni = trim($row['NÚMERO DE DOCUMENTO'] ?? '');
+            if ($rol === 'DOCENTE' && empty($dni)) {
+                $errors[] = ['row' => $rowNum, 'message' => "NÚMERO DE DOCUMENTO requerido para docentes"];
+                $hasError = true;
+            }
+
+            if ($rol === 'ESTUDIANTE' && !$hasError) {
+                $warning = $this->validateStudentClassroom($row, $rowNum);
                 if ($warning) {
                     $warnings[] = $warning;
                 }
@@ -108,75 +183,53 @@ class ImportService
 
             if (!$hasError) {
                 $validCount++;
+                if ($rol === 'ESTUDIANTE') {
+                    $studentsCount++;
+                } elseif ($rol === 'DOCENTE') {
+                    $teachersCount++;
+                }
             }
         }
 
-        return ['valid_count' => $validCount, 'warnings' => $warnings, 'errors' => $errors];
+        return [
+            'valid_count' => $validCount,
+            'students_count' => $studentsCount,
+            'teachers_count' => $teachersCount,
+            'warnings' => $warnings,
+            'errors' => $errors,
+        ];
     }
 
     /**
-     * Get required headers for a specific import type.
+     * Validate that classroom exists for a student row.
      */
-    private function getRequiredHeaders(string $type): array
+    private function validateStudentClassroom(array $row, int $rowNum): ?array
     {
-        return match ($type) {
-            'students' => ['NOMBRES', 'APELLIDO PATERNO', 'NÚMERO DE DOCUMENTO', 'ETAPA', 'SECCIÓN'],
-            'teachers' => ['NOMBRES', 'APELLIDO PATERNO', 'NÚMERO DE DOCUMENTO'],
-            'classrooms' => ['NIVEL', 'GRADO', 'SECCION'],
-        };
-    }
-
-    /**
-     * Validate a student row and check if classroom exists.
-     */
-    private function validateStudentRow(array $row, int $rowNum): ?array
-    {
-        $nivel = strtoupper(trim($row['ETAPA'] ?? ''));
+        $nivel = $this->normalizeLevel($row['ETAPA'] ?? '');
         $seccion = trim($row['SECCIÓN'] ?? '');
 
         if (empty($nivel) || empty($seccion)) {
-            return null;
+            return ['row' => $rowNum, 'message' => "ETAPA o SECCIÓN vacía"];
         }
 
-        [$grado, $sec] = $this->parseSection($seccion, $nivel);
+        $parsed = $this->parseSection($seccion, $nivel);
+        if (!$parsed['grade'] || !$parsed['section']) {
+            return ['row' => $rowNum, 'message' => "No se pudo interpretar la sección: '{$seccion}'"];
+        }
 
         $classroom = Classroom::where('level', $nivel)
-            ->where('grade', $grado)
-            ->where('section', strtoupper($sec))
+            ->where('grade', $parsed['grade'])
+            ->where('section', $parsed['section'])
             ->first();
 
         if (!$classroom) {
-            return ['row' => $rowNum, 'message' => "Aula no encontrada: {$nivel} {$grado}° {$sec}"];
+            return [
+                'row' => $rowNum,
+                'message' => "Aula no encontrada: {$nivel} {$parsed['grade']}° '{$parsed['section']}'",
+            ];
         }
 
         return null;
-    }
-
-    /**
-     * Import students from records.
-     */
-    private function importStudents(array $records): array
-    {
-        $imported = 0;
-        $updated = 0;
-        $skipped = 0;
-        $errors = [];
-
-        foreach ($records as $index => $row) {
-            try {
-                $result = $this->processStudentRow($row);
-
-                match ($result) {
-                    'imported' => $imported++,
-                    'updated' => $updated++,
-                    'skipped' => $skipped++,
-                };
-            } catch (\Exception $e) {
-                $errors[] = ['row' => $index + 2, 'message' => $e->getMessage()];
-            }
-        }
-
-        return compact('imported', 'updated', 'skipped', 'errors');
     }
 
     /**
@@ -185,12 +238,12 @@ class ImportService
     private function processStudentRow(array $row): string
     {
         $dni = $this->resolveDocumentNumber($row);
-        $nivel = strtoupper(trim($row['ETAPA'] ?? ''));
-        [$grado, $seccion] = $this->parseSection($row['SECCIÓN'] ?? '', $nivel);
+        $nivel = $this->normalizeLevel($row['ETAPA'] ?? '');
+        $parsed = $this->parseSection($row['SECCIÓN'] ?? '', $nivel);
 
         $classroom = Classroom::where('level', $nivel)
-            ->where('grade', $grado)
-            ->where('section', strtoupper($seccion))
+            ->where('grade', $parsed['grade'])
+            ->where('section', $parsed['section'])
             ->first();
 
         if (!$classroom) {
@@ -203,11 +256,12 @@ class ImportService
             'name' => trim($row['NOMBRES'] ?? ''),
             'paternal_surname' => trim($row['APELLIDO PATERNO'] ?? ''),
             'maternal_surname' => trim($row['APELLIDO MATERNO'] ?? ''),
-            'document_type' => trim($row['TIPO DE DOCUMENTO'] ?? '') ?: 'DNI',
+            'document_type' => $this->normalizeDocumentType($row['TIPO DE DOCUMENTO'] ?? ''),
             'gender' => $this->normalizeGender($row['SEXO'] ?? null),
             'birth_date' => $this->parseDate($row['FECHA DE NACIMIENTO'] ?? null),
             'classroom_id' => $classroom->id,
-            'academic_year' => now()->year,
+            'academic_year' => $this->academicYearService->getCurrentYearNumber(),
+            'academic_year_id' => $this->academicYearService->getCurrentYear()->id,
             'enrollment_status' => 'MATRICULADO',
         ];
 
@@ -226,33 +280,6 @@ class ImportService
     }
 
     /**
-     * Import teachers from records.
-     */
-    private function importTeachers(array $records): array
-    {
-        $imported = 0;
-        $updated = 0;
-        $skipped = 0;
-        $errors = [];
-
-        foreach ($records as $index => $row) {
-            try {
-                $result = $this->processTeacherRow($row);
-
-                match ($result) {
-                    'imported' => $imported++,
-                    'updated' => $updated++,
-                    'skipped' => $skipped++,
-                };
-            } catch (\Exception $e) {
-                $errors[] = ['row' => $index + 2, 'message' => $e->getMessage()];
-            }
-        }
-
-        return compact('imported', 'updated', 'skipped', 'errors');
-    }
-
-    /**
      * Process a single teacher row.
      */
     private function processTeacherRow(array $row): string
@@ -263,95 +290,88 @@ class ImportService
             return 'skipped';
         }
 
-        $nivel = strtoupper(trim($row['ETAPA'] ?? ''));
+        $nivel = $this->normalizeLevel($row['ETAPA'] ?? '');
 
-        $data = [
-            'qr_code' => $this->qrCodeService->generate($dni),
+        $existingTeacher = Teacher::whereHas('user', function ($q) use ($dni) {
+            $q->where('document_number', $dni);
+        })->first();
+
+        $userData = [
             'name' => trim($row['NOMBRES'] ?? ''),
             'paternal_surname' => trim($row['APELLIDO PATERNO'] ?? ''),
             'maternal_surname' => trim($row['APELLIDO MATERNO'] ?? ''),
-            'birth_date' => $this->parseDate($row['FECHA DE NACIMIENTO'] ?? null),
-            'gender' => $this->normalizeGender($row['SEXO'] ?? null),
+            'document_type' => $this->normalizeDocumentType($row['TIPO DE DOCUMENTO'] ?? ''),
+        ];
+
+        $teacherData = [
+            'qr_code' => $this->qrCodeService->generate($dni),
             'level' => $nivel ?: null,
-            'area' => trim($row['AREÁ CURRICULAR'] ?? '') ?: null,
+            'specialty' => trim($row['AREÁ CURRICULAR'] ?? '') ?: null,
+        ];
+
+        if ($existingTeacher) {
+            $existingTeacher->user->update($userData);
+            $existingTeacher->update($teacherData);
+            return 'updated';
+        }
+
+        $user = User::create(array_merge($userData, [
+            'document_number' => $dni,
+            'email' => $dni . '@import.local',
+            'password' => Hash::make($dni),
+            'role' => 'DOCENTE',
             'status' => 'ACTIVO',
-        ];
+        ]));
 
-        $teacher = Teacher::where('dni', $dni)->first();
-
-        if ($teacher) {
-            $teacher->update($data);
-            return 'updated';
-        }
-
-        Teacher::create(array_merge($data, [
-            'dni' => $dni,
+        Teacher::create(array_merge($teacherData, [
+            'user_id' => $user->id,
         ]));
 
         return 'imported';
     }
 
     /**
-     * Import classrooms from records.
+     * Normalize ROL value.
      */
-    private function importClassrooms(array $records): array
+    private function normalizeRol(string $value): string
     {
-        $imported = 0;
-        $updated = 0;
-        $skipped = 0;
-        $errors = [];
+        $value = mb_strtoupper(trim($value));
 
-        foreach ($records as $index => $row) {
-            try {
-                $result = $this->processClassroomRow($row);
-
-                match ($result) {
-                    'imported' => $imported++,
-                    'updated' => $updated++,
-                    'skipped' => $skipped++,
-                };
-            } catch (\Exception $e) {
-                $errors[] = ['row' => $index + 2, 'message' => $e->getMessage()];
-            }
-        }
-
-        return compact('imported', 'updated', 'skipped', 'errors');
+        return match ($value) {
+            'ESTUDIANTE', 'ALUMNO', 'STUDENT' => 'ESTUDIANTE',
+            'DOCENTE', 'PROFESOR', 'TEACHER' => 'DOCENTE',
+            default => $value,
+        };
     }
 
     /**
-     * Process a single classroom row.
+     * Normalize level (ETAPA) value.
      */
-    private function processClassroomRow(array $row): string
+    private function normalizeLevel(string $value): string
     {
-        $level = strtoupper(trim($row['NIVEL'] ?? ''));
-        $grade = trim($row['GRADO'] ?? '');
-        $section = strtoupper(trim($row['SECCION'] ?? ''));
+        $value = mb_strtoupper(trim($value));
 
-        if (empty($level) || empty($grade) || empty($section)) {
-            return 'skipped';
-        }
+        return match ($value) {
+            'INICIAL', 'KINDERGARTEN', 'PREESCOLAR' => 'INICIAL',
+            'PRIMARIA', 'PRIMARY', 'ELEMENTARY' => 'PRIMARIA',
+            'SECUNDARIA', 'SECONDARY', 'HIGH SCHOOL' => 'SECUNDARIA',
+            default => $value,
+        };
+    }
 
-        $data = [
-            'capacity' => (int) ($row['CAPACIDAD'] ?? 30),
-        ];
+    /**
+     * Normalize document type.
+     */
+    private function normalizeDocumentType(string $value): string
+    {
+        $value = mb_strtoupper(trim($value));
 
-        $classroom = Classroom::where('level', $level)
-            ->where('grade', $grade)
-            ->where('section', $section)
-            ->first();
-
-        if ($classroom) {
-            $classroom->update($data);
-            return 'updated';
-        }
-
-        Classroom::create(array_merge($data, [
-            'level' => $level,
-            'grade' => $grade,
-            'section' => $section,
-        ]));
-
-        return 'imported';
+        return match ($value) {
+            'DNI', 'CE', 'PAS', 'CI', 'PTP' => $value,
+            'CARNET DE EXTRANJERIA', 'CARNÉ DE EXTRANJERÍA' => 'CE',
+            'PASAPORTE' => 'PAS',
+            default => 'DNI',
+        };
     }
 
     /**
@@ -363,11 +383,11 @@ class ImportService
             return null;
         }
 
-        $value = strtolower(trim($value));
+        $value = mb_strtolower(trim($value));
 
         return match ($value) {
-            'mujer', 'femenino', 'f' => 'F',
-            'hombre', 'masculino', 'm' => 'M',
+            'mujer', 'femenino', 'f', 'female' => 'F',
+            'hombre', 'masculino', 'm', 'male' => 'M',
             default => null,
         };
     }
@@ -393,29 +413,42 @@ class ImportService
 
     /**
      * Parse section string into grade and section components.
+     *
+     * Formats supported:
+     * - INICIAL: "MARGARITAS_3AÑOS" → grade=3, section="MARGARITAS"
+     * - PRIMARIA/SECUNDARIA: "1A" → grade=1, section="A"
      */
     private function parseSection(string $value, string $nivel): array
     {
         $value = trim($value);
 
         if (empty($value)) {
-            return [null, null];
+            return ['grade' => null, 'section' => null];
         }
 
         if ($nivel === 'INICIAL') {
-            if (preg_match('/^([A-ZÁÉÍÓÚÑ\s]+)_?(\d+)/iu', $value, $matches)) {
-                return [(int) ($matches[2] ?? null), strtoupper(trim($matches[1] ?? ''))];
+            if (preg_match('/^([A-ZÁÉÍÓÚÑ]+)[_\s]*(\d+)\s*(?:AÑOS?)?$/iu', $value, $matches)) {
+                return [
+                    'grade' => (int) $matches[2],
+                    'section' => mb_strtoupper($matches[1]),
+                ];
             }
-            if (preg_match('/^(\d+)_?([A-ZÁÉÍÓÚÑ\s]+)/iu', $value, $matches)) {
-                return [(int) ($matches[1] ?? null), strtoupper(trim($matches[2] ?? ''))];
+            if (preg_match('/^(\d+)\s*(?:AÑOS?)?[_\s]*([A-ZÁÉÍÓÚÑ]+)$/iu', $value, $matches)) {
+                return [
+                    'grade' => (int) $matches[1],
+                    'section' => mb_strtoupper($matches[2]),
+                ];
             }
         }
 
-        if (preg_match('/^(\d+)\s*([A-Z])\s*$/i', $value, $matches)) {
-            return [(int) $matches[1], strtoupper($matches[2])];
+        if (preg_match('/^(\d+)\s*([A-Z])$/i', $value, $matches)) {
+            return [
+                'grade' => (int) $matches[1],
+                'section' => strtoupper($matches[2]),
+            ];
         }
 
-        return [null, null];
+        return ['grade' => null, 'section' => null];
     }
 
     /**
@@ -443,5 +476,4 @@ class ImportService
             return null;
         }
     }
-
 }

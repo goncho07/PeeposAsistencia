@@ -19,10 +19,10 @@ return new class extends Migration
             $table->foreignId('classroom_id')->constrained('classrooms')->onDelete('cascade');
             $table->foreignId('teacher_id')->constrained('teachers')->onDelete('cascade');
 
-            $table->string('subject', 50)->nullable()->comment('Materia que enseña: Matemática, Comunicación, etc.');
+            $table->string('subject', 50)->nullable();
             $table->year('academic_year')->default(2025);
 
-            $table->json('schedule')->nullable()->comment('Horario semanal en formato JSON');
+            $table->json('schedule')->nullable();
 
             $table->timestamps();
 

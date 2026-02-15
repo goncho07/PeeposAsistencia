@@ -214,10 +214,10 @@ class FaceEnrollmentService
 
         $teachers = Teacher::where('tenant_id', $tenantId)
             ->whereHas('user', function ($q) {
-                $q->whereNotNull('photo_url')
+                $q->where('status', 'ACTIVO')
+                    ->whereNotNull('photo_url')
                     ->where('photo_url', '!=', '');
             })
-            ->active()
             ->get();
 
         foreach ($teachers as $teacher) {

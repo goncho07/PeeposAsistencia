@@ -20,8 +20,8 @@ class UserSeeder extends Seeder
             'document_number' => '00000000',
             'name' => 'Peepos',
             'paternal_surname' => 'Sistema',
-            'maternal_surname' => 'Global',
-            'email' => 'peepos@peeposaasistencias.com',
+            'maternal_surname' => 'Intelicole',
+            'email' => 'admin@intelicole.pe',
             'password' => Hash::make('marvelrivals123'),
             'role' => 'SUPERADMIN',
             'phone_number' => '999999999',
@@ -50,8 +50,8 @@ class UserSeeder extends Seeder
                     'name' => 'Ricardo',
                     'paternal_surname' => 'Palma',
                     'maternal_surname' => 'Soriano',
-                    'email' => 'ricardopalma@ieericardopalma.edu.pe',
-                    'password' => Hash::make('$RicardoPalma123'),
+                    'email' => 'ricardopalma@gmail.com',
+                    'password' => Hash::make('ricardopalma123'),
                     'role' => 'DIRECTOR',
                     'phone_number' => '987654321',
                     'status' => 'ACTIVO',
@@ -68,7 +68,7 @@ class UserSeeder extends Seeder
             $this->command->info(" Usuarios creados para: {$tenant1->name}");
         }
 
-        $tenant2 = $tenants->firstWhere('code', '0325265');
+        $tenant2 = $tenants->firstWhere('modular_code', '0325265');
 
         if ($tenant2) {
             $users = [
@@ -79,7 +79,7 @@ class UserSeeder extends Seeder
                     'paternal_surname' => 'Bolognesi',
                     'maternal_surname' => 'Cervantes',
                     'email' => 'franciscobolognesi@gmail.com',
-                    'password' => Hash::make('312FranciscoBolognesi%'),
+                    'password' => Hash::make('bolognesi123'),
                     'role' => 'DIRECTOR',
                     'phone_number' => '976543210',
                     'status' => 'ACTIVO',

@@ -25,7 +25,6 @@ class ParentGuardian extends Model
         'phone_number_secondary',
         'email',
         'address',
-        'workplace',
     ];
 
     protected $appends = [

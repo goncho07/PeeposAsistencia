@@ -34,7 +34,6 @@ class CleanupOldCarnets extends Command
         $deletedPdfs = 0;
         $deletedHtmls = 0;
 
-        // Cleanup old files in carnets directory (both public and default disk)
         $disks = ['public', config('filesystems.default')];
         $disks = array_unique($disks);
 

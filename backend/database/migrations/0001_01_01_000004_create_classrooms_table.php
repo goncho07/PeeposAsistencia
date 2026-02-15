@@ -23,15 +23,12 @@ return new class extends Migration
             $table->string('section', 50);
             $table->enum('shift', ['MAÑANA', 'TARDE', 'NOCHE'])->nullable();
 
-            $table->unsignedSmallInteger('capacity')->nullable()->comment('Aforo máximo');
-
-            $table->enum('status', ['ACTIVO', 'INACTIVO', 'CERRADO'])->default('ACTIVO');
+            $table->unsignedSmallInteger('capacity')->nullable();
 
             $table->timestamps();
 
             $table->unique(['tenant_id', 'level', 'grade', 'section', 'shift'], 'unique_classroom');
 
-            $table->index(['tenant_id', 'status']);
             $table->index(['tenant_id', 'level', 'grade']);
             $table->index(['tenant_id', 'tutor_id']);
             $table->index(['tenant_id', 'shift']);

@@ -51,7 +51,6 @@ class StudentUpdateRequest extends FormRequest
                 'required',
                 Rule::exists('classrooms', 'id')
                     ->where('tenant_id', $tenantId)
-                    ->where('status', 'ACTIVO')
             ],
             'enrollment_status' => ['sometimes', ValidationConstants::ENROLLMENT_STATUSES_RULE],
             'allergies' => ['sometimes', 'nullable', 'string', 'max:500'],

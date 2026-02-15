@@ -15,6 +15,10 @@ class DatabaseSeeder extends Seeder
         $this->call(TenantSeeder::class);
         $this->command->info('');
 
+        $this->command->warn('Cargando años académicos y bimestres...');
+        $this->call(AcademicYearSeeder::class);
+        $this->command->info('');
+
         $this->command->warn('Cargando usuarios del sistema...');
         $this->call(UserSeeder::class);
         $this->command->info('');

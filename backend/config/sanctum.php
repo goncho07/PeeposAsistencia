@@ -13,9 +13,15 @@ return [
     | authentication cookies. Typically, these include your local and
     | production domains which access your API via a frontend SPA.
     |
+    | For wildcard subdomains, use the pattern: .intelicole.pe
+    | This allows tenant1.intelicole.pe, tenant2.intelicole.pe, etc.
+    |
     */
 
-    'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', '')),
+    'stateful' => explode(',', env(
+        'SANCTUM_STATEFUL_DOMAINS',
+        'localhost,localhost:3000,127.0.0.1,127.0.0.1:3000,::1'
+    )),
 
     /*
     |--------------------------------------------------------------------------
@@ -42,7 +48,7 @@ return [
     |
     */
 
-    'expiration' => null,
+    'expiration' => (int) env('SANCTUM_TOKEN_EXPIRATION', 60 * 24 * 30), // 30 days default
 
     /*
     |--------------------------------------------------------------------------
@@ -69,8 +75,8 @@ return [
     */
 
     'middleware' => [
-        // 'authenticate_session' => Laravel\Sanctum\Http\Middleware\AuthenticateSession::class,
-        // 'encrypt_cookies' => App\Http\Middleware\EncryptCookies::class,
-        // 'validate_csrf_token' => App\Http\Middleware\VerifyCsrfToken::class,
+        'authenticate_session' => Laravel\Sanctum\Http\Middleware\AuthenticateSession::class,
+        'encrypt_cookies' => Illuminate\Cookie\Middleware\EncryptCookies::class,
+        'validate_csrf_token' => Illuminate\Foundation\Http\Middleware\ValidateCsrfToken::class,
     ],
 ];

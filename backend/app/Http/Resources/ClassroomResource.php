@@ -31,7 +31,6 @@ class ClassroomResource extends JsonResource
             'section' => $this->section,
             'shift' => $this->shift,
             'capacity' => $this->capacity,
-            'status' => $this->status,
             'tutor_id' => $this->tutor_id,
             'tutor' => $this->whenExpanded('tutor', fn () => $this->tutor ? [
                 'id' => $this->tutor->id,
@@ -66,9 +65,6 @@ class ClassroomResource extends JsonResource
                 isset($this->students_count),
                 $this->students_count
             ),
-
-            'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
         ];
     }
 }

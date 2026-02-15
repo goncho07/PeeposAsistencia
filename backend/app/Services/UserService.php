@@ -14,6 +14,10 @@ class UserService
 {
     use LogsActivity;
 
+    public function __construct(
+        protected QRCodeService $qrCodeService
+    ) {}
+
     /**
      * Get all admin users with optional search and filters.
      *
@@ -85,6 +89,11 @@ class UserService
             $data['password'] = Hash::make($data['password']);
 
             $data['status'] = $data['status'] ?? 'ACTIVO';
+
+            $excludedFromQR = ['SUPERADMIN', 'DOCENTE'];
+            if (!isset($data['qr_code']) && !empty($data['document_number']) && !in_array($data['role'] ?? '', $excludedFromQR)) {
+                $data['qr_code'] = $this->qrCodeService->generate($data['document_number']);
+            }
 
             $user = User::create($data);
 

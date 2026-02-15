@@ -5,7 +5,6 @@ namespace App\Services;
 use App\Models\Incident;
 use App\Traits\LogsActivity;
 use Illuminate\Database\Eloquent\Collection;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 
@@ -13,21 +12,30 @@ class IncidentService
 {
     use LogsActivity;
 
-    private array $defaultRelations = ['classroom', 'student', 'reporter', 'resolver'];
+    public function __construct(
+        protected AcademicYearService $academicYearService
+    ) {}
+
+    private array $defaultRelations = ['classroom', 'student', 'reporter'];
 
     /**
-     * Get all incidents with optional filters.
+     * Get all incidents for the current academic year with optional filters.
      */
-    public function getAllIncidents(array $filters = []): LengthAwarePaginator
+    public function getAllIncidents(array $filters = []): Collection
     {
         $query = Incident::with($this->defaultRelations);
+
+        $currentYear = $this->academicYearService->getCurrentYear();
+        if ($currentYear) {
+            $query->byAcademicYear($currentYear->id);
+        }
 
         $this->applyFilters($query, $filters);
 
         return $query
             ->latest('date')
             ->latest('time')
-            ->paginate($filters['per_page'] ?? 20);
+            ->get();
     }
 
     /**
@@ -39,13 +47,17 @@ class IncidentService
     }
 
     /**
-     * Create a new incident.
+     * Create a new incident. Date and time are auto-set to now.
      */
     public function create(array $data): Incident
     {
         return DB::transaction(function () use ($data) {
             $data['tenant_id'] = Auth::user()->tenant_id;
             $data['reported_by'] = Auth::id();
+            $data['date'] = now()->toDateString();
+            $data['time'] = now()->format('H:i');
+            $data['severity'] = Incident::getSeverityForType($data['type']);
+            $data['academic_year_id'] = $this->academicYearService->getCurrentYear()?->id;
 
             $incident = Incident::create($data);
 
@@ -69,12 +81,7 @@ class IncidentService
         return DB::transaction(function () use ($id, $data) {
             $incident = Incident::findOrFail($id);
 
-            $oldValues = $incident->only(['status', 'severity', 'description']);
-
-            if (isset($data['status']) && $data['status'] === 'RESUELTA' && $incident->status !== 'RESUELTA') {
-                $data['resolved_by'] = Auth::id();
-                $data['resolved_at'] = now();
-            }
+            $oldValues = $incident->only(['severity', 'description']);
 
             $incident->update($data);
 
@@ -105,48 +112,22 @@ class IncidentService
     }
 
     /**
-     * Get incidents for a specific student.
+     * Get incidents for a specific student in the current academic year.
      */
     public function getByStudent(int $studentId): Collection
     {
-        return Incident::with(['classroom', 'reporter', 'resolver'])
-            ->byStudent($studentId)
+        $query = Incident::with(['classroom', 'reporter'])
+            ->byStudent($studentId);
+
+        $currentYear = $this->academicYearService->getCurrentYear();
+        if ($currentYear) {
+            $query->byAcademicYear($currentYear->id);
+        }
+
+        return $query
             ->latest('date')
             ->latest('time')
             ->get();
-    }
-
-    /**
-     * Get incident statistics.
-     */
-    public function getStatistics(array $filters = []): array
-    {
-        $query = Incident::query();
-
-        if (!empty($filters['classroom_id'])) {
-            $query->byClassroom($filters['classroom_id']);
-        }
-
-        if (!empty($filters['date_from']) && !empty($filters['date_to'])) {
-            $query->betweenDates($filters['date_from'], $filters['date_to']);
-        }
-
-        $incidents = $query->get();
-
-        return [
-            'total' => $incidents->count(),
-            'by_severity' => [
-                'LEVE' => $incidents->where('severity', 'LEVE')->count(),
-                'MODERADA' => $incidents->where('severity', 'MODERADA')->count(),
-                'GRAVE' => $incidents->where('severity', 'GRAVE')->count(),
-            ],
-            'by_status' => [
-                'REGISTRADA' => $incidents->where('status', 'REGISTRADA')->count(),
-                'EN_SEGUIMIENTO' => $incidents->where('status', 'EN_SEGUIMIENTO')->count(),
-                'RESUELTA' => $incidents->where('status', 'RESUELTA')->count(),
-            ],
-            'by_type' => $incidents->groupBy('type')->map->count(),
-        ];
     }
 
     /**
@@ -168,10 +149,6 @@ class IncidentService
 
         if (!empty($filters['severity'])) {
             $query->bySeverity($filters['severity']);
-        }
-
-        if (!empty($filters['status'])) {
-            $query->byStatus($filters['status']);
         }
 
         if (!empty($filters['date'])) {

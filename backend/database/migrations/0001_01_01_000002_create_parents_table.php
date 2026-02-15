@@ -29,8 +29,6 @@ return new class extends Migration
             $table->string('email', 100)->nullable();
             $table->string('address', 255)->nullable();
 
-            $table->string('workplace', 150)->nullable();
-
             $table->timestamps();
 
             $table->unique(['tenant_id', 'document_number']);

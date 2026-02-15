@@ -53,7 +53,6 @@ class StudentStoreRequest extends FormRequest
                 'required',
                 Rule::exists('classrooms', 'id')
                     ->where('tenant_id', $tenantId)
-                    ->where('status', 'ACTIVO')
             ],
 
             'academic_year' => ['nullable', 'integer', 'min:2020', 'max:2099'],

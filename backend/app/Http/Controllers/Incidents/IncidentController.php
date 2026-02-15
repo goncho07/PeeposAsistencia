@@ -4,7 +4,6 @@ namespace App\Http\Controllers\Incidents;
 
 use App\Exceptions\BusinessException;
 use App\Http\Controllers\Controller;
-use App\Models\Incident;
 use App\Http\Requests\Incidents\IncidentStoreRequest;
 use App\Http\Requests\Incidents\IncidentUpdateRequest;
 use App\Http\Resources\IncidentResource;
@@ -19,16 +18,7 @@ class IncidentController extends Controller
     ) {}
 
     /**
-     * Display a listing of incidents.
-     *
-     * GET /api/incidents
-     * GET /api/incidents?classroom_id=1
-     * GET /api/incidents?student_id=1
-     * GET /api/incidents?type=CONDUCTA
-     * GET /api/incidents?severity=GRAVE
-     * GET /api/incidents?status=REGISTRADA
-     * GET /api/incidents?date=2024-01-15
-     * GET /api/incidents?date_from=2024-01-01&date_to=2024-01-31
+     * Display a listing of incidents (current academic year).
      */
     public function index(Request $request): JsonResponse
     {
@@ -38,18 +28,14 @@ class IncidentController extends Controller
                 'student_id',
                 'type',
                 'severity',
-                'status',
                 'date',
                 'date_from',
                 'date_to',
-                'per_page',
             ]);
 
             $incidents = $this->incidentService->getAllIncidents($filters);
 
-            return $this->success(
-                IncidentResource::collection($incidents)->response()->getData(true)
-            );
+            return $this->success(IncidentResource::collection($incidents));
         } catch (\Exception $e) {
             return $this->error('Error al obtener incidencias: ' . $e->getMessage(), null, 500);
         }
@@ -57,8 +43,6 @@ class IncidentController extends Controller
 
     /**
      * Store a newly created incident.
-     *
-     * POST /api/incidents
      */
     public function store(IncidentStoreRequest $request): JsonResponse
     {
@@ -78,8 +62,6 @@ class IncidentController extends Controller
 
     /**
      * Display the specified incident.
-     *
-     * GET /api/incidents/{id}
      */
     public function show(int $id): JsonResponse
     {
@@ -96,8 +78,6 @@ class IncidentController extends Controller
 
     /**
      * Update the specified incident.
-     *
-     * PUT/PATCH /api/incidents/{id}
      */
     public function update(IncidentUpdateRequest $request, int $id): JsonResponse
     {
@@ -119,8 +99,6 @@ class IncidentController extends Controller
 
     /**
      * Remove the specified incident.
-     *
-     * DELETE /api/incidents/{id}
      */
     public function destroy(int $id): JsonResponse
     {
@@ -136,28 +114,7 @@ class IncidentController extends Controller
     }
 
     /**
-     * Get incident statistics for a classroom or period.
-     *
-     * GET /api/incidents/statistics
-     * GET /api/incidents/statistics?classroom_id=1
-     * GET /api/incidents/statistics?date_from=2024-01-01&date_to=2024-01-31
-     */
-    public function statistics(Request $request): JsonResponse
-    {
-        try {
-            $filters = $request->only(['classroom_id', 'date_from', 'date_to']);
-            $statistics = $this->incidentService->getStatistics($filters);
-
-            return $this->success($statistics);
-        } catch (\Exception $e) {
-            return $this->error('Error al obtener estadísticas: ' . $e->getMessage(), null, 500);
-        }
-    }
-
-    /**
      * Get incidents by student.
-     *
-     * GET /api/incidents/student/{studentId}
      */
     public function byStudent(int $studentId): JsonResponse
     {
@@ -168,25 +125,5 @@ class IncidentController extends Controller
         } catch (\Exception $e) {
             return $this->error('Error al obtener incidencias del estudiante: ' . $e->getMessage(), null, 500);
         }
-    }
-
-    /**
-     * Get available incident types.
-     *
-     * GET /api/incidents/types
-     */
-    public function types(): JsonResponse
-    {
-        return $this->success(Incident::TYPES);
-    }
-
-    /**
-     * Get available severities.
-     *
-     * GET /api/incidents/severities
-     */
-    public function severities(): JsonResponse
-    {
-        return $this->success(Incident::SEVERITIES);
     }
 }

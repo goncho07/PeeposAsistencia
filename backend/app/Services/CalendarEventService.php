@@ -10,16 +10,20 @@ class CalendarEventService
 {
     use LogsActivity;
 
+    public function __construct(
+        protected AcademicYearService $academicYearService
+    ) {}
+
     /**
      * Get all events for a year.
      * Includes global events and tenant-specific events.
      *
-     * @param int|null $year Defaults to current year
+     * @param int|null $year Defaults to current academic year
      * @param int|null $tenantId
      */
     public function getAllEvents(?int $year = null, ?int $tenantId = null): Collection
     {
-        $year = $year ?? now()->year;
+        $year = $year ?? $this->academicYearService->getCurrentYearNumber($tenantId);
         $startDate = "{$year}-01-01";
         $endDate = "{$year}-12-31";
 
@@ -49,6 +53,9 @@ class CalendarEventService
      */
     public function create(array $data): CalendarEvent
     {
+        $data['academic_year_id'] = $data['academic_year_id']
+            ?? $this->academicYearService->getCurrentYear()?->id;
+
         $event = CalendarEvent::create($data);
 
         $this->logActivity('calendar_event_created', $event, [

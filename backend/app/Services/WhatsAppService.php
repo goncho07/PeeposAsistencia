@@ -10,17 +10,31 @@ use Illuminate\Support\Facades\Log;
 
 class WhatsAppService
 {
-    private string $apiUrl;
+    private string $baseIp;
     private string $token;
-    private string $instanceId;
     private SettingService $settingService;
 
     public function __construct(SettingService $settingService)
     {
-        $this->apiUrl = config('services.whatsapp.api_url') ?? 'https://wapiapp.com/api/v1';
-        $this->token = config('services.whatsapp.token') ?? '';
-        $this->instanceId = config('services.whatsapp.instance_id') ?? '';
+        $this->baseIp = config('services.whatsapp.base_ip');
+        $this->token = config('services.whatsapp.token');
         $this->settingService = $settingService;
+    }
+
+    /**
+     * Get the WAHA API URL for a specific education level.
+     * Each level has its own WAHA instance running on a different port.
+     */
+    private function getApiUrl(string $level): ?string
+    {
+        $port = $this->settingService->getWahaPort($level);
+
+        if (!$port) {
+            Log::warning("No hay puerto WAHA configurado para nivel: {$level}");
+            return null;
+        }
+
+        return "http://{$this->baseIp}:{$port}/api";
     }
 
     /**
@@ -37,23 +51,81 @@ class WhatsAppService
             return false;
         }
 
-        if ($type === 'ENTRADA') {
-            if (!$this->settingService->shouldSendWhatsAppOnEntry()) {
-                Log::info("WhatsApp deshabilitado para entradas - Estudiante: {$student->id}");
-                return false;
-            }
-        } elseif ($type === 'SALIDA') {
-            if (!$this->settingService->shouldSendWhatsAppOnExit()) {
-                Log::info("WhatsApp deshabilitado para salidas - Estudiante: {$student->id}");
-                return false;
-            }
+        if ($type === 'ENTRADA' && !$this->settingService->shouldSendWhatsAppOnEntry()) {
+            Log::info("WhatsApp deshabilitado para entradas - Estudiante: {$student->id}");
+            return false;
         }
 
-        $parents = $student->parents()->wherePivot('is_primary_contact', true)->get();
+        if ($type === 'SALIDA' && !$this->settingService->shouldSendWhatsAppOnExit()) {
+            Log::info("WhatsApp deshabilitado para salidas - Estudiante: {$student->id}");
+            return false;
+        }
+
+        $level = $student->classroom->level ?? null;
+
+        if (!$level) {
+            Log::warning("Estudiante {$student->id} sin aula o nivel asignado, no se puede enviar WhatsApp");
+            return false;
+        }
+
+        $apiUrl = $this->getApiUrl($level);
+
+        if (!$apiUrl) {
+            return false;
+        }
+
+        $parents = $this->getPrimaryParents($student);
 
         if ($parents->isEmpty()) {
-            $parents = $student->parents;
+            Log::warning("Estudiante {$student->id} no tiene padres o tutores primarios registrados");
+            return false;
         }
+
+        $tenant = app()->bound('current_tenant') ? app('current_tenant') : null;
+        $message = $this->buildMessage($student, $attendance, $type, $tenant);
+
+        $sentCount = $this->sendToParents($parents, $message, $apiUrl, $student->id);
+
+        if ($sentCount > 0) {
+            $attendance->update(['whatsapp_sent' => true]);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Send absence notification to student's parents via WhatsApp
+     *
+     * @param Student $student The student who is absent
+     * @param Attendance $attendance The attendance record
+     * @return bool True if at least one message was sent successfully
+     */
+    public function sendAbsenceNotification(Student $student, Attendance $attendance): bool
+    {
+        if (!$this->settingService->isWhatsAppEnabled()) {
+            return false;
+        }
+
+        if (!$this->settingService->shouldSendWhatsAppOnAbsence()) {
+            Log::info("WhatsApp deshabilitado para ausencias - Estudiante: {$student->id}");
+            return false;
+        }
+
+        $level = $student->classroom->level ?? null;
+
+        if (!$level) {
+            Log::warning("Estudiante {$student->id} sin aula o nivel asignado, no se puede enviar WhatsApp");
+            return false;
+        }
+
+        $apiUrl = $this->getApiUrl($level);
+
+        if (!$apiUrl) {
+            return false;
+        }
+
+        $parents = $this->getPrimaryParents($student);
 
         if ($parents->isEmpty()) {
             Log::warning("Estudiante {$student->id} no tiene padres o tutores registrados");
@@ -61,7 +133,39 @@ class WhatsAppService
         }
 
         $tenant = app()->bound('current_tenant') ? app('current_tenant') : null;
-        $message = $this->buildMessage($student, $attendance, $type, $tenant);
+        $message = $this->buildAbsenceMessage($student, $attendance, $tenant);
+
+        $sentCount = $this->sendToParents($parents, $message, $apiUrl, $student->id);
+
+        if ($sentCount > 0) {
+            $attendance->update(['whatsapp_sent' => true]);
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Get primary contact parents, fallback to all parents
+     */
+    private function getPrimaryParents(Student $student)
+    {
+        $parents = $student->parents()->wherePivot('is_primary_contact', true)->get();
+
+        if ($parents->isEmpty()) {
+            $parents = $student->parents;
+        }
+
+        return $parents;
+    }
+
+    /**
+     * Send a message to all parents via WAHA
+     *
+     * @return int Number of successfully sent messages
+     */
+    private function sendToParents($parents, string $message, string $apiUrl, int $studentId): int
+    {
         $sentCount = 0;
 
         foreach ($parents as $parent) {
@@ -72,51 +176,39 @@ class WhatsAppService
             $phone = $this->formatPhone($parent->phone_number);
 
             try {
-                $response = Http::get("{$this->apiUrl}/send-text", [
-                    'token' => $this->token,
-                    'instance_id' => $this->instanceId,
-                    'jid' => $phone,
-                    'msg' => $message,
+                $response = Http::withHeaders([
+                    'X-Api-Key' => $this->token,
+                ])->post("{$apiUrl}/sendText", [
+                    'chatId' => $phone,
+                    'text' => $message,
+                    'session' => 'default',
                 ]);
 
-                $body = $response->json();
-
-                if (isset($body['success']) && $body['success'] === true) {
+                if ($response->successful()) {
                     $sentCount++;
                 } else {
-                    Log::error('Error enviando WhatsApp', [
-                        'response' => $body,
-                        'student_id' => $student->id,
+                    Log::error('Error WAHA', [
+                        'url' => $apiUrl,
+                        'res' => $response->body(),
+                        'student_id' => $studentId,
                         'parent_id' => $parent->id,
                     ]);
                 }
             } catch (\Exception $e) {
                 Log::error('Excepción enviando WhatsApp', [
                     'error' => $e->getMessage(),
-                    'student_id' => $student->id,
+                    'url' => $apiUrl,
+                    'student_id' => $studentId,
                     'parent_id' => $parent->id,
                 ]);
             }
         }
 
-        if ($sentCount > 0) {
-            $attendance->update([
-                'whatsapp_sent' => true,
-            ]);
-            return true;
-        }
-
-        return false;
+        return $sentCount;
     }
 
     /**
      * Build WhatsApp message text for attendance notification
-     *
-     * @param Student $student The student
-     * @param Attendance $attendance The attendance record
-     * @param string $type Type of notification: 'ENTRADA' or 'SALIDA'
-     * @param Tenant|null $tenant The tenant/institution
-     * @return string Formatted WhatsApp message
      */
     private function buildMessage(Student $student, Attendance $attendance, string $type, ?Tenant $tenant): string
     {
@@ -181,90 +273,7 @@ class WhatsAppService
     }
 
     /**
-     * Send absence notification to student's parents via WhatsApp
-     *
-     * @param Student $student The student who is absent or late
-     * @param Attendance $attendance The attendance record
-     * @return bool True if at least one message was sent successfully
-     */
-    public function sendAbsenceNotification(Student $student, Attendance $attendance): bool
-    {
-        if (!$this->settingService->isWhatsAppEnabled()) {
-            return false;
-        }
-
-        if (!$this->settingService->shouldSendWhatsAppOnAbsence()) {
-            Log::info("WhatsApp deshabilitado para ausencias - Estudiante: {$student->id}");
-            return false;
-        }
-
-        $parents = $student->parents()->wherePivot('is_primary_contact', true)->get();
-
-        if ($parents->isEmpty()) {
-            $parents = $student->parents;
-        }
-
-        if ($parents->isEmpty()) {
-            Log::warning("Estudiante {$student->id} no tiene padres o tutores registrados");
-            return false;
-        }
-
-        $tenant = app()->bound('current_tenant') ? app('current_tenant') : null;
-        $message = $this->buildAbsenceMessage($student, $attendance, $tenant);
-        $sentCount = 0;
-
-        foreach ($parents as $parent) {
-            if (!$parent->phone_number) {
-                continue;
-            }
-
-            $phone = $this->formatPhone($parent->phone_number);
-
-            try {
-                $response = Http::get("{$this->apiUrl}/send-text", [
-                    'token' => $this->token,
-                    'instance_id' => $this->instanceId,
-                    'jid' => $phone,
-                    'msg' => $message,
-                ]);
-
-                $body = $response->json();
-
-                if (isset($body['success']) && $body['success'] === true) {
-                    $sentCount++;
-                } else {
-                    Log::error('Error enviando WhatsApp de ausencia', [
-                        'response' => $body,
-                        'student_id' => $student->id,
-                        'parent_id' => $parent->id,
-                    ]);
-                }
-            } catch (\Exception $e) {
-                Log::error('Excepción enviando WhatsApp de ausencia', [
-                    'error' => $e->getMessage(),
-                    'student_id' => $student->id,
-                    'parent_id' => $parent->id,
-                ]);
-            }
-        }
-
-        if ($sentCount > 0) {
-            $attendance->update([
-                'whatsapp_sent' => true,
-            ]);
-            return true;
-        }
-
-        return false;
-    }
-
-    /**
      * Build WhatsApp message text for absence notification
-     *
-     * @param Student $student The student
-     * @param Attendance $attendance The attendance record
-     * @param Tenant|null $tenant The tenant/institution
-     * @return string Formatted WhatsApp message
      */
     private function buildAbsenceMessage(Student $student, Attendance $attendance, ?Tenant $tenant): string
     {
@@ -273,7 +282,7 @@ class WhatsAppService
         $fecha = $attendance->date->format('d/m/Y');
         $colegio = $tenant ? "*{$tenant->name}*" : '*Institución Educativa*';
 
-        return "❌ *FALSTA REGISTRADA*\n\n" .
+        return "❌ *FALTA REGISTRADA*\n\n" .
             "👤 Alumno: *{$nombreEstudiante}*\n" .
             "🏫 Aula: *{$aula}*\n" .
             "📅 Fecha: *{$fecha}*\n\n" .
@@ -283,11 +292,7 @@ class WhatsAppService
 
     /**
      * Format phone number for WhatsApp API
-     *
      * Removes non-numeric characters and adds Peru country code (51) if needed
-     *
-     * @param string $phone Phone number to format
-     * @return string Formatted phone number with @s.whatsapp.net suffix
      */
     private function formatPhone(string $phone): string
     {
@@ -297,6 +302,6 @@ class WhatsAppService
             $phone = '51' . $phone;
         }
 
-        return $phone . '@s.whatsapp.net';
+        return $phone . '@c.us';
     }
 }

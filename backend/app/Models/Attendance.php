@@ -20,24 +20,21 @@ class Attendance extends Model
         'entry_status',
         'exit_time',
         'exit_status',
-        'recorded_by',
         'device_type',
+        'face_match_confidence',
         'whatsapp_sent',
     ];
 
     protected $casts = [
         'date' => 'date',
+        'entry_time' => 'datetime:H:i:s',
+        'exit_time' => 'datetime:H:i:s',
         'whatsapp_sent' => 'boolean',
     ];
 
     public function attendable()
     {
         return $this->morphTo();
-    }
-
-    public function recorder()
-    {
-        return $this->belongsTo(User::class, 'recorded_by');
     }
 
     public function scopeForDate($query, $date)

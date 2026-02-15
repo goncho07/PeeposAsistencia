@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\AcademicYearService;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 class CalendarEventResource extends JsonResource
@@ -13,7 +14,7 @@ class CalendarEventResource extends JsonResource
      */
     public function toArray($request): array
     {
-        $year = $request->query('year', now()->year);
+        $year = $request->query('year', app(AcademicYearService::class)->getCurrentYearNumber());
 
         return [
             'id' => $this->id,

@@ -34,11 +34,6 @@ class LoginRequest extends FormRequest
                 'string',
                 'min:8',
             ],
-            'device_name' => [
-                'nullable',
-                'string',
-                'max:255',
-            ],
             'remember_me' => [
                 'nullable',
                 'boolean',
@@ -59,7 +54,6 @@ class LoginRequest extends FormRequest
             'email.max' => 'El correo electrónico no puede tener más de :max caracteres.',
             'password.required' => 'La contraseña es obligatoria.',
             'password.min' => 'La contraseña debe tener al menos :min caracteres.',
-            'device_name.max' => 'El nombre del dispositivo no puede tener más de :max caracteres.',
         ];
     }
 }

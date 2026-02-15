@@ -121,14 +121,14 @@ class ClassroomSeeder extends Seeder
         $allClassrooms = Classroom::with('tenant')->get();
 
         $this->command->table(
-            ['ID', 'Tenant', 'Nivel', 'Grado', 'Sección', 'Estado'],
+            ['ID', 'Tenant', 'Nivel', 'Grado', 'Sección', 'Turno'],
             $allClassrooms->map(fn($c) => [
                 $c->id,
                 $c->tenant?->name ?? 'N/A',
                 $c->level,
                 $c->grade,
                 $c->section,
-                $c->status,
+                $c->shift,
             ])->toArray()
         );
     }
@@ -146,7 +146,6 @@ class ClassroomSeeder extends Seeder
                     ], [
                         'tutor_id' => null,
                         'shift' => $shift,
-                        'status' => 'ACTIVO',
                     ]);
                 }
             }

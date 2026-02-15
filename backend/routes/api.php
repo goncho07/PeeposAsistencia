@@ -1,7 +1,8 @@
 <?php
 
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Auth\AuthenticatedSessionController;
+use App\Http\Controllers\Auth\AuthSessionController;
+use App\Http\Controllers\Auth\MobileAuthSessionController;
 use App\Http\Controllers\Attendance\ScannerController;
 use App\Http\Controllers\Attendance\BiometricScannerController;
 use App\Http\Controllers\Attendance\AttendanceController;
@@ -16,10 +17,13 @@ use App\Http\Controllers\ParentController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\TenantController;
+use App\Http\Controllers\AcademicYearController;
 use App\Http\Controllers\ImportController;
+use App\Http\Controllers\WhatsAppController;
 
 Route::get('/tenants/{slug}', [TenantController::class, 'getBySlug'])
-    ->name('tenants.show');
+    ->name('tenants.show')
+    ->middleware('throttle:30,1');
 
 Route::prefix('superadmin')->middleware(['auth:sanctum', 'tenant.role:SUPERADMIN'])->group(function () {
     Route::get('/stats', [TenantController::class, 'stats']);
@@ -36,34 +40,52 @@ Route::prefix('superadmin')->middleware(['auth:sanctum', 'tenant.role:SUPERADMIN
     Route::post('/tenants/{id}/upload-image', [TenantController::class, 'uploadImage']);
 
     Route::post('/validate', [ImportController::class, 'validate']);
-    Route::post('/execute', [ImportController::class, 'execute']);
+    Route::post('/execute-batch', [ImportController::class, 'executeBatch']);
+
+    Route::post('/academic-years/bulk', [TenantController::class, 'bulkCreateAcademicYear']);
+
+    Route::prefix('tenants/{id}/whatsapp')->group(function () {
+        Route::get('/status', [WhatsAppController::class, 'status']);
+        Route::get('/qr/{level}', [WhatsAppController::class, 'qr']);
+        Route::post('/test', [WhatsAppController::class, 'sendTest']);
+        Route::post('/port', [WhatsAppController::class, 'updatePort']);
+    });
 });
 
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthenticatedSessionController::class, 'login'])
+    Route::post('/login', [AuthSessionController::class, 'login'])
         ->name('auth.login')
+        ->middleware('throttle:7,1');
+});
+
+Route::prefix('mobile/auth')->group(function () {
+    Route::post('/login', [MobileAuthSessionController::class, 'login'])
+        ->name('mobile.auth.login')
         ->middleware('throttle:7,1');
 });
 
 Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.active'])->group(function () {
     Route::prefix('auth')->group(function () {
-        Route::get('/user', [AuthenticatedSessionController::class, 'user'])
+        Route::get('/user', [AuthSessionController::class, 'user'])
             ->name('auth.user');
 
-        Route::post('/logout', [AuthenticatedSessionController::class, 'logout'])
+        Route::post('/logout', [AuthSessionController::class, 'logout'])
             ->name('auth.logout');
 
-        Route::post('/logout-all', [AuthenticatedSessionController::class, 'logoutAll'])
-            ->name('auth.logout-all');
-
-        Route::post('/refresh', [AuthenticatedSessionController::class, 'refresh'])
-            ->name('auth.refresh');
-
-        Route::get('/sessions', [AuthenticatedSessionController::class, 'sessions'])
+        Route::get('/sessions', [AuthSessionController::class, 'sessions'])
             ->name('auth.sessions');
 
-        Route::delete('/sessions/{tokenId}', [AuthenticatedSessionController::class, 'revokeSession'])
+        Route::delete('/sessions/{sessionId}', [AuthSessionController::class, 'revokeSession'])
             ->name('auth.sessions.revoke');
+
+        Route::post('/logout-all', [AuthSessionController::class, 'logoutAll'])
+            ->name('auth.logout-all');
+
+        Route::post('/change-password', [AuthSessionController::class, 'changePassword'])
+            ->name('auth.change-password');
+
+        Route::put('/profile', [AuthSessionController::class, 'updateProfile'])
+            ->name('auth.profile.update');
     });
 
     Route::prefix('carnets')->group(function () {
@@ -83,6 +105,9 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::patch('/{id}', [StudentController::class, 'update']);
         Route::delete('/{id}', [StudentController::class, 'destroy']);
     });
+
+    Route::get('/teachers/my-schedule', [TeacherController::class, 'mySchedule'])
+        ->middleware('tenant.role:DOCENTE');
 
     Route::prefix('teachers')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR')->group(function () {
         Route::get('/', [TeacherController::class, 'index']);
@@ -111,13 +136,19 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::delete('/{id}', [UserController::class, 'destroy']);
     });
 
-    Route::prefix('classrooms')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR')->group(function () {
-        Route::get('/', [ClassroomController::class, 'index']);
-        Route::get('/{id}', [ClassroomController::class, 'show']);
-        Route::post('/', [ClassroomController::class, 'store']);
-        Route::put('/{id}', [ClassroomController::class, 'update']);
-        Route::patch('/{id}', [ClassroomController::class, 'update']);
-        Route::delete('/{id}', [ClassroomController::class, 'destroy']);
+    Route::prefix('classrooms')->group(function () {
+        Route::middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO,DOCENTE')->group(function () {
+            Route::get('/', [ClassroomController::class, 'index']);
+            Route::get('/{id}', [ClassroomController::class, 'show']);
+        });
+
+        Route::middleware('tenant.role:DIRECTOR,SUBDIRECTOR')->group(function () {
+            Route::post('/', [ClassroomController::class, 'store']);
+            Route::post('/bulk', [ClassroomController::class, 'bulkStore']);
+            Route::put('/{id}', [ClassroomController::class, 'update']);
+            Route::patch('/{id}', [ClassroomController::class, 'update']);
+            Route::delete('/{id}', [ClassroomController::class, 'destroy']);
+        });
     });
 
     Route::prefix('scanner')->group(function () {
@@ -136,12 +167,17 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         });
     });
 
+    Route::get('/attendance/my-attendance', [AttendanceController::class, 'myAttendance']);
+
     Route::prefix('attendance')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
         Route::get('/', [AttendanceController::class, 'index']);
         Route::get('/daily-stats', [AttendanceController::class, 'getDailyStats']);
+        Route::get('/weekly-stats', [AttendanceController::class, 'getWeeklyStats']);
         Route::post('/report', [AttendanceController::class, 'generateReport']);
-        Route::post('/behavior-statistics', [AttendanceController::class, 'getBehaviorStatistics']);
     });
+
+    Route::get('/attendance/classroom/{classroomId}/stats', [AttendanceController::class, 'classroomStats'])
+        ->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO,DOCENTE');
 
     Route::prefix('justifications')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
         Route::get('/', [JustificationController::class, 'index']);
@@ -150,11 +186,8 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         Route::delete('/{id}', [JustificationController::class, 'destroy']);
     });
 
-    Route::prefix('incidents')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO')->group(function () {
+    Route::prefix('incidents')->middleware('tenant.role:DIRECTOR,SUBDIRECTOR,SECRETARIO,COORDINADOR,AUXILIAR,DOCENTE')->group(function () {
         Route::get('/', [IncidentController::class, 'index']);
-        Route::get('/types', [IncidentController::class, 'types']);
-        Route::get('/severities', [IncidentController::class, 'severities']);
-        Route::get('/statistics', [IncidentController::class, 'statistics']);
         Route::get('/student/{studentId}', [IncidentController::class, 'byStudent']);
         Route::get('/{id}', [IncidentController::class, 'show']);
         Route::post('/', [IncidentController::class, 'store']);
@@ -165,7 +198,21 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
 
     Route::prefix('settings')->group(function () {
         Route::get('/', [SettingController::class, 'index']);
+        Route::get('/attendable-types', [SettingController::class, 'attendableTypes']);
         Route::put('/', [SettingController::class, 'update']);
+    });
+
+    Route::prefix('academic-years')->group(function () {
+        Route::get('/', [AcademicYearController::class, 'index']);
+        Route::get('/current', [AcademicYearController::class, 'current']);
+        Route::get('/{id}', [AcademicYearController::class, 'show']);
+
+        Route::middleware('tenant.role:DIRECTOR')->group(function () {
+            Route::post('/', [AcademicYearController::class, 'store']);
+            Route::put('/{id}', [AcademicYearController::class, 'update']);
+            Route::post('/{id}/activate', [AcademicYearController::class, 'activate']);
+            Route::post('/{id}/finalize', [AcademicYearController::class, 'finalize']);
+        });
     });
 
     Route::prefix('calendar')->group(function () {
@@ -179,3 +226,31 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         });
     });
 });
+
+Route::prefix('mobile/auth')
+    ->middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.active'])
+    ->group(function () {
+        Route::get('/user', [AuthSessionController::class, 'user'])
+            ->name('mobile.auth.user');
+
+        Route::post('/logout', [MobileAuthSessionController::class, 'logout'])
+            ->name('mobile.auth.logout');
+
+        Route::post('/refresh', [MobileAuthSessionController::class, 'refresh'])
+            ->name('mobile.auth.refresh');
+
+        Route::post('/logout-all', [MobileAuthSessionController::class, 'logoutAll'])
+            ->name('mobile.auth.logout-all');
+
+        Route::get('/sessions', [MobileAuthSessionController::class, 'sessions'])
+            ->name('mobile.auth.sessions');
+
+        Route::delete('/sessions/{tokenId}', [MobileAuthSessionController::class, 'revokeSession'])
+            ->name('mobile.auth.sessions.revoke');
+
+        Route::post('/change-password', [MobileAuthSessionController::class, 'changePassword'])
+            ->name('mobile.auth.change-password');
+
+        Route::put('/profile', [MobileAuthSessionController::class, 'updateProfile'])
+            ->name('mobile.auth.profile.update');
+    });

@@ -7,11 +7,6 @@ use Illuminate\Http\Resources\Json\JsonResource;
 
 class IncidentResource extends JsonResource
 {
-    /**
-     * Transform the resource into an array.
-     *
-     * @return array<string, mixed>
-     */
     public function toArray(Request $request): array
     {
         return [
@@ -28,7 +23,10 @@ class IncidentResource extends JsonResource
             'student_id' => $this->student_id,
             'student' => $this->whenLoaded('student', fn() => new StudentResource($this->student)),
             'reported_by' => $this->reported_by,
-            'reporter' => $this->whenLoaded('reporter', fn() => new UserResource($this->reporter)),
+            'reporter' => $this->whenLoaded('reporter', fn() => [
+                'id' => $this->reporter->id,
+                'full_name' => $this->reporter->full_name,
+            ]),
             'date' => $this->date?->format('Y-m-d'),
             'time' => $this->time?->format('H:i'),
             'type' => $this->type,
@@ -36,14 +34,7 @@ class IncidentResource extends JsonResource
             'severity' => $this->severity,
             'severity_label' => $this->severity_label,
             'description' => $this->description,
-            'status' => $this->status,
-            'status_label' => $this->status_label,
-            'resolution_notes' => $this->resolution_notes,
-            'resolved_by' => $this->resolved_by,
-            'resolver' => $this->whenLoaded('resolver', fn() => $this->resolver ? new UserResource($this->resolver) : null),
-            'resolved_at' => $this->resolved_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
-            'updated_at' => $this->updated_at?->toISOString(),
         ];
     }
 }

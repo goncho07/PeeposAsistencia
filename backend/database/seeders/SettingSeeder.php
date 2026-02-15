@@ -53,27 +53,6 @@ class SettingSeeder extends Seeder
     {
         return [
             [
-                'key' => 'whatsapp_inicial_phone',
-                'value' => '',
-                'type' => 'string',
-                'group' => 'whatsapp',
-                'description' => 'Número de WhatsApp para notificaciones de nivel inicial',
-            ],
-            [
-                'key' => 'whatsapp_primaria_phone',
-                'value' => '',
-                'type' => 'string',
-                'group' => 'whatsapp',
-                'description' => 'Número de WhatsApp para notificaciones de nivel primaria',
-            ],
-            [
-                'key' => 'whatsapp_secundaria_phone',
-                'value' => '',
-                'type' => 'string',
-                'group' => 'whatsapp',
-                'description' => 'Número de WhatsApp para notificaciones de nivel secundaria',
-            ],
-            [
                 'key' => 'whatsapp_notifications_enabled',
                 'value' => 'true',
                 'type' => 'boolean',
@@ -101,7 +80,35 @@ class SettingSeeder extends Seeder
                 'group' => 'whatsapp',
                 'description' => 'Enviar notificación por inasistencia',
             ],
+            [
+                'key' => 'waha_inicial_port',
+                'value' => '3001',
+                'type' => 'integer',
+                'group' => 'whatsapp',
+                'description' => 'Puerto de la instancia WAHA para nivel inicial',
+            ],
+            [
+                'key' => 'waha_primaria_port',
+                'value' => '3002',
+                'type' => 'integer',
+                'group' => 'whatsapp',
+                'description' => 'Puerto de la instancia WAHA para nivel primaria',
+            ],
+            [
+                'key' => 'waha_secundaria_port',
+                'value' => '3003',
+                'type' => 'integer',
+                'group' => 'whatsapp',
+                'description' => 'Puerto de la instancia WAHA para nivel secundaria',
+            ],
 
+            [
+                'key' => 'attendable_types',
+                'value' => json_encode(['student']),
+                'type' => 'json',
+                'group' => 'general',
+                'description' => 'Tipos de entidades que pasan asistencia: student, teacher, user',
+            ],
             [
                 'key' => 'attendance_days',
                 'value' => json_encode(['lunes', 'martes', 'miercoles', 'jueves', 'viernes']),
@@ -136,63 +143,6 @@ class SettingSeeder extends Seeder
                 'type' => 'string',
                 'group' => 'general',
                 'description' => 'Hora límite para marcar faltas automáticamente',
-            ],
-
-            [
-                'key' => 'bimestre_1_inicio',
-                'value' => '2025-03-03',
-                'type' => 'string',
-                'group' => 'bimestres',
-                'description' => 'Fecha de inicio del primer bimestre',
-            ],
-            [
-                'key' => 'bimestre_1_fin',
-                'value' => '2025-05-09',
-                'type' => 'string',
-                'group' => 'bimestres',
-                'description' => 'Fecha de fin del primer bimestre',
-            ],
-            [
-                'key' => 'bimestre_2_inicio',
-                'value' => '2025-05-19',
-                'type' => 'string',
-                'group' => 'bimestres',
-                'description' => 'Fecha de inicio del segundo bimestre',
-            ],
-            [
-                'key' => 'bimestre_2_fin',
-                'value' => '2025-07-25',
-                'type' => 'string',
-                'group' => 'bimestres',
-                'description' => 'Fecha de fin del segundo bimestre',
-            ],
-            [
-                'key' => 'bimestre_3_inicio',
-                'value' => '2025-08-11',
-                'type' => 'string',
-                'group' => 'bimestres',
-                'description' => 'Fecha de inicio del tercer bimestre',
-            ],
-            [
-                'key' => 'bimestre_3_fin',
-                'value' => '2025-10-10',
-                'type' => 'string',
-                'group' => 'bimestres',
-                'description' => 'Fecha de fin del tercer bimestre',
-            ],
-            [
-                'key' => 'bimestre_4_inicio',
-                'value' => '2025-10-20',
-                'type' => 'string',
-                'group' => 'bimestres',
-                'description' => 'Fecha de inicio del cuarto bimestre',
-            ],
-            [
-                'key' => 'bimestre_4_fin',
-                'value' => '2025-12-19',
-                'type' => 'string',
-                'group' => 'bimestres',
-                'description' => 'Fecha de fin del cuarto bimestre',
             ],
         ];
     }
