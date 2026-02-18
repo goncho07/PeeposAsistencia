@@ -10,8 +10,7 @@ const config: Config = {
   darkMode: 'class',
   theme: {
     extend: {
-      // Colores y animaciones ahora están en globals.css @theme
-      // para compatibilidad con Tailwind v4
+      // 
     },
   },
   plugins: [],

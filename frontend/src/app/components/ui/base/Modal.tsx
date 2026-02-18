@@ -68,7 +68,7 @@ export function Modal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between p-6 border-b border-border dark:border-border-dark bg-surface dark:bg-surface-dark">
-          <h2 className="text-xl font-bold text-text-primary dark:text-text-primary-dark">
+          <h2 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark">
             {title}
           </h2>
           <button

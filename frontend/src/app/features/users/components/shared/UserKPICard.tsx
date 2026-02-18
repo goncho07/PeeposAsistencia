@@ -9,6 +9,7 @@ interface UserKPICardProps {
   colorClass: string;
   bgLight: string;
   borderColor: string;
+  ringColor: string;
   active: boolean;
   loading?: boolean;
   onClick: () => void;
@@ -22,6 +23,7 @@ export function UserKPICard({
   colorClass,
   bgLight,
   borderColor,
+  ringColor,
   active,
   loading,
   onClick,
@@ -35,8 +37,9 @@ export function UserKPICard({
       onClick={onClick}
       className={`
         group relative w-full text-left overflow-hidden p-4 rounded-2xl border-2 bg-surface shadow-sm
-        transition-all duration-200 focus:outline-none cursor-pointer
-        ${active ? `${borderColor} ring-1 ring-offset-surface ${borderColor.replace('border-', 'ring-')}` : 'border-border hover:border-border-dark'}
+        transition-all duration-200 outline-none cursor-pointer
+        focus-visible:ring-1  focus-visible:ring-primary
+        ${active ? `${borderColor} ring-1 ring-offset-surface ${ringColor}` : 'border-border hover:border-border-dark'}
       `}
     >
       <div className={`absolute inset-0 opacity-10 bg-current ${colorClass}`} />
@@ -55,11 +58,11 @@ export function UserKPICard({
             inline-flex p-3 rounded-2xl shadow-sm mb-4 transition-all duration-200
             ${active ? `${bgLight} ${colorClass}` : 'bg-background text-text-secondary'}
           `}>
-            <Icon size={28} strokeWidth={active ? 2.5 : 2} />
+            <Icon size={32} strokeWidth={active ? 2.5 : 2} />
           </div>
 
           <h3 className={`
-            text-sm font-bold uppercase tracking-widest transition-colors
+            text-base font-bold uppercase tracking-widest transition-colors
             ${active ? colorClass : 'text-text-primary'}
           `}>
             {title}

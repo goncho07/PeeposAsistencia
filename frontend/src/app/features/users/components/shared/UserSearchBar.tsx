@@ -27,7 +27,7 @@ export function UserSearchBar({
           placeholder="Buscar por nombre o documento..."
           value={searchQuery}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm shadow-sm"
+          className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-surface text-text-primary focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-xl shadow-sm"
         />
       </div>
 
@@ -36,22 +36,22 @@ export function UserSearchBar({
           <Button
             variant="outline"
             onClick={onCarnetClick}
-            className="flex-1 sm:flex-none text-sm whitespace-nowrap"
-            icon={<CreditCard size={18} />}
+            className="flex-1 sm:flex-none text-xl whitespace-nowrap"
+            icon={<CreditCard size={22} />}
           >
             <span className="hidden sm:inline">Generar carnets</span>
             <span className="sm:hidden">Carnets</span>
           </Button>
         )}
-
+        
         <Button
           variant="primary"
           onClick={onAddClick}
-          className="flex-1 sm:flex-none text-sm whitespace-nowrap"
-          icon={<PlusIcon size={18} />}
+          className="flex-1 sm:flex-none text-xl whitespace-nowrap"
+          icon={<PlusIcon size={22} />}
         >
           Agregar
-        </Button>
+        </Button> 
       </div>
     </div>
   );

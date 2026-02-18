@@ -36,7 +36,12 @@ export function TenantProvider({ children }: { children: ReactNode }) {
 
     useEffect(() => {
         const loadTenant = async () => {
-            if (!tenantSlug || authLoading) return;
+            if (authLoading) return;
+
+            if (!tenantSlug) {
+                setLoading(false);
+                return;
+            }
 
             if (lastLoadedSlug.current === tenantSlug && tenantRef.current) {
                 setLoading(false);

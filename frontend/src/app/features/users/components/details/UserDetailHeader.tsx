@@ -1,5 +1,6 @@
 import { Entity, EntityType, Student, Teacher, Parent, User } from '@/lib/api/users';
 import { getStorageUrl } from '@/lib/axios';
+import { UserIcon } from 'lucide-react';
 
 interface UserDetailHeaderProps {
   entity: Entity;
@@ -30,19 +31,6 @@ export function UserDetailHeader({ entity, entityType }: UserDetailHeaderProps) 
       .toUpperCase();
   };
 
-  const getSubtitle = () => {
-    const student = entityType === 'student' ? (entity as Student) : null;
-    const teacher = entityType === 'teacher' ? (entity as Teacher) : null;
-    const parent = entityType === 'parent' ? (entity as Parent) : null;
-    const user = entityType === 'user' ? (entity as User) : null;
-
-    if (student) return `DNI ${student.document_number}`;
-    if (teacher) return `DNI ${teacher.dni}`;
-    if (parent) return `${parent.document_type} ${parent.document_number}`;
-    if (user) return `DNI ${user.dni}`;
-    return '';
-  };
-
   const getRoleInfo = () => {
     const student = entityType === 'student' ? (entity as Student) : null;
     const teacher = entityType === 'teacher' ? (entity as Teacher) : null;
@@ -59,29 +47,34 @@ export function UserDetailHeader({ entity, entityType }: UserDetailHeaderProps) 
   const photoUrl = getPhotoUrl();
 
   return (
-    <div className="flex items-center gap-6 mb-6 pb-6 border-b border-border dark:border-border-dark">
-      <div className="shrink-0">
-        {photoUrl ? (
-          <img
-            src={photoUrl}
-            alt={entity.full_name}
-            className="w-24 h-24 rounded-full object-cover border-4 border-border dark:border-border-dark"
-          />
-        ) : (
-          <div className="w-24 h-24 rounded-full bg-linear-to-br from-primary/20 to-primary/10 dark:from-primary-light/20 dark:to-primary-light/10 border-4 border-border dark:border-border-dark flex items-center justify-center">
-            <span className="text-2xl font-bold text-primary dark:text-primary-light">
-              {getInitials()}
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <h2 className="text-2xl font-bold mb-1 text-text-primary dark:text-text-primary-dark">
-          {entity.full_name}
-        </h2>
-        <div className="text-sm text-text-secondary dark:text-text-secondary-dark">
-          {getRoleInfo()} • {getSubtitle()}
+    <div className="flex flex-col items-center text-center gap-3 mb-6 p-6 rounded-xl border border-border bg-background-subtle shadow-sm">
+      {photoUrl ? (
+        <img
+          src={photoUrl}
+          alt={entity.full_name}
+          className="w-28 h-28 rounded-full object-cover border-4 border-border shadow-sm"
+        />
+      ) : (
+        <div className="w-28 h-28 rounded-full bg-linear-to-br from-primary/20 to-primary/10 dark:from-primary-light/20 dark:to-primary-light/10 border-4 border-border dark:border-border-dark flex items-center justify-center shadow-sm">
+          <span className="text-3xl font-semibold text-primary">
+            {getInitials()}
+          </span>
         </div>
+      )}
+
+      <h2 className="text-2xl font-bold text-text-primary">
+        {entity.full_name}
+      </h2>
+
+      <div className="flex items-center gap-2 justify-center text-primary">
+        <UserIcon className="w-4 h-4" />
+        <span className="text-lg font-bold uppercase">{getRoleInfo()}</span>
+      </div>
+
+      <div className="w-12 h-0.5 bg-primary/30" />
+
+      <div className="text-sm font-semibold text-text-secondary">
+        {entity.document_type} {entity.document_number}
       </div>
     </div>
   );

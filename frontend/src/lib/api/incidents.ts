@@ -1,4 +1,5 @@
 import apiClient from '../axios';
+import { ApiResponse, buildQueryParams } from './types';
 
 export interface Incident {
   id: number;
@@ -30,42 +31,38 @@ export interface Incident {
   severity: IncidentSeverity;
   severity_label: string;
   description: string | null;
-  status: IncidentStatus;
-  status_label: string;
-  resolution_notes: string | null;
-  resolved_by: number | null;
-  resolver: {
-    id: number;
-    full_name: string;
-  } | null;
-  resolved_at: string | null;
   created_at: string;
-  updated_at: string;
 }
 
 export type IncidentType =
-  | 'USO_CELULAR'
-  | 'INTERRUPCION'
-  | 'FALTA_RESPETO'
-  | 'INCUMPLIMIENTO_TAREA'
+  | 'USO_JOYAS'
+  | 'UÑAS_PINTADAS'
+  | 'CABELLO_SUELTO'
+  | 'FALTA_ASEO_PERSONAL'
   | 'UNIFORME_INCOMPLETO'
-  | 'LLEGADA_TARDE'
-  | 'DETERIORO_MATERIAL'
-  | 'PELEA'
-  | 'ACOSO'
+  | 'NO_TRAJO_UTILes'
+  | 'INCUMPLIMIENTO_TAREAS'
+  | 'INDISCIPLINA_FORMACION'
+  | 'INDISCIPLINA_AULA'
+  | 'FALTA_RESPETO_SIMBOLOS_PATRIOS'
+  | 'FALTA_RESPETO_DOCENTE'
+  | 'AGRESION_VERBAL'
+  | 'USO_CELULAR'
+  | 'DAÑO_INFRAESTRUCTURA'
+  | 'ESCANDALO_AULA'
   | 'SALIDA_NO_AUTORIZADA'
-  | 'OTRO';
+  | 'AGRESION_FISICA'
+  | 'ACOSO_ESCOLAR'
+  | 'CONSUMO_DROGAS'
+  | 'PORTE_ARMAS';
 
 export type IncidentSeverity = 'LEVE' | 'MODERADA' | 'GRAVE';
-
-export type IncidentStatus = 'REGISTRADA' | 'EN_SEGUIMIENTO' | 'RESUELTA';
 
 export interface IncidentFilters {
   classroom_id?: number;
   student_id?: number;
   type?: IncidentType;
   severity?: IncidentSeverity;
-  status?: IncidentStatus;
   date?: string;
   date_from?: string;
   date_to?: string;
@@ -74,10 +71,7 @@ export interface IncidentFilters {
 export interface CreateIncidentData {
   classroom_id: number;
   student_id: number;
-  date: string;
-  time: string;
   type: IncidentType;
-  severity: IncidentSeverity;
   description?: string;
 }
 
@@ -85,119 +79,67 @@ export interface UpdateIncidentData {
   type?: IncidentType;
   severity?: IncidentSeverity;
   description?: string;
-  status?: IncidentStatus;
-  resolution_notes?: string;
-}
-
-export interface IncidentStatistics {
-  total: number;
-  by_severity: {
-    LEVE: number;
-    MODERADA: number;
-    GRAVE: number;
-  };
-  by_status: {
-    REGISTRADA: number;
-    EN_SEGUIMIENTO: number;
-    RESUELTA: number;
-  };
-  by_type: Record<IncidentType, number>;
-}
-
-export interface PaginatedResponse<T> {
-  data: T[];
-  current_page: number;
-  last_page: number;
-  per_page: number;
-  total: number;
 }
 
 class IncidentsService {
-  async getAll(filters?: IncidentFilters): Promise<PaginatedResponse<Incident>> {
-    const params = new URLSearchParams();
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== '') {
-          params.append(key, String(value));
-        }
-      });
-    }
-    const response = await apiClient.get(`/incidents?${params.toString()}`);
+  async getAll(filters?: IncidentFilters): Promise<Incident[]> {
+    const queryParams = filters ? buildQueryParams(filters).toString() : '';
+    const response = await apiClient.get<ApiResponse<Incident[]>>(`/incidents${queryParams ? `?${queryParams}` : ''}`);
     return response.data.data;
   }
 
   async getById(id: number): Promise<Incident> {
-    const response = await apiClient.get(`/incidents/${id}`);
+    const response = await apiClient.get<ApiResponse<Incident>>(`/incidents/${id}`);
     return response.data.data;
   }
 
   async getByStudent(studentId: number): Promise<Incident[]> {
-    const response = await apiClient.get(`/incidents/student/${studentId}`);
+    const response = await apiClient.get<ApiResponse<Incident[]>>(`/incidents/student/${studentId}`);
     return response.data.data;
   }
 
   async create(data: CreateIncidentData): Promise<Incident> {
-    const response = await apiClient.post('/incidents', data);
+    const response = await apiClient.post<ApiResponse<Incident>>('/incidents', data);
     return response.data.data;
   }
 
   async update(id: number, data: UpdateIncidentData): Promise<Incident> {
-    const response = await apiClient.put(`/incidents/${id}`, data);
+    const response = await apiClient.put<ApiResponse<Incident>>(`/incidents/${id}`, data);
     return response.data.data;
   }
 
   async delete(id: number): Promise<void> {
     await apiClient.delete(`/incidents/${id}`);
   }
-
-  async getTypes(): Promise<Record<IncidentType, string>> {
-    const response = await apiClient.get('/incidents/types');
-    return response.data.data;
-  }
-
-  async getSeverities(): Promise<Record<IncidentSeverity, string>> {
-    const response = await apiClient.get('/incidents/severities');
-    return response.data.data;
-  }
-
-  async getStatistics(filters?: Pick<IncidentFilters, 'classroom_id' | 'date_from' | 'date_to'>): Promise<IncidentStatistics> {
-    const params = new URLSearchParams();
-    if (filters) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== undefined && value !== '') {
-          params.append(key, String(value));
-        }
-      });
-    }
-    const response = await apiClient.get(`/incidents/statistics?${params.toString()}`);
-    return response.data.data;
-  }
 }
 
 export const incidentsService = new IncidentsService();
 
 export const INCIDENT_TYPE_LABELS: Record<IncidentType, string> = {
-  USO_CELULAR: 'Uso de celular en clase',
-  INTERRUPCION: 'Interrupción/bulla en clase',
-  FALTA_RESPETO: 'Falta de respeto',
-  INCUMPLIMIENTO_TAREA: 'No presentó tarea/material',
+  USO_JOYAS: 'Uso de joyas',
+  UÑAS_PINTADAS: 'Uñas pintadas',
+  CABELLO_SUELTO: 'Cabello suelto',
+  FALTA_ASEO_PERSONAL: 'Falta de aseo personal',
   UNIFORME_INCOMPLETO: 'Uniforme incompleto',
-  LLEGADA_TARDE: 'Llegada tarde a clase',
-  DETERIORO_MATERIAL: 'Deterioro de material/mobiliario',
-  PELEA: 'Pelea o agresión física',
-  ACOSO: 'Acoso o bullying',
-  SALIDA_NO_AUTORIZADA: 'Salida del aula sin permiso',
-  OTRO: 'Otro',
+  NO_TRAJO_UTILes: 'No trajo útiles',
+  INCUMPLIMIENTO_TAREAS: 'Incumplimiento de tareas',
+  INDISCIPLINA_FORMACION: 'Indisciplina en formación',
+  INDISCIPLINA_AULA: 'Indisciplina en aula',
+  FALTA_RESPETO_SIMBOLOS_PATRIOS: 'Falta de respeto a símbolos patrios',
+  FALTA_RESPETO_DOCENTE: 'Falta de respeto al docente',
+  AGRESION_VERBAL: 'Agresión verbal',
+  USO_CELULAR: 'Uso de celular',
+  DAÑO_INFRAESTRUCTURA: 'Daño a infraestructura',
+  ESCANDALO_AULA: 'Escándalo en aula',
+  SALIDA_NO_AUTORIZADA: 'Salida no autorizada',
+  AGRESION_FISICA: 'Agresión física',
+  ACOSO_ESCOLAR: 'Acoso escolar',
+  CONSUMO_DROGAS: 'Consumo de drogas',
+  PORTE_ARMAS: 'Porte de armas',
 };
 
 export const INCIDENT_SEVERITY_LABELS: Record<IncidentSeverity, string> = {
   LEVE: 'Leve',
   MODERADA: 'Moderada',
   GRAVE: 'Grave',
-};
-
-export const INCIDENT_STATUS_LABELS: Record<IncidentStatus, string> = {
-  REGISTRADA: 'Registrada',
-  EN_SEGUIMIENTO: 'En seguimiento',
-  RESUELTA: 'Resuelta',
 };

@@ -25,9 +25,9 @@ export function TabNavigation({ tabs, activeTab, onChange }: TabNavigationProps)
             key={tab.id}
             onClick={() => onChange(tab.id)}
             className={`
-              flex-1 px-6 py-4 font-semibold transition-all text-base
+              flex-1 px-6 py-4 font-semibold transition-all text-xl
               flex items-center justify-center gap-2.5 relative
-              border-b-4 whitespace-nowrap
+              border-b-4 whitespace-nowrap cursor-pointer
               ${isActive
                 ? 'text-primary dark:text-primary-light bg-primary/8 dark:bg-primary/10 border-primary dark:border-primary-light font-bold'
                 : 'text-text-secondary dark:text-text-secondary-dark bg-transparent border-transparent hover:text-text-primary dark:hover:text-text-primary-dark hover:bg-primary/5 dark:hover:bg-primary/5 hover:border-primary/40 dark:hover:border-primary-light/40'

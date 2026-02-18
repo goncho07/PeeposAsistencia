@@ -24,8 +24,8 @@ export function useWebcamScanner(scanType: 'entry' | 'exit') {
 
       const response =
         scanType === 'entry'
-          ? await scannerService.scanEntry(code)
-          : await scannerService.scanExit(code);
+          ? await scannerService.scanEntry(code, 'CAMARA')
+          : await scannerService.scanExit(code, 'CAMARA');
 
       setResult(response);
 
@@ -104,10 +104,6 @@ export function useWebcamScanner(scanType: 'entry' | 'exit') {
       if (!isMountedRef.current) {
         isInitializingRef.current = false;
         return;
-      }
-
-      if (videoRef.current) {
-        videoRef.current.load();
       }
 
       await codeReader.decodeFromVideoDevice(

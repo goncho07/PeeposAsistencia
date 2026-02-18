@@ -21,15 +21,15 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Accede en: `http://localhost:3000/iee-6049-ricardo-palma/login`
+Accede en: `http://localhost:3000/ieericardopalma/login`
 
 ## Arquitectura Multi-Tenant
 
 El frontend usa rutas dinámicas `[tenant]` para identificar la institución.
 
 **Flujo:**
-1. Usuario visita `/iee-6049-ricardo-palma/login`
-2. Frontend llama `GET /api/tenants/iee-6049-ricardo-palma` para logo/banner
+1. Usuario visita `/ieericardopalma/login`
+2. Frontend llama `GET /api/tenants/ieericardopalma` para logo/banner
 3. Usuario hace login → backend retorna token con `tenant_id`
 4. Requests autenticadas → backend scope automático por `tenant_id`
 

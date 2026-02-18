@@ -31,7 +31,7 @@ export function Tabs({
   return (
     <div
       className={`
-        flex gap-1 w-full sm:w-auto bg-card rounded-xl p-1.5
+        flex gap-2 w-full sm:w-auto bg-card rounded-xl p-2
         ${className}
       `}
     >
@@ -43,11 +43,11 @@ export function Tabs({
             key={tab.id}
             onClick={() => onChange(tab.id)}
             className={`
-              flex-1 sm:flex-initial inline-flex items-center justify-center font-medium rounded-lg
-              transition-all duration-200 focus:outline-none whitespace-nowrap
+              flex-1 inline-flex items-center justify-center font-black rounded-lg
+              transition-all duration-200 focus:outline-none whitespace-nowrap cursor-pointer
               ${sizeClasses[size]}
               ${isActive
-                ? 'bg-surface text-text-primary shadow-sm'
+                ? 'bg-surface text-primary shadow-sm scale-[1.01]'
                 : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover'
               }
             `}

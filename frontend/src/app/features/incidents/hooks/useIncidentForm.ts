@@ -20,7 +20,6 @@ export function useIncidentForm(onSuccess?: () => void) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Datos del formulario
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [selectedClassroom, setSelectedClassroom] = useState<number | null>(null);
@@ -51,7 +50,7 @@ export function useIncidentForm(onSuccess?: () => void) {
     const loadStudents = async () => {
       try {
         setIsLoadingStudents(true);
-        const data = await usersService.getStudents(undefined, selectedClassroom);
+        const data = await usersService.getStudents({ classroom_id: selectedClassroom });
         setStudents(data || []);
       } catch (err) {
         console.error('Error loading students:', err);
@@ -105,7 +104,6 @@ export function useIncidentForm(onSuccess?: () => void) {
   }, []);
 
   return {
-    // State
     classrooms,
     students,
     selectedClassroom,
@@ -113,7 +111,6 @@ export function useIncidentForm(onSuccess?: () => void) {
     isLoadingStudents,
     isSubmitting,
     error,
-    // Actions
     selectClassroom,
     createIncident,
     updateIncident,

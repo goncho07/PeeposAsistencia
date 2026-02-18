@@ -33,7 +33,7 @@ export function Select({
   return (
     <div className={`w-full ${className}`}>
       {label && (
-        <label className="block text-sm font-medium mb-1.5 text-text-primary dark:text-text-primary-dark">
+        <label className="block text-xl font-medium mb-1.5 text-text-primary dark:text-text-primary-dark">
           {label}
           {required && <span className="text-danger ml-1">*</span>}
         </label>
@@ -53,7 +53,7 @@ export function Select({
             w-full px-4 py-2.5 pr-10 rounded-xl
             border border-border dark:border-border-dark
             bg-background dark:bg-surface-dark
-            text-text-primary dark:text-text-primary-dark
+            text-xl text-text-secondary dark:text-text-primary-dark
             appearance-none cursor-pointer
             focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
             disabled:opacity-50 disabled:cursor-not-allowed

@@ -20,17 +20,18 @@ export function useUserSearch(entities: Entity[], entityType: EntityType) {
       switch (entityType) {
         case 'student': {
           const student = entity as Student;
-          if (filters.level && student.classroom?.level !== filters.level) return false;
-          if (filters.grade && student.classroom?.grade.toString() !== filters.grade) return false;
-          if (filters.section && student.classroom?.section !== filters.section) return false;
+          const classroom = student.classroom;
+          if (filters.level && classroom?.level !== filters.level) return false;
+          if (filters.grade && classroom?.grade.toString() !== filters.grade) return false;
+          if (filters.section && classroom?.section !== filters.section) return false;
           if (filters.enrollmentStatus && student.enrollment_status !== filters.enrollmentStatus) return false;
           return true;
         }
         case 'teacher': {
           const teacher = entity as Teacher;
           if (filters.level && teacher.level !== filters.level) return false;
-          if (filters.area && teacher.area !== filters.area) return false;
-          if (filters.status && teacher.status !== filters.status) return false;
+          if (filters.area && (teacher as any).area !== filters.area) return false;
+          if (filters.status && teacher.user?.status !== filters.status) return false;
           return true;
         }
         case 'parent': {
@@ -60,24 +61,25 @@ export function useUserSearch(entities: Entity[], entityType: EntityType) {
 
       if (entityType === 'student') {
         const student = entity as Student;
+        const classroom = student.classroom;
         searchableFields.push(student.student_code || '');
-        if (student.classroom) {
+        if (classroom) {
           searchableFields.push(
-            student.classroom.level,
-            student.classroom.grade.toString(),
-            student.classroom.section,
-            student.classroom.full_name
+            classroom.level,
+            classroom.grade.toString(),
+            classroom.section,
+            classroom.full_name
           );
         }
       } else if (entityType === 'teacher') {
         const teacher = entity as Teacher;
-        searchableFields.push(teacher.dni || '', teacher.level || '', teacher.area || '');
+        searchableFields.push(teacher.document_number || '', teacher.level || '', (teacher as any).area || '');
       } else if (entityType === 'parent') {
         const parent = entity as Parent;
         searchableFields.push(parent.document_number || '', parent.phone_number || '');
       } else if (entityType === 'user') {
         const user = entity as User;
-        searchableFields.push(user.dni || '', user.role || '');
+        searchableFields.push(user.document_number || '', user.role || '');
       }
 
       return searchableFields.some((field) => field?.toLowerCase().includes(query));

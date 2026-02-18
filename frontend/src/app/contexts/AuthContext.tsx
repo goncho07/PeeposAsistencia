@@ -1,18 +1,10 @@
 'use client';
-import { createContext, useContext, useEffect, useState, useMemo, ReactNode, useCallback } from 'react';
-import { authService, LoginCredentials } from '@/lib/api/auth';
-import { Tenant } from '@/lib/api/tenant';
-import { useRouter } from 'next/navigation';
+import { createContext, useContext, useEffect, useState, useMemo, ReactNode, useCallback, useRef } from 'react';
+import { authService, LoginCredentials, AuthUser } from '@/lib/api/auth';
+import { buildTenantPath } from '@/lib/axios';
+import { getDefaultRoute } from '@/lib/auth/permissions';
 
-export interface User {
-    id: number;
-    email: string;
-    name: string;
-    dni?: string;
-    role: string;
-    tenant_id: number;
-    tenant?: Tenant;
-}
+export type User = AuthUser;
 
 interface AuthContextType {
     user: User | null;
@@ -20,6 +12,7 @@ interface AuthContextType {
     isLoading: boolean;
     login: (credentials: LoginCredentials) => Promise<void>;
     logout: () => Promise<void>;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -27,23 +20,44 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
     const [user, setUser] = useState<User | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const router = useRouter();
+    const lastValidationRef = useRef<number>(0);
+
+    const clearAuth = useCallback(() => {
+        setUser(null);
+    }, []);
+
+    const refreshUser = useCallback(async () => {
+        try {
+            const response = await authService.getUser();
+            setUser(response.user);
+        } catch {
+            clearAuth();
+        }
+    }, [clearAuth]);
+
+    const validateSessionIfNeeded = useCallback(async () => {
+        if (!user) return;
+
+        const now = Date.now();
+        if (now - lastValidationRef.current < 5 * 60 * 1000) {
+            return;
+        }
+
+        lastValidationRef.current = now;
+        try {
+            await authService.getUser();
+        } catch {
+            clearAuth();
+        }
+    }, [user, clearAuth]);
 
     useEffect(() => {
         const initializeAuth = async () => {
             try {
-                const token = localStorage.getItem('token');
-
-                if (!token) {
-                    setUser(null);
-                    return;
-                }
-
                 const response = await authService.getUser();
                 setUser(response.user);
-            } catch (error) {
-                console.error('Token inválido o expirado:', error);
-                localStorage.removeItem('token');
+                lastValidationRef.current = Date.now();
+            } catch {
                 setUser(null);
             } finally {
                 setIsLoading(false);
@@ -53,32 +67,45 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         initializeAuth();
     }, []);
 
+    useEffect(() => {
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                validateSessionIfNeeded();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, [validateSessionIfNeeded]);
+
+    useEffect(() => {
+        const handleFocus = () => {
+            validateSessionIfNeeded();
+        };
+
+        window.addEventListener('focus', handleFocus);
+        return () => window.removeEventListener('focus', handleFocus);
+    }, [validateSessionIfNeeded]);
+
     const login = useCallback(async (credentials: LoginCredentials) => {
         const data = await authService.login(credentials);
 
-        localStorage.setItem('token', data.access_token);
         setUser(data.user);
+        lastValidationRef.current = Date.now();
 
-        const tenantSlug = data.user.tenant?.slug || 'dashboard';
-        router.push(`/${tenantSlug}/dashboard`);
-    }, [router]);
+        window.location.href = buildTenantPath(getDefaultRoute(data.user.role), data.user.tenant?.slug);
+    }, []);
 
     const logout = useCallback(async () => {
-        const tenantSlug = user?.tenant?.slug ||
-            (typeof window !== 'undefined'
-                ? window.location.pathname.split('/').filter(Boolean)[0]
-                : 'login');
-
         try {
             await authService.logout();
-        } catch (error) {
-            console.error('Error durante logout:', error);
+        } catch {
+            //
         } finally {
-            localStorage.removeItem('token');
-            setUser(null);
-            router.push(`/${tenantSlug}/login`);
+            clearAuth();
+            window.location.href = buildTenantPath('/login');
         }
-    }, [user?.tenant?.slug, router]);
+    }, [clearAuth]);
 
     const value = useMemo(() => ({
         user,
@@ -86,7 +113,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         login,
         logout,
-    }), [user, isLoading, login, logout]);
+        refreshUser,
+    }), [user, isLoading, login, logout, refreshUser]);
 
     return (
         <AuthContext.Provider value={value}>

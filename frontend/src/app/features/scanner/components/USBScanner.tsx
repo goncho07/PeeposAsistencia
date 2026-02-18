@@ -97,7 +97,7 @@ export function USBScanner({ scanType, onBack }: USBScannerProps) {
         </div>
       </div>
 
-      <ScanResult result={result} error={error} />
+      <ScanResult result={result} error={error} scanType={scanType} />
     </div>
   );
 }

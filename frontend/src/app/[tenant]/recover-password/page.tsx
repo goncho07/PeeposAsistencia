@@ -1,13 +1,11 @@
 'use client';
 import { useState } from 'react';
-import { useTenant } from '@/app/contexts/TenantContext';
 import { AuthLayout } from '@/app/components/layouts/AuthLayout';
 import { Input, Button } from '@/app/components/ui/base';
 import { Mail, ArrowLeft, Send } from 'lucide-react';
 import Link from 'next/link';
 
 export default function RecuperarPasswordPage() {
-    const { tenant } = useTenant();
     const [email, setEmail] = useState('');
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
@@ -20,7 +18,6 @@ export default function RecuperarPasswordPage() {
 
         try {
             //
-
             await new Promise(resolve => setTimeout(resolve, 2000));
             setSuccess(true);
         } catch (err: any) {
@@ -44,7 +41,7 @@ export default function RecuperarPasswordPage() {
                         variant="primary"
                         icon={<ArrowLeft size={20} />}
                         className="w-full"
-                        onClick={() => window.location.href = `/${tenant?.slug}/login`}
+                        onClick={() => window.location.href = '/login'}
                     >
                         Volver al inicio de sesión
                     </Button>
@@ -86,7 +83,7 @@ export default function RecuperarPasswordPage() {
 
                     <div className="mt-6 text-center">
                         <Link
-                            href={`/${tenant?.slug}/login`}
+                            href="/login"
                             className="text-sm font-medium hover:underline transition-colors inline-flex items-center gap-2 text-primary"
                         >
                             <ArrowLeft size={16} />

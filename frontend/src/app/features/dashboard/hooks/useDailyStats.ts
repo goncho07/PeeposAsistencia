@@ -1,7 +1,7 @@
 import { useFetchData } from '@/app/hooks';
-import { attendanceService, DailyStats } from '@/lib/api/attendance';
+import { attendanceService, DailyStats, AttendableType } from '@/lib/api/attendance';
 
-export type { DailyStats };
+export type { DailyStats, AttendableType };
 
 export function useDailyStats() {
   const { data, loading, error, refetch } = useFetchData<DailyStats>({

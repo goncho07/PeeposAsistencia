@@ -17,19 +17,21 @@ export function InfoTab({ entity, entityType }: InfoTabProps) {
 
   return (
     <div className="space-y-4">
-      <DetailCard title="Información" icon={UserIcon}>
+      <DetailCard title="Datos Personales" icon={UserIcon}>
         <div className="grid grid-cols-2 gap-x-6 gap-y-4">
           {student && (
             <>
               <DetailField label="Código" value={student.student_code} />
-              <DetailField
-                label="Nacimiento"
-                value={new Date(student.birth_date).toLocaleDateString('es-ES', {
-                  day: '2-digit',
-                  month: 'short',
-                  year: 'numeric',
-                })}
-              />
+              {student.birth_date && (
+                <DetailField
+                  label="Nacimiento"
+                  value={new Date(student.birth_date).toLocaleDateString('es-ES', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric',
+                  })}
+                />
+              )}
               <DetailField label="Edad" value={`${student.age} años`} />
               <DetailField label="Género" value={student.gender} />
               <div>
@@ -46,13 +48,15 @@ export function InfoTab({ entity, entityType }: InfoTabProps) {
               <DetailField label="Nivel" value={teacher.level} icon={MapPin} />
               {teacher.email && <DetailField label="Email" value={teacher.email} icon={Mail} />}
               {teacher.phone_number && <DetailField label="Teléfono" value={teacher.phone_number} icon={Phone} />}
-              {teacher.area && <DetailField label="Área" value={teacher.area} icon={Briefcase} className="col-span-2" />}
-              <div>
-                <div className="text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1">
-                  Estado
+              {teacher.specialty && <DetailField label="Especialidad" value={teacher.specialty} icon={Briefcase} className="col-span-2" />}
+              {teacher.user?.status && (
+                <div>
+                  <div className="text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1">
+                    Estado
+                  </div>
+                  <StatusBadge status={teacher.user.status} />
                 </div>
-                <StatusBadge status={teacher.status} />
-              </div>
+              )}
             </>
           )}
 
@@ -67,8 +71,9 @@ export function InfoTab({ entity, entityType }: InfoTabProps) {
             <>
               {user.email && <DetailField label="Email" value={user.email} className="text-xs" />}
               {user.phone_number && <DetailField label="Teléfono" value={user.phone_number} />}
+              {user.role && <DetailField label="Ról" value={user.role} />}
               <div>
-                <div className="text-xs font-medium text-text-secondary dark:text-text-secondary-dark mb-1">
+                <div className="text-md font-medium text-text-secondary dark:text-text-secondary-dark mb-1">
                   Estado
                 </div>
                 <StatusBadge status={user.status} />
@@ -81,7 +86,7 @@ export function InfoTab({ entity, entityType }: InfoTabProps) {
       {student && student.parents && student.parents.length > 0 && (
         <DetailCard title="Apoderados" icon={Heart}>
           <div className="grid grid-cols-1 gap-3">
-            {student.parents.map((parentData: any, index: number) => (
+            {student.parents.map((parentData, index) => (
               <div
                 key={index}
                 className="p-4 rounded-lg border border-border dark:border-border-dark bg-surface dark:bg-surface-dark"
@@ -114,7 +119,7 @@ export function InfoTab({ entity, entityType }: InfoTabProps) {
       {parent && parent.students && parent.students.length > 0 && (
         <DetailCard title="Hijos" icon={Users}>
           <div className="grid grid-cols-1 gap-3">
-            {parent.students.map((studentData: any, index: number) => (
+            {parent.students.map((studentData, index) => (
               <div
                 key={index}
                 className="p-4 rounded-lg border border-border dark:border-border-dark bg-surface dark:bg-surface-dark"

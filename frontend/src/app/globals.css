@@ -3,6 +3,7 @@
 @import "tailwindcss";
 
 :root {
+    --font-default: 'Poppins', system-ui, sans-serif;
     --bg-background: #f1f1f1;
     --bg-surface: #fffdfd;
     --bg-surface-hover: #f3f3f3;
@@ -71,7 +72,7 @@
 .hover\:bg-surface-hover:hover { background-color: var(--bg-surface-hover); }
 
 html, body {
-    font-family: var(--font-family-sans);
+    font-family: var(--font-default);
     min-height: 100vh;
     overflow-x: hidden;
     max-width: 100vw;
@@ -146,6 +147,30 @@ html, body {
 
 ::-webkit-scrollbar-corner {
     background: transparent;
+}
+
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px var(--bg-background) inset !important;
+    -webkit-text-fill-color: var(--text-secondary) !important;
+    caret-color: var(--text-primary) !important;
+    transition: background-color 5000s ease-in-out 0s;
+}
+
+:root.dark input:-webkit-autofill,
+.dark input:-webkit-autofill,
+:root.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:hover,
+:root.dark input:-webkit-autofill:focus,
+.dark input:-webkit-autofill:focus,
+:root.dark input:-webkit-autofill:active,
+.dark input:-webkit-autofill:active {
+    -webkit-box-shadow: 0 0 0px 1000px var(--bg-background) inset !important;
+    -webkit-text-fill-color: var(--text-secondary) !important;
+    caret-color: var(--text-primary) !important;
+    transition: background-color 5000s ease-in-out 0s;
 }
 
 * {

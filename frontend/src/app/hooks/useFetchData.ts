@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 interface UseFetchDataOptions<T> {
   fetchFn: () => Promise<T[]>;
   errorMessage?: string;
+  enabled?: boolean;
   onSuccess?: (data: T[]) => void;
   onError?: (error: any) => void;
 }
@@ -10,12 +11,14 @@ interface UseFetchDataOptions<T> {
 export function useFetchData<T>({
   fetchFn,
   errorMessage = 'Error al cargar datos',
+  enabled = true,
   onSuccess,
   onError,
 }: UseFetchDataOptions<T>) {
   const [data, setData] = useState<T[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(enabled);
   const [error, setError] = useState<string | null>(null);
+  const hasFetched = useRef(false);
 
   const fetchFnRef = useRef(fetchFn);
   const onSuccessRef = useRef(onSuccess);
@@ -33,6 +36,7 @@ export function useFetchData<T>({
     try {
       const result = await fetchFnRef.current();
       setData(result || []);
+      hasFetched.current = true;
       onSuccessRef.current?.(result || []);
     } catch (err: any) {
       const errorMsg = err.response?.data?.message || errorMessage;
@@ -45,8 +49,10 @@ export function useFetchData<T>({
   }, [errorMessage]);
 
   useEffect(() => {
-    fetch();
-  }, [fetch]);
+    if (enabled && !hasFetched.current) {
+      fetch();
+    }
+  }, [enabled, fetch]);
 
   return { data, loading, error, refetch: fetch };
 }

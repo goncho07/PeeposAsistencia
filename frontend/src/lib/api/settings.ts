@@ -1,7 +1,10 @@
 import axios from '../axios';
+import { ApiResponse } from './types';
+import type { AttendableType } from './attendance';
 
 export interface Settings {
   general: {
+    attendable_types: AttendableType[];
     attendance_days: string[];
     tardiness_tolerance_minutes: number;
     timezone: string;
@@ -12,35 +15,29 @@ export interface Settings {
     [key: string]: string;
   };
   whatsapp: {
-    whatsapp_inicial_phone: string;
-    whatsapp_primaria_phone: string;
-    whatsapp_secundaria_phone: string;
+    waha_inicial_port: number;
+    waha_primaria_port: number;
+    waha_secundaria_port: number;
     whatsapp_notifications_enabled: boolean;
     whatsapp_send_on_entry: boolean;
     whatsapp_send_on_exit: boolean;
     whatsapp_send_on_absence: boolean;
   };
-  bimestres: {
-    bimestre_1_inicio: string;
-    bimestre_1_fin: string;
-    bimestre_2_inicio: string;
-    bimestre_2_fin: string;
-    bimestre_3_inicio: string;
-    bimestre_3_fin: string;
-    bimestre_4_inicio: string;
-    bimestre_4_fin: string;
-  };
 }
 
 class SettingsService {
   async getAll(): Promise<Settings> {
-    const response = await axios.get('/settings');
-    return response.data;
+    const response = await axios.get<ApiResponse<Settings>>('/settings');
+    return response.data.data;
+  }
+
+  async getAttendableTypes(): Promise<AttendableType[]> {
+    const response = await axios.get<ApiResponse<AttendableType[]>>('/settings/attendable-types');
+    return response.data.data;
   }
 
   async update(settings: Partial<Settings>): Promise<void> {
-    // Flatten the nested structure for the backend
-    const flattenedSettings: any = {};
+    const flattenedSettings: Record<string, unknown> = {};
 
     Object.entries(settings).forEach(([_, values]) => {
       if (typeof values === 'object' && values !== null) {

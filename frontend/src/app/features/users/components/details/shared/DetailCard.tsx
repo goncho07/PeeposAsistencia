@@ -9,10 +9,10 @@ interface DetailCardProps {
 
 export function DetailCard({ title, icon: Icon, children }: DetailCardProps) {
   return (
-    <div className="rounded-xl p-6 bg-background border border-border dark:border-border-dark">
+    <div className="rounded-xl p-6 bg-background border border-border">
       <div className="flex items-center gap-3 mb-6">
-        <Icon className="w-5 h-5 text-primary dark:text-primary-light" />
-        <h3 className="text-lg font-semibold text-text-primary dark:text-text-primary-dark">
+        <Icon className="w-6 h-6 text-primary dark:text-primary-light" />
+        <h3 className="text-xl font-semibold text-text-primary">
           {title}
         </h3>
       </div>

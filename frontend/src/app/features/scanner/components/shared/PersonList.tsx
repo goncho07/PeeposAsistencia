@@ -20,7 +20,7 @@ export function PersonList({
   onPageChange,
 }: PersonListProps) {
   const getPhotoUrl = (person: Person) => {
-    if (person.type === 'student' && 'photo_url' in person && person.photo_url) {
+    if ('photo_url' in person && person.photo_url) {
       return getStorageUrl(person.photo_url);
     }
     return null;
@@ -36,11 +36,11 @@ export function PersonList({
   };
 
   const getPersonDetail = (person: Person) => {
-    if (person.type === 'student' && 'student_code' in person) {
-      return `Código: ${person.student_code}`;
-    }
-    if (person.type === 'teacher' && 'dni' in person) {
-      return `DNI: ${person.dni}`;
+    if ('document_number' in person && person.document_number) {
+      if (person.type === 'user' && 'role' in person) {
+        return `${person.role} · DNI: ${person.document_number}`;
+      }
+      return `DNI: ${person.document_number}`;
     }
     return '';
   };
@@ -48,10 +48,10 @@ export function PersonList({
   if (persons.length === 0) {
     return (
       <div className="text-center py-16">
-        <div className="w-20 h-20 rounded-full bg-border/10 dark:bg-border-dark/10 flex items-center justify-center mx-auto mb-4">
-          <User className="w-10 h-10 text-text-secondary dark:text-text-secondary-dark" />
+        <div className="w-20 h-20 rounded-full bg-border/10 flex items-center justify-center mx-auto mb-4">
+          <User className="w-20 h-20 text-text-secondary" />
         </div>
-        <p className="text-text-secondary dark:text-text-secondary-dark">
+        <p className="text-3xl text-text-secondary">
           No se encontraron resultados
         </p>
       </div>
@@ -69,32 +69,33 @@ export function PersonList({
             <button
               key={`${person.type}-${person.id}`}
               onClick={() => onSelect(person)}
-              className={`w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 text-left ${
-                isSelected
-                  ? 'border-primary bg-primary/5 dark:bg-primary/10'
-                  : 'border-border dark:border-border-dark bg-surface dark:bg-surface-dark hover:border-primary/50 dark:hover:border-primary-light/50'
-              }`}
+              className={`w-full p-4 rounded-lg border-2 transition-all flex items-center gap-4 text-left
+                 ${isSelected
+                  ? 'border-primary bg-primary/10 text-primary'
+                  : 'border-border bg-surface text-text-primary hover:border-primary hover:bg-surface-hover hover:text-primary'
+                }`}
             >
+
               <div className="shrink-0">
                 {photoUrl ? (
                   <img
                     src={photoUrl}
                     alt={person.full_name}
-                    className="w-14 h-14 rounded-full object-cover border-2 border-border dark:border-border-dark"
+                    className="w-16 h-16 rounded-full object-cover border-2 border-border dark:border-border-dark"
                   />
                 ) : (
-                  <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center border-2 border-border dark:border-border-dark">
-                    <span className="text-lg font-bold text-primary dark:text-primary-light">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center border-2 border-border dark:border-border-dark">
+                    <span className="text-xl font-bold text-primary dark:text-primary-light">
                       {getInitials(person.full_name)}
                     </span>
                   </div>
                 )}
               </div>
               <div className="flex-1 min-w-0">
-                <h3 className="font-semibold text-text-primary dark:text-text-primary-dark truncate">
+                <h3 className="font-semibold text-xl text-text-primary truncate">
                   {person.full_name}
                 </h3>
-                <p className="text-sm text-text-secondary dark:text-text-secondary-dark">
+                <p className="text-md text-text-secondary">
                   {getPersonDetail(person)}
                 </p>
               </div>

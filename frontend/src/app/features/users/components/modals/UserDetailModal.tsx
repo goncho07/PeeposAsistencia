@@ -33,7 +33,7 @@ export function UserDetailModal({
       { id: 'info', label: 'Información', icon: <UserIcon className="w-4 h-4" /> },
     ];
 
-    if (entityType !== 'parent') {
+    if (entityType !== 'parent' && entityType !== 'user') {
       tabs.push({
         id: 'academic',
         label: 'Académico',

@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { scannerService, ScanResponse } from '@/lib/api/scanner';
+import { scannerService, ScanResponse, DeviceType } from '@/lib/api/scanner';
 
-export function useScanner(scanType: 'entry' | 'exit') {
+export function useScanner(scanType: 'entry' | 'exit', deviceType: DeviceType) {
   const [result, setResult] = useState<ScanResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -14,8 +14,8 @@ export function useScanner(scanType: 'entry' | 'exit') {
 
       const response =
         scanType === 'entry'
-          ? await scannerService.scanEntry(qrCode)
-          : await scannerService.scanExit(qrCode);
+          ? await scannerService.scanEntry(qrCode, deviceType)
+          : await scannerService.scanExit(qrCode, deviceType);
 
       setResult(response);
 

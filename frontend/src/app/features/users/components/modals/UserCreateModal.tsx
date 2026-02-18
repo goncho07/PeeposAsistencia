@@ -10,8 +10,7 @@ import {
   StudentAssignmentForm,
   PhotoUploadForm,
 } from '../forms';
-import { useFetchClassrooms } from '../../hooks/useFetchClassrooms';
-import { usersService } from '@/lib/api/users';
+import { usersService, Classroom, Student, Parent } from '@/lib/api/users';
 import { User, IdCard, GraduationCap, Mail, Users } from 'lucide-react';
 
 export type EntityType = 'student' | 'teacher' | 'parent' | 'user';
@@ -22,6 +21,9 @@ interface UserCreateModalProps {
   onClose: () => void;
   onSuccess: () => void;
   entityType: EntityType;
+  classrooms: Classroom[];
+  allParents: Parent[];
+  allStudents: Student[];
 }
 
 export function UserCreateModal({
@@ -29,16 +31,17 @@ export function UserCreateModal({
   onClose,
   onSuccess,
   entityType,
+  classrooms,
+  allParents,
+  allStudents,
 }: UserCreateModalProps) {
   const [activeTab, setActiveTab] = useState<TabType>('personal');
   const [formData, setFormData] = useState<any>({});
   const [selectedParentIds, setSelectedParentIds] = useState<number[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
-  const [_photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-
-  const { classrooms } = useFetchClassrooms();
 
   useEffect(() => {
     if (isOpen) {
@@ -56,7 +59,7 @@ export function UserCreateModal({
       name: '',
       paternal_surname: '',
       maternal_surname: '',
-      document_type: 'dni',
+      document_type: 'DNI',
       document_number: '',
       birth_date: '',
       gender: 'M',
@@ -67,9 +70,7 @@ export function UserCreateModal({
         ...base,
         student_code: '',
         classroom_id: null,
-        enrollment_date: '',
-        academic_year: String(new Date().getFullYear()),
-        enrollment_status: 'active',
+        enrollment_status: 'MATRICULADO',
       };
     }
 
@@ -77,10 +78,9 @@ export function UserCreateModal({
       return {
         ...base,
         level: '',
-        area: '',
+        specialty: '',
         email: '',
         phone_number: '',
-        address: '',
       };
     }
 
@@ -174,6 +174,7 @@ export function UserCreateModal({
         ...formData,
         parent_ids: selectedParentIds,
         student_ids: selectedStudentIds,
+        photo: photoFile,
       };
 
       if (entityType === 'student') {
@@ -206,10 +207,10 @@ export function UserCreateModal({
       size="xl"
       footer={
         <>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="outline" onClick={onClose} disabled={loading} className='text-xl'>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleSubmit} loading={loading}>
+          <Button variant="primary" onClick={handleSubmit} loading={loading} className='text-xl'>
             Crear
           </Button>
         </>
@@ -252,6 +253,7 @@ export function UserCreateModal({
 
         {activeTab === 'relations' && entityType === 'student' && (
           <ParentAssignmentForm
+            parents={allParents}
             selectedParentIds={selectedParentIds}
             onToggleParent={toggleParent}
           />
@@ -259,6 +261,7 @@ export function UserCreateModal({
 
         {activeTab === 'relations' && entityType === 'parent' && (
           <StudentAssignmentForm
+            students={allStudents}
             selectedStudentIds={selectedStudentIds}
             onToggleStudent={toggleStudent}
           />

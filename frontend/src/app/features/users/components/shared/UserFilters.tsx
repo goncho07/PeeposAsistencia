@@ -1,8 +1,8 @@
 'use client';
-import { useState, useMemo } from 'react';
-import { Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { useMemo } from 'react';
 import { Select } from '@/app/components/ui/base';
-import { EntityType, Student, Teacher, Entity } from '@/lib/api/users';
+import { FilterPanel } from '@/app/components/ui/FilterPanel';
+import { EntityType, Teacher, Student, Entity } from '@/lib/api/users';
 
 export interface FilterValues {
     level?: string;
@@ -23,8 +23,8 @@ interface UserFiltersProps {
 }
 
 const ENROLLMENT_STATUSES = ['MATRICULADO', 'RETIRADO', 'TRASLADADO'];
-const ENTITY_STATUSES = ['ACTIVO', 'INACTIVO'];
-const USER_ROLES = ['ADMIN', 'ASISTENTE', 'VIEWER'];
+const ENTITY_STATUSES = ['ACTIVO', 'INACTIVO', 'SUSPENDIDO'];
+const USER_ROLES = ['SUPERADMIN', 'DIRECTOR', 'SUBDIRECTOR', 'SECRETARIO', 'COORDINADOR', 'AUXILIAR', 'DOCENTE', 'ESCANER'];
 const DOCUMENT_TYPES = ['DNI', 'CE', 'PAS', 'CI', 'PTP'];
 
 function toSelectOptions(values: string[], placeholder: string = 'Todos') {
@@ -35,49 +35,45 @@ function toSelectOptions(values: string[], placeholder: string = 'Todos') {
 }
 
 export function UserFilters({ entityType, entities, filters, onFiltersChange }: UserFiltersProps) {
-    const [isExpanded, setIsExpanded] = useState(false);
-
     const availableLevels = useMemo(() => {
-        const levels = new Set<string>();
-        entities.forEach((entity) => {
-            if (entityType === 'student') {
-                const student = entity as Student;
-                if (student.classroom?.level) levels.add(student.classroom.level);
-            } else if (entityType === 'teacher') {
+        if (entityType === 'student') {
+            const levels = new Set<string>();
+            entities.forEach((entity) => {
+                const classroom = (entity as Student).classroom;
+                if (classroom?.level) levels.add(classroom.level);
+            });
+            return Array.from(levels).sort();
+        }
+        if (entityType === 'teacher') {
+            const levels = new Set<string>();
+            entities.forEach((entity) => {
                 const teacher = entity as Teacher;
                 if (teacher.level) levels.add(teacher.level);
-            }
-        });
-        return Array.from(levels).sort();
+            });
+            return Array.from(levels).sort();
+        }
+        return [];
     }, [entities, entityType]);
 
     const availableGrades = useMemo(() => {
-        if (!filters.level) return [];
+        if (entityType !== 'student' || !filters.level) return [];
         const grades = new Set<string>();
         entities.forEach((entity) => {
-            if (entityType === 'student') {
-                const student = entity as Student;
-                if (student.classroom && student.classroom.level === filters.level) {
-                    grades.add(student.classroom.grade.toString());
-                }
+            const classroom = (entity as Student).classroom;
+            if (classroom && classroom.level === filters.level) {
+                grades.add(classroom.grade.toString());
             }
         });
         return Array.from(grades).sort((a, b) => Number(a) - Number(b));
     }, [entities, entityType, filters.level]);
 
     const availableSections = useMemo(() => {
-        if (!filters.level || !filters.grade) return [];
+        if (entityType !== 'student' || !filters.level || !filters.grade) return [];
         const sections = new Set<string>();
         entities.forEach((entity) => {
-            if (entityType === 'student') {
-                const student = entity as Student;
-                if (
-                    student.classroom &&
-                    student.classroom.level === filters.level &&
-                    student.classroom.grade.toString() === filters.grade
-                ) {
-                    sections.add(student.classroom.section);
-                }
+            const classroom = (entity as Student).classroom;
+            if (classroom && classroom.level === filters.level && classroom.grade.toString() === filters.grade) {
+                sections.add(classroom.section);
             }
         });
         return Array.from(sections).sort();
@@ -88,7 +84,7 @@ export function UserFilters({ entityType, entities, filters, onFiltersChange }: 
         entities.forEach((entity) => {
             if (entityType === 'teacher') {
                 const teacher = entity as Teacher;
-                if (teacher.area) areas.add(teacher.area);
+                if ((teacher as any).area) areas.add((teacher as any).area);
             }
         });
         return Array.from(areas).sort();
@@ -108,10 +104,6 @@ export function UserFilters({ entityType, entities, filters, onFiltersChange }: 
         }
 
         onFiltersChange(newFilters);
-    };
-
-    const clearFilters = () => {
-        onFiltersChange({});
     };
 
     const activeFiltersCount = Object.values(filters).filter(Boolean).length;
@@ -208,75 +200,11 @@ export function UserFilters({ entityType, entities, filters, onFiltersChange }: 
     };
 
     return (
-        <>
-            <div className="lg:hidden">
-                <button
-                    onClick={() => setIsExpanded(!isExpanded)}
-                    className="w-full flex items-center justify-between p-4 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm"
-                >
-                    <div className="flex items-center gap-3">
-                        <Filter size={18} className="text-text-secondary dark:text-text-secondary-dark" />
-                        <span className="font-medium text-text-primary dark:text-text-primary-dark">Filtros</span>
-                        {activeFiltersCount > 0 && (
-                            <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-primary text-white">
-                                {activeFiltersCount}
-                            </span>
-                        )}
-                    </div>
-                    {isExpanded ? (
-                        <ChevronUp size={18} className="text-text-secondary dark:text-text-secondary-dark" />
-                    ) : (
-                        <ChevronDown size={18} className="text-text-secondary dark:text-text-secondary-dark" />
-                    )}
-                </button>
-
-                {isExpanded && (
-                    <div className="mt-3 p-4 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm space-y-4">
-                        {renderFilters()}
-                        {activeFiltersCount > 0 && (
-                            <button
-                                onClick={clearFilters}
-                                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                            >
-                                <X size={16} />
-                                Limpiar filtros
-                            </button>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            <div className="hidden lg:block w-64 shrink-0">
-                <div className="sticky top-24 p-4 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm">
-                    <div className="flex items-center justify-between mb-4">
-                        <div className="flex items-center gap-2">
-                            <Filter size={18} className="text-text-secondary dark:text-text-secondary-dark" />
-                            <span className="font-semibold text-text-primary dark:text-text-primary-dark">Filtros</span>
-                        </div>
-                        {activeFiltersCount > 0 && (
-                            <button
-                                onClick={clearFilters}
-                                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger hover:bg-danger/10 rounded-lg transition-colors"
-                            >
-                                <X size={14} />
-                                Limpiar
-                            </button>
-                        )}
-                    </div>
-
-                    <div className="space-y-4">
-                        {renderFilters()}
-                    </div>
-
-                    {activeFiltersCount > 0 && (
-                        <div className="mt-4 pt-4 border-t border-border dark:border-border-dark">
-                            <p className="text-xs text-text-secondary dark:text-text-secondary-dark">
-                                {activeFiltersCount} filtro{activeFiltersCount > 1 ? 's' : ''} activo{activeFiltersCount > 1 ? 's' : ''}
-                            </p>
-                        </div>
-                    )}
-                </div>
-            </div>
-        </>
+        <FilterPanel
+            activeCount={activeFiltersCount}
+            onClear={() => onFiltersChange({})}
+        >
+            {renderFilters()}
+        </FilterPanel>
     );
 }

@@ -1,52 +1,64 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   incidentsService,
   Incident,
   IncidentFilters,
-  IncidentStatistics,
 } from '@/lib/api/incidents';
 
 export function useIncidents() {
-  const [incidents, setIncidents] = useState<Incident[]>([]);
-  const [statistics, setStatistics] = useState<IncidentStatistics | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [allIncidents, setAllIncidents] = useState<Incident[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<IncidentFilters>({});
-  const [pagination, setPagination] = useState({
-    currentPage: 1,
-    lastPage: 1,
-    total: 0,
-  });
+  const [searchQuery, setSearchQuery] = useState('');
 
-  const fetchIncidents = useCallback(async (currentFilters?: IncidentFilters) => {
+  const fetchIncidents = useCallback(async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const filtersToUse = currentFilters ?? filters;
-      const response = await incidentsService.getAll(filtersToUse);
-      setIncidents(response.data);
-      setPagination({
-        currentPage: response.current_page,
-        lastPage: response.last_page,
-        total: response.total,
-      });
+      const data = await incidentsService.getAll();
+      setAllIncidents(data);
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al cargar incidencias');
-      setIncidents([]);
+      setAllIncidents([]);
     } finally {
       setIsLoading(false);
     }
-  }, [filters]);
-
-  const fetchStatistics = useCallback(async (classroomId?: number) => {
-    try {
-      const statsFilters = classroomId ? { classroom_id: classroomId } : undefined;
-      const stats = await incidentsService.getStatistics(statsFilters);
-      setStatistics(stats);
-    } catch (err: any) {
-      console.error('Error fetching statistics:', err);
-    }
   }, []);
+
+  const severityCounts = useMemo(() => ({
+    total: allIncidents.length,
+    LEVE: allIncidents.filter((i) => i.severity === 'LEVE').length,
+    MODERADA: allIncidents.filter((i) => i.severity === 'MODERADA').length,
+    GRAVE: allIncidents.filter((i) => i.severity === 'GRAVE').length,
+  }), [allIncidents]);
+
+  const filteredIncidents = useMemo(() => {
+    let result = allIncidents;
+
+    if (searchQuery.trim()) {
+      const q = searchQuery.toLowerCase().trim();
+      result = result.filter(
+        (i) =>
+          i.student.full_name.toLowerCase().includes(q) ||
+          i.student.document_number?.toLowerCase().includes(q)
+      );
+    }
+
+    if (filters.classroom_id) {
+      result = result.filter((i) => i.classroom_id === filters.classroom_id);
+    }
+
+    if (filters.type) {
+      result = result.filter((i) => i.type === filters.type);
+    }
+
+    if (filters.severity) {
+      result = result.filter((i) => i.severity === filters.severity);
+    }
+
+    return result;
+  }, [allIncidents, filters, searchQuery]);
 
   const updateFilters = useCallback((newFilters: IncidentFilters) => {
     setFilters(newFilters);
@@ -54,12 +66,13 @@ export function useIncidents() {
 
   const clearFilters = useCallback(() => {
     setFilters({});
+    setSearchQuery('');
   }, []);
 
   const deleteIncident = useCallback(async (id: number) => {
     try {
       await incidentsService.delete(id);
-      setIncidents((prev) => prev.filter((i) => i.id !== id));
+      setAllIncidents((prev) => prev.filter((i) => i.id !== id));
       return true;
     } catch (err: any) {
       setError(err.response?.data?.message || 'Error al eliminar incidencia');
@@ -69,24 +82,21 @@ export function useIncidents() {
 
   const refreshIncidents = useCallback(() => {
     fetchIncidents();
-    fetchStatistics(filters.classroom_id);
-  }, [fetchIncidents, fetchStatistics, filters.classroom_id]);
+  }, [fetchIncidents]);
 
   useEffect(() => {
     fetchIncidents();
-  }, [filters]);
-
-  useEffect(() => {
-    fetchStatistics(filters.classroom_id);
-  }, [filters.classroom_id]);
+  }, []);
 
   return {
-    incidents,
-    statistics,
+    incidents: filteredIncidents,
+    totalCount: allIncidents.length,
+    severityCounts,
     isLoading,
     error,
     filters,
-    pagination,
+    searchQuery,
+    setSearchQuery,
     updateFilters,
     clearFilters,
     deleteIncident,

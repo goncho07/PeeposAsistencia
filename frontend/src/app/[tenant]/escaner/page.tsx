@@ -45,17 +45,6 @@ export default function ScannerPage() {
     setScanType(type);
   };
 
-  const getBreadcrumbs = () => {
-    const crumbs = [{ label: 'Escáner' }];
-    if (selectedMode) {
-      crumbs.push({ label: getModeLabel(selectedMode) });
-    }
-    if (scanType) {
-      crumbs.push({ label: scanType === 'entry' ? 'Entrada' : 'Salida' });
-    }
-    return crumbs;
-  };
-
   return (
     <AppLayout>
       <div className="flex flex-col flex-1">
@@ -65,11 +54,10 @@ export default function ScannerPage() {
               title="Escáner de Asistencia"
               subtitle="Registra la entrada y salida del personal mediante diferentes métodos de escaneo."
               icon={ScanLine}
-              breadcrumbs={getBreadcrumbs()}
             />
 
             <div className="flex-1 flex items-center justify-center py-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 max-w-5xl w-full">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 max-w-6xl w-full">
                 <ScannerModeCard
                   icon={Camera}
                   title="Cámara Webcam"
@@ -78,7 +66,7 @@ export default function ScannerPage() {
                 />
                 <ScannerModeCard
                   icon={Scan}
-                  title="Pistola USB"
+                  title="Lector QR por USB"
                   description="Lector de códigos de barras HID"
                   onClick={() => handleModeSelect('usb')}
                 />
@@ -97,15 +85,14 @@ export default function ScannerPage() {
               title="Tipo de Registro"
               subtitle={`Selecciona si es entrada o salida usando ${getModeLabel(selectedMode)}.`}
               icon={ScanLine}
-              breadcrumbs={getBreadcrumbs()}
             />
 
             <div className="mb-6">
               <button
                 onClick={handleBack}
-                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium transition-all bg-surface dark:bg-surface-dark border border-border dark:border-border-dark hover:bg-background dark:hover:bg-background-dark text-text-primary dark:text-text-primary-dark"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-lg font-medium transition-all bg-surface dark:bg-surface-dark border border-border dark:border-border-dark hover:bg-background dark:hover:bg-background-dark text-text-primary dark:text-text-primary-dark"
               >
-                <ArrowLeft size={18} />
+                <ArrowLeft size={24} />
                 Volver
               </button>
             </div>
@@ -115,14 +102,14 @@ export default function ScannerPage() {
                 <ScanTypeCard
                   icon={LogIn}
                   title="ENTRADA"
-                  description="Registrar ingreso al plantel"
+                  description="Registrar ingreso"
                   color="success"
                   onClick={() => handleScanTypeSelect('entry')}
                 />
                 <ScanTypeCard
                   icon={LogOut}
                   title="SALIDA"
-                  description="Registrar salida del plantel"
+                  description="Registrar salida"
                   color="warning"
                   onClick={() => handleScanTypeSelect('exit')}
                 />

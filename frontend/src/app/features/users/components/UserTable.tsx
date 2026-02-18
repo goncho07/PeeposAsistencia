@@ -1,13 +1,14 @@
 'use client';
 import { useState, MouseEvent } from 'react';
-import { Pencil, Trash2, Eye, User, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Entity, EntityType } from '@/lib/api/users';
+import { Link2, Trash2, Eye, User, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Entity, EntityType, Student } from '@/lib/api/users';
+import { useAuth } from '@/app/contexts/AuthContext';
 
 interface UserTableProps {
   entities: Entity[];
   entityType: EntityType;
   onView: (entity: Entity) => void;
-  onEdit: (entity: Entity) => void;
+  onEdit?: (entity: Entity) => void;
   onDelete: (entity: Entity) => void;
   currentPage: number;
   totalPages: number;
@@ -26,7 +27,7 @@ const stopPropagation = (e: MouseEvent) => e.stopPropagation();
 
 const getEntityIdentifier = (entity: Entity, type: EntityType): string => {
   if (type === 'student') return (entity as any).student_code || '—';
-  if (type === 'teacher' || type === 'user') return (entity as any).dni || '—';
+  if (type === 'teacher' || type === 'user') return (entity as any).document_number || '—';
   if (type === 'parent') return (entity as any).document_number || '—';
   return '—';
 };
@@ -34,11 +35,11 @@ const getEntityIdentifier = (entity: Entity, type: EntityType): string => {
 function Avatar({ entity }: { entity: Entity }) {
   const photo = (entity as any).photo_url;
   return (
-    <div className="w-10 h-10 rounded-full flex items-center justify-center overflow-hidden bg-background border-2 border-border shrink-0">
+    <div className="w-12 h-12 rounded-full flex items-center justify-center overflow-hidden bg-background border-2 border-border shrink-0">
       {photo ? (
         <img src={photo} alt={entity.full_name} className="w-full h-full object-cover" />
       ) : (
-        <User className="w-5 h-5 text-text-secondary" />
+        <User className="w-7 h-7 text-text-secondary" />
       )}
     </div>
   );
@@ -46,8 +47,8 @@ function Avatar({ entity }: { entity: Entity }) {
 
 function EntityLevelInfo({ entity, type }: { entity: Entity; type: EntityType }) {
   if (type === 'student') {
-    const classroom = (entity as any).classroom;
-    if (!classroom) return <span className="text-xs text-text-secondary">—</span>;
+    const classroom = (entity as Student).classroom;
+    if (!classroom) return <span className="text-base text-text-secondary">—</span>;
 
     const sectionText =
       classroom.level === 'INICIAL'
@@ -56,8 +57,8 @@ function EntityLevelInfo({ entity, type }: { entity: Entity; type: EntityType })
 
     return (
       <div className="flex flex-col">
-        <span className="font-medium text-sm text-text-primary">{classroom.level}</span>
-        <span className="text-xs text-text-secondary">{sectionText}</span>
+        <span className="font-medium text-base text-text-primary">{classroom.level}</span>
+        <span className="text-base text-text-secondary">{sectionText}</span>
       </div>
     );
   }
@@ -66,8 +67,8 @@ function EntityLevelInfo({ entity, type }: { entity: Entity; type: EntityType })
     const teacher = entity as any;
     return (
       <div className="flex flex-col">
-        <span className="font-medium text-sm text-text-primary">{teacher.level || '—'}</span>
-        <span className="text-xs uppercase text-text-secondary">{teacher.area || 'General'}</span>
+        <span className="font-medium text-base text-text-primary">{teacher.level || '—'}</span>
+        <span className="text-base uppercase text-text-secondary">{teacher.area || 'General'}</span>
       </div>
     );
   }
@@ -77,10 +78,10 @@ function EntityLevelInfo({ entity, type }: { entity: Entity; type: EntityType })
     const studentsCount = parent.students?.length || 0;
     return (
       <div className="flex flex-col">
-        <span className="font-medium text-sm text-text-primary">
+        <span className="font-medium text-base text-text-primary">
           {studentsCount} estudiante{studentsCount !== 1 ? 's' : ''}
         </span>
-        <span className="text-xs text-text-secondary">{parent.phone_number || '—'}</span>
+        <span className="text-base text-text-secondary">{parent.phone_number || '—'}</span>
       </div>
     );
   }
@@ -89,13 +90,13 @@ function EntityLevelInfo({ entity, type }: { entity: Entity; type: EntityType })
     const user = entity as any;
     return (
       <div className="flex flex-col">
-        <span className="font-medium text-sm text-text-primary">{user.role || '—'}</span>
-        <span className="text-xs text-text-secondary">{user.status || '—'}</span>
+        <span className="font-medium text-base text-text-primary">{user.role || '—'}</span>
+        <span className="text-base text-text-secondary">{user.status || '-'}</span>
       </div>
     );
   }
 
-  return <span className="text-xs text-text-secondary">—</span>;
+  return <span className="text-base text-text-secondary">—</span>;
 }
 
 function ActionButton({
@@ -122,7 +123,7 @@ function ActionButton({
       className={`p-2 rounded-lg transition-colors ${colorClasses}`}
       title={title}
     >
-      <Icon className="w-4 h-4" />
+      <Icon className="w-6 h-6" />
     </button>
   );
 }
@@ -197,13 +198,13 @@ function TableSkeleton() {
             <thead>
               <tr className="border-b border-border bg-primary/5">
                 <th className="text-left px-4 py-3 w-[50%]">
-                  <div className="h-3 w-16 bg-card animate-pulse rounded" />
+                  <div className="h-5 w-16 bg-card animate-pulse rounded" />
                 </th>
                 <th className="text-left px-4 py-3 w-[35%]">
-                  <div className="h-3 w-20 bg-card animate-pulse rounded" />
+                  <div className="h-5 w-20 bg-card animate-pulse rounded" />
                 </th>
                 <th className="text-center px-4 py-3 w-[15%]">
-                  <div className="h-3 w-16 bg-card animate-pulse rounded mx-auto" />
+                  <div className="h-5 w-16 bg-card animate-pulse rounded mx-auto" />
                 </th>
               </tr>
             </thead>
@@ -212,24 +213,24 @@ function TableSkeleton() {
                 <tr key={i} className="border-b border-border last:border-0">
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-card animate-pulse shrink-0" />
+                      <div className="w-12 h-12 rounded-full bg-card animate-pulse shrink-0" />
                       <div className="flex-1 space-y-2">
-                        <div className="h-4 w-48 bg-card animate-pulse rounded" />
-                        <div className="h-3 w-24 bg-card animate-pulse rounded" />
+                        <div className="h-5 w-48 bg-card animate-pulse rounded" />
+                        <div className="h-4 w-24 bg-card animate-pulse rounded" />
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="space-y-2">
-                      <div className="h-4 w-20 bg-card animate-pulse rounded" />
-                      <div className="h-3 w-16 bg-card animate-pulse rounded" />
+                      <div className="h-5 w-20 bg-card animate-pulse rounded" />
+                      <div className="h-4 w-16 bg-card animate-pulse rounded" />
                     </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-center gap-1">
-                      <div className="w-8 h-8 bg-card animate-pulse rounded-lg" />
-                      <div className="w-8 h-8 bg-card animate-pulse rounded-lg" />
-                      <div className="w-8 h-8 bg-card animate-pulse rounded-lg" />
+                      <div className="w-9 h-9 bg-card animate-pulse rounded-lg" />
+                      <div className="w-9 h-9 bg-card animate-pulse rounded-lg" />
+                      <div className="w-9 h-9 bg-card animate-pulse rounded-lg" />
                     </div>
                   </td>
                 </tr>
@@ -253,7 +254,15 @@ export function UserTable({
   onPageChange,
   loading,
 }: UserTableProps) {
+  const { user: currentUser } = useAuth();
   const [hoveredRowId, setHoveredRowId] = useState<number | null>(null);
+
+  const isSelf = (entity: Entity) => {
+    if (!currentUser) return false;
+    if (entityType === 'user') return currentUser.id === entity.id;
+    if (entityType === 'teacher') return currentUser.id === (entity as any).user_id;
+    return false;
+  };
 
   if (loading) {
     return <TableSkeleton />;
@@ -286,17 +295,21 @@ export function UserTable({
                       </div>
                     </div>
                     <div className="flex gap-1 shrink-0">
-                      <ActionButton
-                        onClick={() => onEdit(entity)}
-                        icon={Pencil}
-                        title="Editar"
-                      />
-                      <ActionButton
-                        onClick={() => onDelete(entity)}
-                        icon={Trash2}
-                        title="Eliminar"
-                        variant="danger"
-                      />
+                      {(entityType === 'student' || entityType === 'parent') && (
+                        <ActionButton
+                          onClick={() => onEdit?.(entity)}
+                          icon={Link2}
+                          title={entityType === 'student' ? 'Asignar Apoderados' : 'Asignar Estudiantes'}
+                        />
+                      )}
+                      {!isSelf(entity) && (
+                        <ActionButton
+                          onClick={() => onDelete(entity)}
+                          icon={Trash2}
+                          title="Eliminar"
+                          variant="danger"
+                        />
+                      )}
                     </div>
                   </div>
                 </div>
@@ -311,13 +324,13 @@ export function UserTable({
             <table className="w-full">
               <thead>
                 <tr className="border-b border-border bg-primary/5">
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary w-[50%]">
+                  <th className="text-left px-4 py-3 text-base font-semibold uppercase tracking-wider text-text-secondary w-[50%]">
                     Usuario
                   </th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary w-[35%]">
+                  <th className="text-left px-4 py-3 text-base font-semibold uppercase tracking-wider text-text-secondary w-[35%]">
                     {COLUMN_LABELS[entityType]}
                   </th>
-                  <th className="text-center px-4 py-3 text-xs font-semibold uppercase tracking-wider text-text-secondary w-[15%]">
+                  <th className="text-center px-4 py-3 text-base font-semibold uppercase tracking-wider text-text-secondary w-[15%]">
                     Acciones
                   </th>
                 </tr>
@@ -346,10 +359,10 @@ export function UserTable({
                           <div className="flex items-center gap-3">
                             <Avatar entity={entity} />
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm text-text-primary truncate">
+                              <p className="font-semibold text-base text-text-primary truncate">
                                 {entity.full_name}
                               </p>
-                              <p className="text-xs text-text-secondary">
+                              <p className="text-base text-text-secondary">
                                 {getEntityIdentifier(entity, entityType)}
                               </p>
                             </div>
@@ -365,17 +378,21 @@ export function UserTable({
                               icon={Eye}
                               title="Ver detalles"
                             />
-                            <ActionButton
-                              onClick={() => onEdit(entity)}
-                              icon={Pencil}
-                              title="Editar"
-                            />
-                            <ActionButton
-                              onClick={() => onDelete(entity)}
-                              icon={Trash2}
-                              title="Eliminar"
-                              variant="danger"
-                            />
+                            {(entityType === 'student' || entityType === 'parent') && (
+                              <ActionButton
+                                onClick={() => onEdit?.(entity)}
+                                icon={Link2}
+                                title={entityType === 'student' ? 'Asignar Apoderados' : 'Asignar Estudiantes'}
+                              />
+                            )}
+                            {!isSelf(entity) && (
+                              <ActionButton
+                                onClick={() => onDelete(entity)}
+                                icon={Trash2}
+                                title="Eliminar"
+                                variant="danger"
+                              />
+                            )}
                           </div>
                         </td>
                       </tr>

@@ -72,10 +72,10 @@ export function UserDeleteModal({
       size="md"
       footer={
         <>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="outline" onClick={onClose} disabled={loading} className='text-xl'>
             Cancelar
           </Button>
-          <Button variant="danger" onClick={handleConfirm} loading={loading}>
+          <Button variant="danger" onClick={handleConfirm} loading={loading} className='text-xl'>
             Eliminar
           </Button>
         </>
@@ -83,21 +83,21 @@ export function UserDeleteModal({
     >
       <div className="space-y-6">
         <div className="flex items-start gap-4">
-          <div className="shrink-0">
+          {/* <div className="shrink-0">
             <div className="w-14 h-14 rounded-full flex items-center justify-center bg-danger/15">
               <AlertTriangle className="w-7 h-7 text-danger" />
             </div>
-          </div>
+          </div> */}
           <div className="flex-1">
-            <h3 className="text-lg font-semibold mb-2 text-text-primary dark:text-text-primary-dark">
+            <h3 className="text-xl font-semibold mb-2 text-text-primary dark:text-text-primary-dark">
               ¿Estás seguro de eliminar a {entity.full_name}?
             </h3>
-            <p className="text-sm mb-3 text-text-secondary dark:text-text-secondary-dark">
+            <p className="text-base mb-3 text-text-secondary dark:text-text-secondary-dark">
               Esta acción no se puede deshacer. Se eliminará permanentemente
               este {getEntityLabel()}.
             </p>
             <div className="p-3 rounded-lg border bg-danger/8 border-danger/30">
-              <p className="text-sm text-danger">
+              <p className="text-base text-danger">
                 <strong>Advertencia:</strong> {getWarningMessage()}
               </p>
             </div>

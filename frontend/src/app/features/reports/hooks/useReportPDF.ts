@@ -4,6 +4,8 @@ import { ReportData } from '@/lib/api/reports';
 import { ReportFilters } from './useReportFilters';
 import { MonthData } from './useReportData';
 
+const TYPE_LABELS: Record<string, string> = { student: 'Estudiantes', teacher: 'Docentes', user: 'Usuarios' };
+
 export function useReportPDF() {
   const generatePDF = (
     reportData: ReportData,
@@ -19,8 +21,7 @@ export function useReportPDF() {
       format: 'a4',
     });
 
-    // Generate filename
-    const typeLabel = filters.type === 'student' ? 'Estudiantes' : 'Docentes';
+    const typeLabel = TYPE_LABELS[filters.type] ?? filters.type;
     const periodLabel =
       filters.period === 'daily'
         ? 'Diario'
@@ -52,7 +53,6 @@ export function useReportPDF() {
     filters: ReportFilters,
     tenantName: string
   ) => {
-    // Header
     doc.setDrawColor(100, 100, 100);
     doc.setLineWidth(0.3);
     doc.rect(10, 10, 277, 22);
@@ -66,7 +66,7 @@ export function useReportPDF() {
     doc.setFontSize(9);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      `TIPO: ${filters.type === 'student' ? 'ESTUDIANTES' : 'DOCENTES'}`,
+      `TIPO: ${TYPE_LABELS[filters.type]?.toUpperCase() ?? filters.type.toUpperCase()}`,
       15,
       28
     );
@@ -75,7 +75,6 @@ export function useReportPDF() {
     if (filters.section) doc.text(`SECCIÓN: ${filters.section}`, 180, 28);
     doc.text(`FECHA: ${reportData.period.from}`, 230, 28);
 
-    // Table
     const startY = 38;
     const indexW = 10;
     const nameW = 100;
@@ -84,7 +83,6 @@ export function useReportPDF() {
     const statusW = 117;
     const rowHeight = 6;
 
-    // Table header
     doc.setFillColor(245, 245, 245);
     doc.rect(10, startY, 277, 10, 'F');
     doc.setDrawColor(150, 150, 150);
@@ -113,7 +111,6 @@ export function useReportPDF() {
     currentX += exitW;
     doc.text('ESTADO', currentX + statusW / 2, startY + 6, { align: 'center' });
 
-    // Table body
     let currentY = startY + 10;
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
@@ -190,7 +187,6 @@ export function useReportPDF() {
       currentY += rowHeight;
     });
 
-    // Footer
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
     doc.setTextColor(0, 0, 0);
@@ -212,7 +208,6 @@ export function useReportPDF() {
     monthsInPeriod.forEach((m, pageIdx) => {
       if (pageIdx > 0) doc.addPage();
 
-      // Header
       doc.setDrawColor(100, 100, 100);
       doc.setLineWidth(0.3);
       doc.rect(10, 10, 277, 22);
@@ -226,7 +221,7 @@ export function useReportPDF() {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
       doc.text(
-        `TIPO: ${filters.type === 'student' ? 'ESTUDIANTES' : 'DOCENTES'}`,
+        `TIPO: ${TYPE_LABELS[filters.type]?.toUpperCase() ?? filters.type.toUpperCase()}`,
         15,
         28
       );
@@ -235,7 +230,6 @@ export function useReportPDF() {
       if (filters.section) doc.text(`SECCIÓN: ${filters.section}`, 180, 28);
       doc.text(`MES: ${m.name.toUpperCase()} ${m.year}`, 230, 28);
 
-      // Table
       const startY = 38;
       const indexW = 10;
       const nameW = 80;
@@ -243,7 +237,6 @@ export function useReportPDF() {
       const availableWidth = 277 - indexW - nameW;
       const dayW = availableWidth / totalDays;
 
-      // Header row
       doc.setFillColor(245, 245, 245);
       doc.rect(10, startY, 277, 10, 'F');
       doc.setDrawColor(150, 150, 150);
@@ -270,7 +263,6 @@ export function useReportPDF() {
         doc.text(d.weekday, dx + dayW / 2, startY + 8, { align: 'center' });
       });
 
-      // Body rows
       let currentY = startY + 10;
       const rowHeight = 6;
 
@@ -344,7 +336,6 @@ export function useReportPDF() {
         currentY += rowHeight;
       });
 
-      // Footer legend
       const bottomY = 195;
       doc.setFontSize(7);
       doc.setTextColor(0, 0, 0);

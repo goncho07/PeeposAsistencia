@@ -41,7 +41,7 @@ export function Input({
   return (
     <div className={`w-full ${className}`}>
       {label && (
-        <label className="block text-sm font-medium mb-2 text-text-primary">
+        <label className="block text-xl font-medium mb-2 text-text-primary">
           {label}
           {required && <span className="text-danger ml-1">*</span>}
         </label>
@@ -68,7 +68,7 @@ export function Input({
             w-full px-4 py-2 rounded-lg
             border border-border
             bg-background
-            text-text-primary
+            text-xl text-text-secondary
             placeholder:text-text-secondary/50
             focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent
             disabled:opacity-50 disabled:cursor-not-allowed
@@ -84,7 +84,7 @@ export function Input({
           <button
             type="button"
             onClick={onActionClick}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-text-input hover:text-primary transition-colors cursor-pointer"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-input transition-colors cursor-pointer"
           >
             {actionIcon}
           </button>

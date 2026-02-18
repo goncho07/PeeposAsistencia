@@ -17,8 +17,8 @@ export function AcademicTab({ entity, entityType }: AcademicTabProps) {
           <DetailField label="Aula" value={student.classroom?.full_name || 'No asignado'} />
           <DetailField label="Nivel" value={student.classroom?.level || '-'} />
           <DetailField label="Turno" value={student.classroom?.shift || '-'} />
-          {student.classroom?.teacher && (
-            <DetailField label="Tutor(a)" value={student.classroom.teacher.full_name} />
+          {student.classroom?.tutor && (
+            <DetailField label="Tutor(a)" value={student.classroom.tutor.full_name} />
           )}
         </div>
       </DetailCard>
@@ -32,14 +32,14 @@ export function AcademicTab({ entity, entityType }: AcademicTabProps) {
         <DetailCard title="Información Profesional" icon={Building2}>
           <div className="grid grid-cols-2 gap-x-6 gap-y-4">
             <DetailField label="Nivel" value={teacher.level} />
-            {teacher.area && <DetailField label="Área" value={teacher.area} />}
+            {teacher.specialty && <DetailField label="Especialidad" value={teacher.specialty} />}
           </div>
         </DetailCard>
 
         {teacher.classrooms && teacher.classrooms.length > 0 && (
           <DetailCard title={`Aulas Asignadas (${teacher.classrooms.length})`} icon={Users}>
             <div className="grid grid-cols-1 gap-3">
-              {teacher.classrooms.map((classroom: any) => (
+              {teacher.classrooms.map((classroom) => (
                 <div
                   key={classroom.id}
                   className="p-4 rounded-lg border border-border dark:border-border-dark bg-background dark:bg-background-dark"
@@ -50,14 +50,11 @@ export function AcademicTab({ entity, entityType }: AcademicTabProps) {
                   <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                     <DetailField label="Nivel" value={classroom.level} size="xs" />
                     <DetailField label="Turno" value={classroom.shift} size="xs" />
-                    {classroom.students_count !== undefined && (
-                      <DetailField
-                        label="Estudiantes"
-                        value={classroom.students_count}
-                        icon={Users}
-                        size="xs"
-                        className="col-span-2"
-                      />
+                    {classroom.subject && (
+                      <DetailField label="Materia" value={classroom.subject} size="xs" />
+                    )}
+                    {classroom.academic_year && (
+                      <DetailField label="Año" value={classroom.academic_year} size="xs" />
                     )}
                   </div>
                 </div>

@@ -1,8 +1,8 @@
 'use client';
 
 import { useState } from 'react';
-import { AlertTriangle, Send, Loader2, User, CheckCircle } from 'lucide-react';
-import { Select, Button, Input } from '@/app/components/ui/base';
+import { AlertTriangle, Send, CheckCircle } from 'lucide-react';
+import { Select, Button } from '@/app/components/ui/base';
 import { useIncidentForm } from '../hooks';
 import {
   IncidentType,
@@ -31,8 +31,6 @@ export function IncidentForm({ onSuccess }: IncidentFormProps) {
 
   const [formData, setFormData] = useState({
     student_id: '',
-    date: new Date().toISOString().split('T')[0],
-    time: new Date().toTimeString().slice(0, 5),
     type: '' as IncidentType | '',
     severity: 'LEVE' as IncidentSeverity,
     description: '',
@@ -79,10 +77,7 @@ export function IncidentForm({ onSuccess }: IncidentFormProps) {
     const result = await createIncident({
       classroom_id: selectedClassroom,
       student_id: Number(formData.student_id),
-      date: formData.date,
-      time: formData.time,
       type: formData.type as IncidentType,
-      severity: formData.severity,
       description: formData.description || undefined,
     });
 
@@ -90,8 +85,6 @@ export function IncidentForm({ onSuccess }: IncidentFormProps) {
       setShowSuccess(true);
       setFormData({
         student_id: '',
-        date: new Date().toISOString().split('T')[0],
-        time: new Date().toTimeString().slice(0, 5),
         type: '',
         severity: 'LEVE',
         description: '',
@@ -104,8 +97,7 @@ export function IncidentForm({ onSuccess }: IncidentFormProps) {
     }
   };
 
-  const canSubmit =
-    selectedClassroom && formData.student_id && formData.type && formData.date && formData.time;
+  const canSubmit = selectedClassroom && formData.student_id && formData.type;
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -119,7 +111,7 @@ export function IncidentForm({ onSuccess }: IncidentFormProps) {
               Registrar Incidencia
             </h2>
             <p className="text-sm text-text-secondary dark:text-text-secondary-dark">
-              Complete los datos de la incidencia
+              La fecha y hora se registran automáticamente
             </p>
           </div>
         </div>
@@ -157,23 +149,6 @@ export function IncidentForm({ onSuccess }: IncidentFormProps) {
               options={studentOptions}
               onChange={(v) => setFormData((prev) => ({ ...prev, student_id: String(v) }))}
               disabled={!selectedClassroom || isLoadingStudents}
-            />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <Input
-              label="Fecha"
-              type="date"
-              value={formData.date}
-              max={new Date().toISOString().split('T')[0]}
-              onChange={(value) => setFormData((prev) => ({ ...prev, date: value }))}
-            />
-
-            <Input
-              label="Hora"
-              type="time"
-              value={formData.time}
-              onChange={(value) => setFormData((prev) => ({ ...prev, time: value }))}
             />
           </div>
 

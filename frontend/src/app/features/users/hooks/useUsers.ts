@@ -22,9 +22,9 @@ export function useUsers() {
     try {
       setLoading(true);
       const [students, teachers, parents, users] = await Promise.all([
-        usersService.getStudents(),
-        usersService.getTeachers(),
-        usersService.getParents(),
+        usersService.getStudents({ expand: ['classroom', 'parents'] }),
+        usersService.getTeachers({ expand: ['user'] }),
+        usersService.getParents({ expand: ['students'] }),
         usersService.getUsers(),
       ]);
 

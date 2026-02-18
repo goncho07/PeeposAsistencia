@@ -1,10 +1,15 @@
 'use client';
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/app/contexts/AuthContext';
-import { User, Settings, LogOut } from 'lucide-react';
+import { useTenant } from '@/app/contexts/TenantContext';
+import { buildTenantPath } from '@/lib/axios';
+import { User, LogOut } from 'lucide-react';
 
 export function UserMenu() {
   const { user, logout } = useAuth();
+  const { tenant } = useTenant();
+  const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
@@ -16,7 +21,6 @@ export function UserMenu() {
         setIsOpen(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
@@ -46,63 +50,53 @@ export function UserMenu() {
       <div ref={menuRef} className="relative">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="flex items-center gap-2 p-1.5 rounded-xl transition-all hover:bg-surface-hover dark:hover:bg-surface-hover-dark"
+          className="flex items-center gap-3 rounded-lg transition-all cursor-pointer p-1.5 lg:p-2.5 hover:bg-surface-hover"
           aria-label="Menú de usuario"
         >
-          <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center">
-            <span className="text-xs font-bold text-primary">
+          <div className="w-8 h-8 lg:w-11 lg:h-11 rounded-lg bg-primary/10 flex items-center justify-center border border-primary/20 transition-all">
+            <span className="text-xs lg:text-base font-black text-primary">
               {getInitials(user.name)}
             </span>
           </div>
-          <span className="hidden sm:block text-sm font-medium text-text-primary dark:text-text-primary-dark max-w-[120px] truncate">
+
+          <span className="hidden sm:block text-sm lg:text-[16px] font-bold text-text-primary dark:text-text-primary-dark max-w-[150px] truncate">
             {user.name.split(' ')[0]}
           </span>
         </button>
 
         {isOpen && (
-          <div className="absolute right-0 top-full mt-2 w-56 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-lg overflow-hidden z-50">
-            <div className="px-4 py-3 border-b border-border dark:border-border-dark">
-              <p className="text-sm font-semibold text-text-primary dark:text-text-primary-dark truncate">
+          <div className="absolute right-0 top-full mt-3 w-56 lg:w-64 rounded-2xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-2xl overflow-hidden z-50 transition-all">
+            <div className="px-5 py-4 border-b border-border dark:border-border-dark bg-primary/5">
+              <p className="text-sm lg:text-[15px] font-black text-text-primary dark:text-text-primary-dark truncate">
                 {user.name}
               </p>
-              <p className="text-xs text-text-secondary dark:text-text-secondary-dark truncate">
+              <p className="text-xs lg:text-sm text-text-secondary dark:text-text-secondary-dark truncate">
                 {user.email}
               </p>
             </div>
 
-            <div className="py-1">
+            <div className="py-2">
               <button
                 onClick={() => {
                   setIsOpen(false);
-                  // TODO: Navegar a Mi Perfil
+                  router.push(buildTenantPath('/perfil', tenant?.slug));
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary dark:text-text-primary-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors"
+                className="w-full flex items-center gap-4 px-5 py-3 lg:py-4 text-sm lg:text-[15px] font-bold text-text-primary dark:text-text-primary-dark hover:bg-surface-hover transition-colors cursor-pointer"
               >
-                <User size={18} className="text-text-secondary dark:text-text-secondary-dark" />
+                <User size={22} className="text-primary" strokeWidth={2.2} />
                 Mi Perfil
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsOpen(false);
-                  // TODO: Navegar a Configuración
-                }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary dark:text-text-primary-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark transition-colors"
-              >
-                <Settings size={18} className="text-text-secondary dark:text-text-secondary-dark" />
-                Configuración
               </button>
             </div>
 
-            <div className="border-t border-border dark:border-border-dark py-1">
+            <div className="border-t border-border dark:border-border-dark py-2">
               <button
                 onClick={() => {
                   setIsOpen(false);
                   setShowLogoutConfirm(true);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-danger hover:bg-danger/10 transition-colors"
+                className="w-full flex items-center gap-4 px-5 py-3 lg:py-4 text-sm lg:text-[15px] font-bold text-danger hover:bg-danger/10 transition-colors cursor-pointer"
               >
-                <LogOut size={18} />
+                <LogOut size={22} strokeWidth={2.2} />
                 Cerrar Sesión
               </button>
             </div>
@@ -122,29 +116,29 @@ export function UserMenu() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 text-center border-b border-border dark:border-border-dark">
-              <div className="w-16 h-16 rounded-full mx-auto mb-4 flex items-center justify-center bg-danger/10">
-                <LogOut size={32} className="text-danger" />
+              <div className="w-24 h-24 rounded-full mx-auto mb-4 flex items-center justify-center bg-danger/10">
+                <LogOut size={46} className="text-danger" />
               </div>
-              <h3 className="text-xl font-bold mb-2 text-text-primary dark:text-text-primary-dark">
+              <h3 className="text-3xl font-bold mb-2 text-text-primary dark:text-text-primary-dark">
                 ¿Cerrar sesión?
               </h3>
-              <p className="text-sm text-text-secondary dark:text-text-secondary-dark">
+              <p className="text-lg text-text-secondary dark:text-text-secondary-dark">
                 Tu sesión actual será terminada y tendrás que iniciar sesión nuevamente.
               </p>
             </div>
 
-            <div className="p-4 flex gap-3 bg-background dark:bg-background-dark">
+            <div className="p-4 flex gap-3 bg-background">
               <button
                 onClick={() => setShowLogoutConfirm(false)}
                 disabled={loggingOut}
-                className="flex-1 px-4 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50 border border-border dark:border-border-dark text-text-primary dark:text-text-primary-dark bg-surface dark:bg-surface-dark hover:bg-surface-hover dark:hover:bg-surface-hover-dark"
+                className="flex-1 px-4 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50 border border-border text-xl text-text-primary bg-surface hover:bg-surface-hover"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleLogout}
                 disabled={loggingOut}
-                className="flex-1 px-4 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50 bg-danger hover:bg-red-700 text-white"
+                className="flex-1 px-4 py-2.5 rounded-xl font-medium transition-all disabled:opacity-50 bg-danger hover:bg-red-700 text-xl text-white"
               >
                 {loggingOut ? (
                   <span className="flex items-center justify-center gap-2">

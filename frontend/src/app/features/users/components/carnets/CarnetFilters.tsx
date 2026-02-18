@@ -1,11 +1,19 @@
 'use client';
 import { CarnetFilters as Filters } from '@/lib/api/carnets';
 import { Select } from '@/app/components/ui/base';
-import { Users, GraduationCap } from 'lucide-react';
+import { Users, GraduationCap, Briefcase, UserCog, LucideIcon } from 'lucide-react';
+import type { AttendableType } from '@/lib/api/attendance';
+
+const TYPE_CONFIG: Record<AttendableType, { label: string; icon: LucideIcon }> = {
+    student: { label: 'Estudiantes', icon: GraduationCap },
+    teacher: { label: 'Docentes', icon: Briefcase },
+    user: { label: 'Personal', icon: UserCog },
+};
 
 interface CarnetFiltersProps {
     filters: Filters;
     onChange: (filters: Filters) => void;
+    allowedTypes: AttendableType[];
     availableLevels: string[];
     availableGrades: number[];
     availableSections: string[];
@@ -14,14 +22,18 @@ interface CarnetFiltersProps {
 export function CarnetFiltersForm({
     filters,
     onChange,
+    allowedTypes,
     availableLevels,
     availableGrades,
     availableSections,
 }: CarnetFiltersProps) {
-    const userTypeOptions = [
-        { value: 'all', label: 'Todos' },
-        { value: 'student', label: 'Estudiantes' },
-        { value: 'teacher', label: 'Docentes' },
+    const userTypeOptions: { value: string; label: string; icon: LucideIcon }[] = [
+        ...(allowedTypes.length > 1 ? [{ value: 'all', label: 'Todos', icon: Users }] : []),
+        ...allowedTypes.map((type) => ({
+            value: type,
+            label: TYPE_CONFIG[type].label,
+            icon: TYPE_CONFIG[type].icon,
+        })),
     ];
 
     const levelOptions = [
@@ -51,13 +63,18 @@ export function CarnetFiltersForm({
     return (
         <div className="space-y-5">
             <div>
-                <label className="block text-sm font-medium mb-3 text-text-primary dark:text-text-primary-dark">
+                <label className="block text-xl font-medium mb-3 text-text-primary dark:text-text-primary-dark">
                     Tipo de Usuario
                 </label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className={`grid gap-2 ${
+                    userTypeOptions.length === 1 ? 'grid-cols-1' :
+                    userTypeOptions.length === 2 ? 'grid-cols-2' :
+                    userTypeOptions.length === 3 ? 'grid-cols-3' :
+                    'grid-cols-2 sm:grid-cols-4'
+                }`}>
                     {userTypeOptions.map((option) => {
                         const isActive = filters.type === option.value;
-                        const Icon = option.value === 'teacher' ? GraduationCap : Users;
+                        const Icon = option.icon;
                         return (
                             <button
                                 key={option.value}
@@ -72,7 +89,7 @@ export function CarnetFiltersForm({
                                     })
                                 }
                                 className={`
-                                    p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2
+                                    p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-2 cursor-pointer
                                     ${isActive
                                         ? 'border-primary bg-primary/10 dark:bg-primary/20'
                                         : 'border-border dark:border-border-dark hover:border-primary/50'
@@ -80,14 +97,14 @@ export function CarnetFiltersForm({
                                 `}
                             >
                                 <Icon
-                                    className={`w-5 h-5 ${
+                                    className={`w-6 h-6 ${
                                         isActive
                                             ? 'text-primary dark:text-primary-light'
                                             : 'text-text-secondary dark:text-text-secondary-dark'
                                     }`}
                                 />
                                 <span
-                                    className={`text-sm font-medium ${
+                                    className={`text-xl font-medium ${
                                         isActive
                                             ? 'text-primary dark:text-primary-light'
                                             : 'text-text-secondary dark:text-text-secondary-dark'
@@ -101,7 +118,7 @@ export function CarnetFiltersForm({
                 </div>
             </div>
 
-            {filters.type !== 'all' && (
+            {filters.type !== 'all' && filters.type !== 'user' && (
                 <div className="space-y-4 pt-4 border-t border-border dark:border-border-dark">
                     <Select
                         label="Nivel"

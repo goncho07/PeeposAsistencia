@@ -17,11 +17,9 @@ export function useEntitySearch<T>({
   const [searchQuery, setSearchQuery] = useState('');
   const [filters, setFilters] = useState<any>({});
 
-  // Filter entities based on search query and filters
   const filteredEntities = useMemo(() => {
     let result = entities;
 
-    // Apply search query
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase().trim();
       result = result.filter((entity) =>
@@ -31,7 +29,6 @@ export function useEntitySearch<T>({
       );
     }
 
-    // Apply custom filters
     if (filterFn) {
       result = result.filter((entity) => filterFn(entity, filters));
     }
@@ -39,10 +36,8 @@ export function useEntitySearch<T>({
     return result;
   }, [entities, searchQuery, filters, searchFields, filterFn]);
 
-  // Use pagination hook
   const pagination = usePagination(filteredEntities, itemsPerPage);
 
-  // Reset to first page when search/filter changes
   const handleSearch = useCallback(
     (query: string) => {
       setSearchQuery(query);

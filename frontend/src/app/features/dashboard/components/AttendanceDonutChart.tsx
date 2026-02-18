@@ -1,16 +1,16 @@
 'use client';
-import { useState } from 'react';
-import { Card, Tabs, Tab } from '@/app/components/ui/base';
+import { useState, useMemo } from 'react';
+import { Card, Tabs } from '@/app/components/ui/base';
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { Users, GraduationCap, Briefcase } from 'lucide-react';
-import { DailyStats } from '../hooks/useDailyStats';
+import { Users, GraduationCap, Briefcase, UserCog } from 'lucide-react';
+import { DailyStats, AttendableType } from '../hooks/useDailyStats';
 
 interface AttendanceDonutChartProps {
   stats: DailyStats | null;
   loading: boolean;
 }
 
-type FilterType = 'total' | 'estudiante' | 'docente';
+type FilterType = 'total' | 'student' | 'teacher' | 'user';
 
 const COLORS = {
   presente: 'var(--color-success)',
@@ -19,39 +19,63 @@ const COLORS = {
   justificada: 'var(--color-secondary)',
 };
 
-const FILTER_TABS: Tab[] = [
-  { id: 'total', label: 'Total', icon: <Users size={16} /> },
-  { id: 'estudiante', label: 'Estudiantes', icon: <GraduationCap size={16} /> },
-  { id: 'docente', label: 'Docentes', icon: <Briefcase size={16} /> },
-];
+const TYPE_LABELS: Record<string, string> = {
+  student: 'Estudiantes',
+  teacher: 'Docentes',
+  user: 'Personal',
+};
+
+function getPercent(value: number, total: number): string {
+  if (total === 0) return '0%';
+  return `${Math.round((value / total) * 100)}%`;
+}
+
+function getStatsForType(stats: DailyStats, type: AttendableType) {
+  return stats[type === 'student' ? 'students' : type === 'teacher' ? 'teachers' : 'users'];
+}
 
 function getChartData(stats: DailyStats, filter: FilterType) {
-  switch (filter) {
-    case 'estudiante':
-      return [
-        { name: 'Presente', value: stats.students.present, color: COLORS.presente },
-        { name: 'Tardanza', value: stats.students.late, color: COLORS.tardanza },
-        { name: 'Ausente', value: stats.students.absent, color: COLORS.ausente },
-        { name: 'Justificada', value: stats.students.justified, color: COLORS.justificada },
-      ];
-    case 'docente':
-      return [
-        { name: 'Presente', value: stats.teachers.present, color: COLORS.presente },
-        { name: 'Tardanza', value: stats.teachers.late, color: COLORS.tardanza },
-        { name: 'Ausente', value: stats.teachers.absent, color: COLORS.ausente },
-      ];
-    default:
-      return [
-        { name: 'Presente', value: stats.students.present + stats.teachers.present, color: COLORS.presente },
-        { name: 'Tardanza', value: stats.students.late + stats.teachers.late, color: COLORS.tardanza },
-        { name: 'Ausente', value: stats.students.absent + stats.teachers.absent + stats.students.justified, color: COLORS.ausente },
-      ];
+  if (filter !== 'total') {
+    const s = getStatsForType(stats, filter as AttendableType);
+    if (!s) return [];
+    const data = [
+      { name: 'Presente', value: s.present, color: COLORS.presente },
+      { name: 'Tardanza', value: s.late, color: COLORS.tardanza },
+      { name: 'Ausente', value: s.absent, color: COLORS.ausente },
+    ];
+    if (s.justified) {
+      data.push({ name: 'Justificada', value: s.justified, color: COLORS.justificada });
+    }
+    return data;
   }
+
+  let present = 0, late = 0, absent = 0;
+  for (const type of stats.allowed_types) {
+    const s = getStatsForType(stats, type);
+    if (!s) continue;
+    present += s.present;
+    late += s.late;
+    absent += s.absent + (s.justified ?? 0);
+  }
+  return [
+    { name: 'Presente', value: present, color: COLORS.presente },
+    { name: 'Tardanza', value: late, color: COLORS.tardanza },
+    { name: 'Ausente', value: absent, color: COLORS.ausente },
+  ];
 }
 
 export function AttendanceDonutChart({ stats, loading }: AttendanceDonutChartProps) {
   const [filter, setFilter] = useState<FilterType>('total');
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
+
+  const filterTabs = useMemo(() => {
+    const types = stats?.allowed_types ?? [];
+    const tabs = [{ id: 'total', label: 'Total', icon: <Users size={18} /> }];
+    if (types.includes('student')) tabs.push({ id: 'student', label: 'Estudiantes', icon: <GraduationCap size={18} /> });
+    if (types.includes('teacher')) tabs.push({ id: 'teacher', label: 'Docentes', icon: <Briefcase size={18} /> });
+    if (types.includes('user')) tabs.push({ id: 'user', label: 'Personal', icon: <UserCog size={18} /> });
+    return tabs;
+  }, [stats?.allowed_types]);
 
   if (loading) {
     return (
@@ -78,7 +102,7 @@ export function AttendanceDonutChart({ stats, loading }: AttendanceDonutChartPro
 
   if (!stats) {
     return (
-      <Card padding="lg" className="flex items-center justify-center min-h-[400px]">
+      <Card padding="lg" className="flex items-center justify-center min-h-[500px]">
         <p className="text-text-secondary opacity-60">No hay datos disponibles</p>
       </Card>
     );
@@ -89,32 +113,39 @@ export function AttendanceDonutChart({ stats, loading }: AttendanceDonutChartPro
 
   return (
     <Card padding="lg" className="h-full">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-8 gap-4">
+      <div className={`flex flex-col ${filterTabs.length > 2 ? 'mb-10' : 'mb-6'} gap-4`}>
         <div>
-          <h3 className="text-lg font-bold text-text-primary">Asistencia del Día</h3>
-          <p className="text-xs text-text-secondary opacity-60 font-medium">
-            Distribución en tiempo real
-          </p>
+          <h3 className="text-2xl font-bold text-text-primary">Asistencia del Día</h3>
+          {filterTabs.length <= 2 && stats.allowed_types.length === 1 && (
+            <p className="text-lg text-text-secondary mt-1">
+              {TYPE_LABELS[stats.allowed_types[0]] ?? stats.allowed_types[0]}
+            </p>
+          )}
         </div>
 
-        <Tabs
-          tabs={FILTER_TABS}
-          activeTab={filter}
-          onChange={(id) => setFilter(id as FilterType)}
-          size="sm"
-        />
+        {filterTabs.length > 2 && (
+          <div className="w-full">
+            <Tabs
+              tabs={filterTabs}
+              activeTab={filter}
+              onChange={(id) => setFilter(id as FilterType)}
+              size="lg"
+              className="w-full"
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col xl:flex-row items-center justify-around gap-10">
-        <div className="relative w-56 h-56 shrink-0 min-w-0">
+        <div className="relative w-60 h-60 shrink-0 min-w-0">
           <ResponsiveContainer width="100%" height="100%" minWidth={0}>
             <PieChart>
               <Pie
                 data={chartData}
                 cx="50%"
                 cy="50%"
-                innerRadius={70}
-                outerRadius={85}
+                innerRadius={95}
+                outerRadius={115}
                 paddingAngle={6}
                 dataKey="value"
                 onMouseEnter={(_, index) => setActiveIndex(index)}
@@ -127,7 +158,10 @@ export function AttendanceDonutChart({ stats, loading }: AttendanceDonutChartPro
                     key={`cell-${index}`}
                     fill={entry.color}
                     className="outline-none transition-opacity duration-300"
-                    style={{ opacity: activeIndex === null || activeIndex === index ? 1 : 0.3 }}
+                    style={{
+                      opacity: activeIndex === null || activeIndex === index ? 1 : 0.3,
+                      cursor: 'pointer'
+                    }}
                   />
                 ))}
               </Pie>
@@ -136,19 +170,18 @@ export function AttendanceDonutChart({ stats, loading }: AttendanceDonutChartPro
 
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center">
-              <span className="block text-3xl font-bold text-text-primary">
-                {activeIndex !== null ? chartData[activeIndex].value : total}
+              <span className="block text-5xl font-bold text-text-primary">
+                {activeIndex !== null ? getPercent(chartData[activeIndex].value, total) : '100%'}
               </span>
-              <span className="text-xs font-medium text-text-secondary opacity-60">
+              <span className="text-sm font-bold uppercase tracking-widest text-text-secondary opacity-70">
                 {activeIndex !== null ? chartData[activeIndex].name : 'Total'}
               </span>
             </div>
           </div>
         </div>
 
-        <div className="flex flex-col gap-3 w-full xl:max-w-sm">
+        <div className="flex flex-col gap-4 w-full xl:max-w-sm">
           {chartData.map((item, index) => {
-            const percentage = total > 0 ? (item.value / total) * 100 : 0;
             const isActive = activeIndex === index;
 
             return (
@@ -161,30 +194,21 @@ export function AttendanceDonutChart({ stats, loading }: AttendanceDonutChartPro
                   flex items-center gap-4 p-4 rounded-xl bg-card
                   transition-all duration-200 text-left w-full
                   ${isActive ? 'scale-[1.01] ring-2 ring-primary/20' : 'hover:scale-[1.01]'}
+                  cursor-pointer
                 `}
               >
                 <div
-                  className="w-3 h-3 rounded-full shrink-0"
+                  className="w-4 h-4 rounded-full shrink-0"
                   style={{ backgroundColor: item.color }}
                 />
 
-                <span className="text-sm font-medium text-text-primary flex-1">
+                <span className="text-lg font-bold text-text-primary flex-1">
                   {item.name}
                 </span>
 
-                <div className="flex-1 max-w-24">
-                  <div className="w-full h-2 bg-background rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full transition-all duration-300"
-                      style={{ width: `${percentage}%`, backgroundColor: item.color }}
-                    />
-                  </div>
-                </div>
-
-                <div className="text-right shrink-0 min-w-16">
-                  <span className="text-lg font-bold text-text-primary">{item.value}</span>
-                  <span className="text-xs text-text-secondary ml-1">({percentage.toFixed(0)}%)</span>
-                </div>
+                <span className="text-2xl font-black text-text-primary">
+                  {getPercent(item.value, total)}
+                </span>
               </button>
             );
           })}

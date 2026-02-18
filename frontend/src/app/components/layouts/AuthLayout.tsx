@@ -45,6 +45,11 @@ export function AuthLayout({
   const backgroundUrl = getBackgroundUrl();
   const bannerUrl = getBannerUrl(theme);
   const logoUrl = getLogoUrl();
+  const nameColor = tenant.primary_color
+    ? theme === 'dark'
+      ? `color-mix(in srgb, ${tenant.primary_color} 70%, white)`
+      : tenant.primary_color
+    : undefined;
 
   return (
     <div className="min-h-screen flex">
@@ -65,41 +70,43 @@ export function AuthLayout({
         ></div>
       </div>
 
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 lg:p-12 bg-color-background">
+      <div className="w-full lg:w-2/5 flex items-center justify-center p-4 lg:p-6 bg-color-background min-h-screen">
         <div className="w-full max-w-md">
           <div className="text-center mb-8">
             {bannerUrl ? (
               <img
                 src={bannerUrl}
                 alt={tenant.name}
-                className="max-h-28 w-auto mx-auto mb-8 object-contain"
+                className="max-h-32 w-auto mx-auto mb-6 object-contain"
               />
             ) : logoUrl ? (
               <img
                 src={logoUrl}
                 alt={tenant.name}
-                className="max-h-28 w-auto mx-auto mb-8 object-contain"
+                className="max-h-32 w-auto mx-auto mb-6 object-contain"
               />
             ) : null}
 
-            <h1 className="text-3xl lg:text-3xl font-bold mb-3 text-text-primary">
+            <h1
+              className="text-3xl font-bold mb-2 text-text-primary"
+              style={nameColor ? { color: nameColor } : undefined}
+            >
               {tenant.name}
             </h1>
+
             {title && (
-              <h2 className="text-xl font-semibold mb-2 text-text-primary">
+              <h2 className="text-lg font-semibold mb-1 text-text-primary">
                 {title}
               </h2>
             )}
             {subtitle && (
-              <p className="text-sm text-text-secondary">
-                {subtitle}
-              </p>
+              <p className="text-sm text-text-secondary">{subtitle}</p>
             )}
           </div>
 
-          <div className="space-y-6">{children}</div>
+          <div className="space-y-4">{children}</div>
 
-          <div className="text-center text-xs mt-8">
+          <div className="text-center text-xs mt-4">
             <p className="text-text-secondary">
               © {new Date().getFullYear()} {tenant.name}
             </p>

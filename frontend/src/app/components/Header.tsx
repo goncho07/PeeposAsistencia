@@ -2,6 +2,7 @@
 import { Menu } from 'lucide-react';
 import { ThemeToggle } from './ThemeToggle';
 import { UserMenu } from './UserMenu';
+import { Calendar } from './Calendar';
 import { useSidebar } from '@/app/contexts/SidebarContext';
 
 export function Header() {
@@ -23,14 +24,16 @@ export function Header() {
             )}
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
+            <Calendar />
             <ThemeToggle />
             <UserMenu />
           </div>
         </div>
       </header>
 
-      <div className="hidden lg:flex fixed top-4 right-6 z-50 items-center gap-2 p-1.5 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm">
+      <div className="hidden lg:flex fixed z-50 items-center top-10 right-10 p-2 rounded-3xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-md transition-all duration-200">
+        <Calendar />
         <ThemeToggle />
         <UserMenu />
       </div>

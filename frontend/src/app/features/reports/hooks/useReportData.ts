@@ -2,8 +2,6 @@ import { useState, useMemo } from 'react';
 import {
   reportsService,
   ReportData,
-  BehaviorStatistics,
-  BehaviorStatisticsFilters,
 } from '@/lib/api/reports';
 import { ReportFilters } from './useReportFilters';
 
@@ -39,10 +37,7 @@ export interface DayData {
 
 export function useReportData() {
   const [reportData, setReportData] = useState<ReportData | null>(null);
-  const [behaviorStats, setBehaviorStats] =
-    useState<BehaviorStatistics | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [isLoadingBehavior, setIsLoadingBehavior] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [activeMonthIdx, setActiveMonthIdx] = useState(0);
 
@@ -128,53 +123,7 @@ export function useReportData() {
     return data.filter((d) => d.value > 0);
   }, [reportData]);
 
-  const loadBehaviorStatistics = async (
-    filters: ReportFilters,
-    bimesterDates: Record<number, { inicio: string; fin: string }>,
-    selectedMonth: number,
-    selectedYear: number
-  ) => {
-    if (filters.type !== 'student') return;
-
-    try {
-      setIsLoadingBehavior(true);
-
-      const payload: BehaviorStatisticsFilters = {
-        period: filters.period,
-        level: filters.level || undefined,
-        grade: filters.grade,
-        section: filters.section || undefined,
-        shift: filters.shift || undefined,
-      };
-
-      if (filters.period === 'monthly') {
-        const year = selectedYear;
-        const monthStr = (selectedMonth + 1).toString().padStart(2, '0');
-        const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate();
-        payload.from = `${year}-${monthStr}-01`;
-        payload.to = `${year}-${monthStr}-${lastDay.toString().padStart(2, '0')}`;
-      } else if (filters.period === 'bimester' && filters.bimester) {
-        const dates = bimesterDates[filters.bimester];
-        payload.from = dates.inicio;
-        payload.to = dates.fin;
-        payload.bimester = filters.bimester;
-      }
-
-      const data = await reportsService.getBehaviorStatistics(payload);
-      setBehaviorStats(data);
-    } catch (err: any) {
-      console.error('Error loading behavior statistics:', err);
-    } finally {
-      setIsLoadingBehavior(false);
-    }
-  };
-
-  const generateReport = async (
-    filtersWithDates: ReportFilters,
-    bimesterDates: Record<number, { inicio: string; fin: string }>,
-    selectedMonth: number,
-    selectedYear: number
-  ) => {
+  const generateReport = async (filtersWithDates: ReportFilters) => {
     try {
       setIsLoading(true);
       setHasSearched(true);
@@ -182,15 +131,6 @@ export function useReportData() {
       const data = await reportsService.generateReport(filtersWithDates);
       setReportData(data);
       setActiveMonthIdx(0);
-
-      if (filtersWithDates.type === 'student') {
-        await loadBehaviorStatistics(
-          filtersWithDates,
-          bimesterDates,
-          selectedMonth,
-          selectedYear
-        );
-      }
 
       return true;
     } catch (err: any) {
@@ -204,15 +144,12 @@ export function useReportData() {
   const resetReport = () => {
     setHasSearched(false);
     setReportData(null);
-    setBehaviorStats(null);
     setActiveMonthIdx(0);
   };
 
   return {
     reportData,
-    behaviorStats,
     isLoading,
-    isLoadingBehavior,
     hasSearched,
     activeMonthIdx,
     setActiveMonthIdx,

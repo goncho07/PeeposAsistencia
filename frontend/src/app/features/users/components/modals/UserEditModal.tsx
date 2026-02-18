@@ -1,30 +1,17 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { Modal, Button } from '@/app/components/ui/base';
-import { TabNavigation, Tab } from '../shared/TabNavigation';
-import {
-  PersonalInfoForm,
-  ContactInfoForm,
-  AcademicInfoForm,
-  ParentAssignmentForm,
-  StudentAssignmentForm,
-  PhotoUploadForm,
-} from '../forms';
-import { useFetchClassrooms } from '../../hooks/useFetchClassrooms';
-import { usersService } from '@/lib/api/users';
-import { Student, Teacher, Parent, User as UserType } from '@/lib/api/users';
-import { User, IdCard, GraduationCap, Mail, Users } from 'lucide-react';
-
-export type EntityType = 'student' | 'teacher' | 'parent' | 'user';
-export type Entity = Student | Teacher | Parent | UserType;
-type TabType = 'personal' | 'contact' | 'academic' | 'relations' | 'photo';
+import { ParentAssignmentForm, StudentAssignmentForm } from '../forms';
+import { usersService, Student, Parent, ParentAssignment, StudentAssignment } from '@/lib/api/users';
 
 interface UserEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSuccess: () => void;
-  entity: Entity | null;
-  entityType: EntityType;
+  entity: Student | Parent | null;
+  entityType: 'student' | 'parent';
+  allParents: Parent[];
+  allStudents: Student[];
 }
 
 export function UserEditModal({
@@ -33,82 +20,26 @@ export function UserEditModal({
   onSuccess,
   entity,
   entityType,
+  allParents,
+  allStudents,
 }: UserEditModalProps) {
-  const [activeTab, setActiveTab] = useState<TabType>('personal');
-  const [formData, setFormData] = useState<any>({});
   const [selectedParentIds, setSelectedParentIds] = useState<number[]>([]);
   const [selectedStudentIds, setSelectedStudentIds] = useState<number[]>([]);
-  const [_photoFile, setPhotoFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const { classrooms } = useFetchClassrooms();
-
   useEffect(() => {
     if (isOpen && entity) {
-      setActiveTab('personal');
-      setFormData(entity);
       setError('');
-      setPhotoFile(null);
-
-      if (entityType === 'student' && 'parents' in entity) {
-        const parentIds = entity.parents?.map((p: any) => p.id) || [];
-        setSelectedParentIds(parentIds);
-      }
-
-      if (entityType === 'parent' && 'students' in entity) {
-        const studentIds = entity.students?.map((s: any) => s.id) || [];
-        setSelectedStudentIds(studentIds);
+      if (entityType === 'student') {
+        const student = entity as Student;
+        setSelectedParentIds(student.parents?.map((p) => p.id) || []);
+      } else {
+        const parent = entity as Parent;
+        setSelectedStudentIds(parent.students?.map((s) => s.id) || []);
       }
     }
   }, [isOpen, entity, entityType]);
-
-  const getTabs = (): Tab[] => {
-    const tabs: Tab[] = [
-      { id: 'personal', label: 'Personal', icon: <User className="w-4 h-4" /> },
-    ];
-
-    if (entityType === 'student') {
-      tabs.push(
-        { id: 'academic', label: 'Académico', icon: <GraduationCap className="w-4 h-4" /> },
-        { id: 'relations', label: 'Apoderados', icon: <Users className="w-4 h-4" /> },
-        { id: 'photo', label: 'Foto', icon: <IdCard className="w-4 h-4" /> }
-      );
-    } else if (entityType === 'teacher') {
-      tabs.push(
-        { id: 'academic', label: 'Profesional', icon: <GraduationCap className="w-4 h-4" /> },
-        { id: 'contact', label: 'Contacto', icon: <Mail className="w-4 h-4" /> },
-        { id: 'photo', label: 'Foto', icon: <IdCard className="w-4 h-4" /> }
-      );
-    } else if (entityType === 'parent') {
-      tabs.push(
-        { id: 'contact', label: 'Contacto', icon: <Mail className="w-4 h-4" /> },
-        { id: 'relations', label: 'Hijos', icon: <Users className="w-4 h-4" /> },
-        { id: 'photo', label: 'Foto', icon: <IdCard className="w-4 h-4" /> }
-      );
-    } else if (entityType === 'user') {
-      tabs.push(
-        { id: 'contact', label: 'Contacto', icon: <Mail className="w-4 h-4" /> },
-        { id: 'photo', label: 'Foto', icon: <IdCard className="w-4 h-4" /> }
-      );
-    }
-
-    return tabs;
-  };
-
-  const getModalTitle = () => {
-    const titles: Record<EntityType, string> = {
-      student: 'Editar Estudiante',
-      teacher: 'Editar Docente',
-      parent: 'Editar Apoderado',
-      user: 'Editar Usuario',
-    };
-    return titles[entityType];
-  };
-
-  const handleFieldChange = (field: string, value: any) => {
-    setFormData((prev: any) => ({ ...prev, [field]: value }));
-  };
 
   const toggleParent = (id: number) => {
     setSelectedParentIds((prev) =>
@@ -129,29 +60,38 @@ export function UserEditModal({
     setError('');
 
     try {
-      const dataToSubmit = {
-        ...formData,
-        parent_ids: selectedParentIds,
-        student_ids: selectedStudentIds,
-      };
-
       if (entityType === 'student') {
-        await usersService.updateStudent(entity.id, dataToSubmit);
-      } else if (entityType === 'teacher') {
-        await usersService.updateTeacher(entity.id, dataToSubmit);
-      } else if (entityType === 'parent') {
-        await usersService.updateParent(entity.id, dataToSubmit);
-      } else if (entityType === 'user') {
-        await usersService.updateUser(entity.id, dataToSubmit);
+        const student = entity as Student;
+        const parents: ParentAssignment[] = selectedParentIds.map(id => {
+          const existing = student.parents?.find((p) => p.id === id);
+          return {
+            parent_id: id,
+            relationship_type: existing?.relationship?.type || 'APODERADO',
+            is_primary_contact: existing?.relationship?.is_primary_contact ? 1 : 0,
+            receives_notifications: existing?.relationship?.receives_notifications ? 1 : 0,
+          };
+        });
+        await usersService.updateStudent(entity.id, { parents });
+      } else {
+        const parent = entity as Parent;
+        const students: StudentAssignment[] = selectedStudentIds.map(id => {
+          const existing = parent.students?.find((s) => s.id === id);
+          return {
+            student_id: id,
+            relationship_type: existing?.relationship?.type || 'APODERADO',
+            is_primary_contact: existing?.relationship?.is_primary_contact ? 1 : 0,
+            receives_notifications: existing?.relationship?.receives_notifications ? 1 : 0,
+          };
+        });
+        await usersService.updateParent(entity.id, { students });
       }
 
       onSuccess();
       onClose();
-    } catch (err: any) {
-      setError(
-        err.response?.data?.message ||
-          'Error al actualizar. Verifica los datos ingresados.'
-      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al actualizar.';
+      const axiosMessage = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;
+      setError(axiosMessage || message);
     } finally {
       setLoading(false);
     }
@@ -159,19 +99,23 @@ export function UserEditModal({
 
   if (!entity) return null;
 
+  const title = entityType === 'student'
+    ? `Asignar Apoderados — ${entity.full_name}`
+    : `Asignar Estudiantes — ${entity.full_name}`;
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title={getModalTitle()}
+      title={title}
       size="xl"
       footer={
         <>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="outline" onClick={onClose} disabled={loading} className='text-xl'>
             Cancelar
           </Button>
-          <Button variant="primary" onClick={handleSubmit} loading={loading}>
-            Guardar Cambios
+          <Button variant="primary" onClick={handleSubmit} loading={loading} className='text-xl'>
+            Guardar
           </Button>
         </>
       }
@@ -182,56 +126,21 @@ export function UserEditModal({
         </div>
       )}
 
-      <TabNavigation tabs={getTabs()} activeTab={activeTab} onChange={(tabId) => setActiveTab(tabId as TabType)} />
+      {entityType === 'student' && (
+        <ParentAssignmentForm
+          parents={allParents}
+          selectedParentIds={selectedParentIds}
+          onToggleParent={toggleParent}
+        />
+      )}
 
-      <div className="mt-6">
-        {activeTab === 'personal' && (
-          <PersonalInfoForm
-            data={formData}
-            onChange={handleFieldChange}
-            userType={entityType}
-            mode="edit"
-          />
-        )}
-
-        {activeTab === 'contact' && (
-          <ContactInfoForm
-            data={formData}
-            onChange={handleFieldChange}
-            userType={entityType}
-          />
-        )}
-
-        {activeTab === 'academic' && (
-          <AcademicInfoForm
-            data={formData}
-            classrooms={classrooms}
-            onChange={handleFieldChange}
-            userType={entityType as 'student' | 'teacher'}
-          />
-        )}
-
-        {activeTab === 'relations' && entityType === 'student' && (
-          <ParentAssignmentForm
-            selectedParentIds={selectedParentIds}
-            onToggleParent={toggleParent}
-          />
-        )}
-
-        {activeTab === 'relations' && entityType === 'parent' && (
-          <StudentAssignmentForm
-            selectedStudentIds={selectedStudentIds}
-            onToggleStudent={toggleStudent}
-          />
-        )}
-
-        {activeTab === 'photo' && (
-          <PhotoUploadForm
-            currentPhotoUrl={entity.photo_url || undefined}
-            onPhotoChange={setPhotoFile}
-          />
-        )}
-      </div>
+      {entityType === 'parent' && (
+        <StudentAssignmentForm
+          students={allStudents}
+          selectedStudentIds={selectedStudentIds}
+          onToggleStudent={toggleStudent}
+        />
+      )}
     </Modal>
   );
 }

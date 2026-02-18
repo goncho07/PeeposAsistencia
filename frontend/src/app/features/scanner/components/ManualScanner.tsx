@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { ArrowLeft, XCircle, LogIn, LogOut } from 'lucide-react';
+import { ArrowLeft, LogIn, LogOut } from 'lucide-react';
 import { Modal, Button } from '@/app/components/ui/base';
 import { usePersonSearch, Person } from '../hooks/usePersonSearch';
 import { useScanner } from '../hooks/useScanner';
@@ -28,10 +28,10 @@ function ManualScannerSkeleton() {
 
       <div className="flex-1 flex flex-col min-h-0">
         <div className="max-w-4xl w-full mx-auto flex flex-col flex-1 min-h-0">
-          <div className="shrink-0 mb-4">
+          <div className="shrink-0 mb-6">
             <div className="flex gap-3">
-              <div className="flex-1 h-12 bg-surface dark:bg-surface-dark rounded-xl animate-pulse" />
-              <div className="w-32 h-12 bg-surface dark:bg-surface-dark rounded-xl animate-pulse" />
+              <div className="flex-1 h-15 bg-surface dark:bg-surface-dark rounded-xl animate-pulse" />
+              <div className="w-32 h-15 bg-surface dark:bg-surface-dark rounded-xl animate-pulse" />
             </div>
           </div>
 
@@ -42,10 +42,10 @@ function ManualScannerSkeleton() {
                 className="p-4 rounded-lg border-2 border-border dark:border-border-dark bg-surface dark:bg-surface-dark"
               >
                 <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-full bg-background dark:bg-background-dark animate-pulse" />
+                  <div className="w-16 h-16 rounded-full bg-background dark:bg-background-dark animate-pulse" />
                   <div className="flex-1 space-y-2">
-                    <div className="h-5 w-48 bg-background dark:bg-background-dark rounded animate-pulse" />
-                    <div className="h-4 w-32 bg-background dark:bg-background-dark rounded animate-pulse" />
+                    <div className="h-6 w-50 bg-background dark:bg-background-dark rounded animate-pulse" />
+                    <div className="h-5 w-34 bg-background dark:bg-background-dark rounded animate-pulse" />
                   </div>
                 </div>
               </div>
@@ -70,7 +70,7 @@ function ConfirmModal({ isOpen, onClose, onConfirm, person, scanType, loading }:
   if (!person) return null;
 
   const getPhotoUrl = () => {
-    if (person.type === 'student' && 'photo_url' in person && person.photo_url) {
+    if ('photo_url' in person && person.photo_url) {
       return getStorageUrl(person.photo_url);
     }
     return null;
@@ -95,14 +95,15 @@ function ConfirmModal({ isOpen, onClose, onConfirm, person, scanType, loading }:
       size="md"
       footer={
         <>
-          <Button variant="outline" onClick={onClose} disabled={loading}>
+          <Button variant="outline" onClick={onClose} disabled={loading} className="text-xl">
             Cancelar
           </Button>
           <Button
             variant="success"
             onClick={onConfirm}
             loading={loading}
-            icon={scanType === 'entry' ? <LogIn size={18} /> : <LogOut size={18} />}
+            icon={scanType === 'entry' ? <LogIn size={22} /> : <LogOut size={22} />}
+            className="text-xl"
           >
             Confirmar {scanType === 'entry' ? 'Entrada' : 'Salida'}
           </Button>
@@ -115,39 +116,30 @@ function ConfirmModal({ isOpen, onClose, onConfirm, person, scanType, loading }:
             <img
               src={photoUrl}
               alt={person.full_name}
-              className="w-24 h-24 rounded-full object-cover border-4 border-border dark:border-border-dark"
+              className="w-30 h-30 rounded-full object-cover border-4 border-border dark:border-border-dark"
             />
           ) : (
-            <div className="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center border-4 border-border dark:border-border-dark">
-              <span className="text-2xl font-bold text-primary dark:text-primary-light">
+            <div className="w-30 h-30 rounded-full bg-primary/10 flex items-center justify-center border-4 border-border dark:border-border-dark">
+              <span className="text-4xl font-bold text-primary dark:text-primary-light">
                 {getInitials(person.full_name)}
               </span>
             </div>
           )}
         </div>
 
-        <h3 className="text-xl font-bold text-text-primary dark:text-text-primary-dark mb-1">
+        <h3 className="text-2xl font-bold text-text-primary dark:text-text-primary-dark mb-1">
           {person.full_name}
         </h3>
 
-        <p className="text-sm text-text-secondary dark:text-text-secondary-dark mb-4">
+        <p className="text-base text-text-secondary dark:text-text-secondary-dark">
           {person.type === 'student' && 'student_code' in person
-            ? `Código: ${person.student_code}`
-            : person.type === 'teacher' && 'dni' in person
-            ? `DNI: ${person.dni}`
+            ? `Aula: ${person.classroom?.full_name}`
+            : person.type === 'user' && 'role' in person
+            ? `${person.role} · DNI: ${'document_number' in person ? person.document_number : ''}`
+            : 'document_number' in person && person.document_number
+            ? `DNI: ${person.document_number}`
             : ''}
-        </p>
-
-        <div
-          className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium ${
-            scanType === 'entry'
-              ? 'bg-success/10 text-success'
-              : 'bg-warning/10 text-warning'
-          }`}
-        >
-          {scanType === 'entry' ? <LogIn size={16} /> : <LogOut size={16} />}
-          Registrar {scanType === 'entry' ? 'Entrada' : 'Salida'}
-        </div>
+        </p>  
       </div>
     </Modal>
   );
@@ -164,13 +156,13 @@ export function ManualScanner({ scanType, onBack }: ManualScannerProps) {
     setSelectedType,
     currentPage,
     setCurrentPage,
+    allowedTypes,
     isLoading,
-    error: loadError,
     paginatedPersons,
     totalPages,
   } = usePersonSearch();
 
-  const { result, error, isProcessing, scan } = useScanner(scanType);
+  const { result, error, isProcessing, scan } = useScanner(scanType, 'MANUAL');
 
   const handleSelectPerson = (person: Person) => {
     setSelectedPerson(person);
@@ -183,11 +175,10 @@ export function ManualScanner({ scanType, onBack }: ManualScannerProps) {
   };
 
   const handleConfirmScan = async () => {
-    if (!selectedPerson) return;
+    if (!selectedPerson || !selectedPerson.qr_code) return;
 
     const qrCode = selectedPerson.qr_code;
 
-    // Close modal immediately
     setShowConfirmModal(false);
     setSelectedPerson(null);
 
@@ -200,36 +191,20 @@ export function ManualScanner({ scanType, onBack }: ManualScannerProps) {
     return <ManualScannerSkeleton />;
   }
 
-  if (loadError) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-          <XCircle className="w-16 h-16 mx-auto mb-4 text-danger" />
-          <p className="text-xl font-bold mb-2 text-text-primary dark:text-text-primary-dark">
-            Error al cargar datos
-          </p>
-          <p className="text-text-secondary dark:text-text-secondary-dark">
-            {loadError}
-          </p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="w-full flex-1 flex flex-col">
       <div className="flex items-center gap-4 mb-4 shrink-0">
         <button
           onClick={onBack}
-          className="rounded-full w-10 h-10 flex items-center justify-center shadow-md transition-all bg-surface dark:bg-surface-dark border border-border dark:border-border-dark hover:scale-105 active:scale-95"
+          className="rounded-full w-14 h-14 flex items-center justify-center shadow-md transition-all bg-surface dark:bg-surface-dark border border-border dark:border-border-dark hover:scale-105 active:scale-95"
         >
-          <ArrowLeft size={20} className="text-text-primary dark:text-text-primary-dark" />
+          <ArrowLeft size={28} className="text-text-primary dark:text-text-primary-dark" />
         </button>
         <div>
-          <h2 className="text-xl md:text-2xl font-bold text-text-primary dark:text-text-primary-dark">
+          <h2 className="text-xl md:text-3xl font-bold text-text-primary dark:text-text-primary-dark">
             Búsqueda Manual
           </h2>
-          <p className="text-sm text-text-secondary dark:text-text-secondary-dark">
+          <p className="text-lg text-text-secondary dark:text-text-secondary-dark">
             {scanType === 'entry' ? 'Registrando Entrada' : 'Registrando Salida'}
           </p>
         </div>
@@ -243,6 +218,7 @@ export function ManualScanner({ scanType, onBack }: ManualScannerProps) {
               onSearchChange={setSearchQuery}
               selectedType={selectedType}
               onTypeChange={setSelectedType}
+              allowedTypes={allowedTypes}
             />
           </div>
 
@@ -268,7 +244,7 @@ export function ManualScanner({ scanType, onBack }: ManualScannerProps) {
         loading={isProcessing}
       />
 
-      <ScanResult result={result} error={error} />
+      <ScanResult result={result} error={error} scanType={scanType} />
     </div>
   );
 }

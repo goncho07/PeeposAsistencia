@@ -24,7 +24,7 @@ export function PersonalInfoForm({
   errors = {},
   mode = 'create',
 }: PersonalInfoFormProps) {
-  const showFullName = mode === 'edit' || !data.name;
+  const showFullName = false;
 
   return (
     <div className="space-y-4">
@@ -66,6 +66,7 @@ export function PersonalInfoForm({
               onChange={(v) => onChange('maternal_surname', v)}
               error={errors.maternal_surname}
               placeholder="Apellido materno"
+              required
             />
           </div>
         </div>

@@ -7,24 +7,22 @@ import {
     SSECompletedEvent,
     SSEErrorEvent,
 } from '@/lib/api/carnets';
-import { usersService } from '@/lib/api/users';
-
-interface Classroom {
-    id: number;
-    full_name: string;
-    level: string;
-    grade: number;
-    section: string;
-    shift: string;
-    status: string;
-}
+import { Classroom } from '@/lib/api/users';
+import { settingsService } from '@/lib/api/settings';
+import type { AttendableType } from '@/lib/api/attendance';
 
 type GenerationStatus = 'idle' | 'generating' | 'completed' | 'error';
 
 const SUCCESS_DISPLAY_TIME = 3500;
 
+function getXsrfToken(): string {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : '';
+}
+
 export function useCarnetGenerator(
     isOpen: boolean,
+    classrooms: Classroom[],
     onSuccess?: (message: string) => void,
     onClose?: () => void
 ) {
@@ -34,19 +32,21 @@ export function useCarnetGenerator(
         grade: 'all',
         section: 'all',
     });
-    const [classrooms, setClassrooms] = useState<Classroom[]>([]);
     const [status, setStatus] = useState<GenerationStatus>('idle');
     const [progress, setProgress] = useState(0);
     const [totalUsers, setTotalUsers] = useState(0);
     const [error, setError] = useState<string | null>(null);
+    const [allowedTypes, setAllowedTypes] = useState<AttendableType[]>(['student']);
 
     const abortControllerRef = useRef<AbortController | null>(null);
     const successTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
     useEffect(() => {
         if (isOpen) {
-            fetchClassrooms();
             resetState();
+            settingsService.getAttendableTypes().then((types) => {
+                setAllowedTypes(types ?? ['student']);
+            }).catch(() => {});
         }
 
         return () => {
@@ -64,15 +64,6 @@ export function useCarnetGenerator(
             return () => window.removeEventListener('beforeunload', handleBeforeUnload);
         }
     }, [status]);
-
-    const fetchClassrooms = async () => {
-        try {
-            const data = await usersService.getClassrooms();
-            setClassrooms(data || []);
-        } catch (err) {
-            console.error('Error fetching classrooms:', err);
-        }
-    };
 
     const resetState = () => {
         setStatus('idle');
@@ -103,7 +94,6 @@ export function useCarnetGenerator(
         abortControllerRef.current = abortController;
 
         try {
-            const token = localStorage.getItem('token');
             const baseUrl = process.env.NEXT_PUBLIC_API_URL || '';
 
             const payload = {
@@ -116,9 +106,10 @@ export function useCarnetGenerator(
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'text/event-stream',
-                    'Authorization': `Bearer ${token}`,
+                    'X-XSRF-TOKEN': getXsrfToken(),
                 },
                 body: JSON.stringify(payload),
+                credentials: 'include',
                 signal: abortController.signal,
             });
 
@@ -132,7 +123,7 @@ export function useCarnetGenerator(
                         errorMessage = Object.values(errorData.errors).flat().join(', ');
                     }
                 } catch {
-                    // Use default error message
+                    //
                 }
                 throw new Error(errorMessage);
             }
@@ -231,7 +222,6 @@ export function useCarnetGenerator(
                 onSuccess('Carnets descargados exitosamente');
             }
 
-            // Auto-close after success
             successTimeoutRef.current = setTimeout(() => {
                 handleCloseModal();
             }, SUCCESS_DISPLAY_TIME);
@@ -294,6 +284,7 @@ export function useCarnetGenerator(
         error,
         isGenerating,
         showSuccessScreen,
+        allowedTypes,
         availableLevels,
         availableGrades,
         availableSections,

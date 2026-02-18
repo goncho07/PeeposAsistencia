@@ -30,8 +30,8 @@ export function useUSBScanner(scanType: 'entry' | 'exit') {
       setError(null);
       const response =
         scanType === 'entry'
-          ? await scannerService.scanEntry(qrCode)
-          : await scannerService.scanExit(qrCode);
+          ? await scannerService.scanEntry(qrCode, 'SCANNER')
+          : await scannerService.scanExit(qrCode, 'SCANNER');
 
       setResult(response);
       setScanCount((prev) => prev + 1);

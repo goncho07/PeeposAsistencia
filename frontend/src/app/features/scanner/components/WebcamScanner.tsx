@@ -37,12 +37,13 @@ export function WebcamScanner({ scanType, onBack }: WebcamScannerProps) {
       </div>
 
       <div className="flex-1 relative bg-black overflow-hidden">
-        {isInitializing ? (
+        {isInitializing && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white z-10">
             <Loader2 className="w-10 h-10 mb-4 animate-spin text-primary" />
             <p className="text-xs font-bold uppercase tracking-widest opacity-40">Sincronizando lente</p>
           </div>
-        ) : error && !isScanning ? (
+        )}
+        {error && !isScanning && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-white p-10 z-10">
             <Camera className="w-12 h-12 text-danger/50 mb-4" />
             <h3 className="text-sm font-black uppercase mb-2 tracking-tighter">Cámara no disponible</h3>
@@ -54,18 +55,20 @@ export function WebcamScanner({ scanType, onBack }: WebcamScannerProps) {
               Volver al inicio
             </button>
           </div>
-        ) : (
-          <video
-            ref={videoRef}
-            className="absolute inset-0 w-full h-full object-contain"
-            playsInline
-            muted
-            autoPlay
-          />
         )}
+        <video
+          ref={videoRef}
+          className="absolute inset-0 w-full h-full object-contain"
+          playsInline
+          muted
+        />
       </div>
 
-      <ScanResult result={result} error={error && isScanning ? error : null} />
+      <ScanResult
+        result={result}
+        error={error && isScanning ? error : null}
+        scanType={scanType}
+      />
     </div>
   );
 }

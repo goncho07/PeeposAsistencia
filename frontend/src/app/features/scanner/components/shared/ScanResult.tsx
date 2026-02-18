@@ -5,11 +5,17 @@ import { ScanResponse } from '@/lib/api/scanner';
 interface ScanResultProps {
   result: ScanResponse | null;
   error: string | null;
+  scanType: 'entry' | 'exit';
 }
 
-export function ScanResult({ result, error }: ScanResultProps) {
+export function ScanResult({ result, error, scanType }: ScanResultProps) {
   const getTimeDisplay = (res: ScanResponse) => {
-    const timeString = res.attendance.entry_time || res.attendance.exit_time;
+    if (!res) return '';
+    const timeString =
+      scanType === 'entry'
+        ? res.attendance.entry_time
+        : res.attendance.exit_time;
+
     if (!timeString) return '';
 
     try {
@@ -21,12 +27,13 @@ export function ScanResult({ result, error }: ScanResultProps) {
       return date.toLocaleTimeString('es-ES', {
         hour: '2-digit',
         minute: '2-digit',
-        hour12: true
+        hour12: true,
       });
     } catch {
       return timeString;
     }
   };
+
 
   const isOpen = !!(error || result);
   if (!isOpen) return null;
@@ -38,35 +45,35 @@ export function ScanResult({ result, error }: ScanResultProps) {
       <div className="bg-surface dark:bg-surface-dark rounded-2xl p-8 max-w-sm w-full shadow-2xl animate-slide-up">
         {error ? (
           <div className="flex flex-col items-center text-center">
-            <div className="w-20 h-20 rounded-full bg-danger/15 flex items-center justify-center mb-5">
-              <XCircle className="w-10 h-10 text-danger" />
+            <div className="w-24 h-24 rounded-full bg-danger/15 flex items-center justify-center mb-5">
+              <XCircle className="w-14 h-14 text-danger" />
             </div>
-            <h3 className="text-2xl font-bold mb-2 text-text-primary dark:text-text-primary-dark">
+            <h3 className="text-3xl font-bold mb-2 text-text-primary dark:text-text-primary-dark">
               Error de Lectura
             </h3>
-            <p className="text-base text-text-secondary dark:text-text-secondary-dark">
+            <p className="text-lg text-text-secondary dark:text-text-secondary-dark">
               {error}
             </p>
           </div>
         ) : result && (
           <div className="flex flex-col items-center text-center">
-            <div className={`w-20 h-20 rounded-full flex items-center justify-center mb-5 ${
+            <div className={`w-24 h-24 rounded-full flex items-center justify-center mb-5 ${
               isEntry ? 'bg-success/15' : 'bg-warning/15'
             }`}>
-              <CheckCircle2 className={`w-10 h-10 ${isEntry ? 'text-success' : 'text-warning'}`} />
+              <CheckCircle2 className={`w-14 h-14 ${isEntry ? 'text-success' : 'text-warning'}`} />
             </div>
 
-            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-4 ${
+            <div className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full text-[15px] font-black uppercase tracking-[0.2em] mb-4 ${
               isEntry ? 'bg-success/10 text-success' : 'bg-warning/10 text-warning'
             }`}>
               {isEntry ? 'Entrada Confirmada' : 'Salida Confirmada'}
             </div>
 
-            <h3 className="text-2xl font-bold mb-1 text-text-primary dark:text-text-primary-dark">
+            <h3 className="text-3xl font-bold mb-2 text-text-primary dark:text-text-primary-dark">
               {result.person.full_name}
             </h3>
 
-            <p className="text-sm text-text-secondary dark:text-text-secondary-dark mb-6">
+            <p className="text-lg text-text-secondary dark:text-text-secondary-dark mb-6">
               {result.message}
             </p>
 

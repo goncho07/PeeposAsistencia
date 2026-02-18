@@ -1,10 +1,11 @@
 import { ReportData } from '@/lib/api/reports';
 import { MonthData } from '../hooks';
+import { AttendableType } from '@/lib/api/attendance';
 
 interface MonthlyReportMatrixProps {
   reportData: ReportData;
   activeMonth: MonthData;
-  userType: 'student' | 'teacher';
+  userType: AttendableType
 }
 
 export function MonthlyReportMatrix({

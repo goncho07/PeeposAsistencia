@@ -1,8 +1,9 @@
 'use client';
-import { useState } from 'react';
-import { Filter, X, ChevronDown, ChevronUp, Search, Download, Users, GraduationCap } from 'lucide-react';
+import { Search, Download, Users, GraduationCap, UserCog } from 'lucide-react';
 import { Select, Button } from '@/app/components/ui/base';
+import { FilterPanel } from '@/app/components/ui/FilterPanel';
 import { ReportFilters } from '../hooks';
+import { AttendableType } from '@/lib/api/attendance';
 
 interface ReportFiltersPanelProps {
   filters: ReportFilters;
@@ -11,6 +12,7 @@ interface ReportFiltersPanelProps {
   selectedYear: number;
   onMonthChange: (month: number) => void;
   onYearChange: (year: number) => void;
+  allowedTypes: AttendableType[];
   availableLevels: string[];
   availableGrades: number[];
   availableSections: string[];
@@ -77,6 +79,7 @@ export function ReportFiltersPanel({
   selectedYear,
   onMonthChange,
   onYearChange,
+  allowedTypes,
   availableLevels,
   availableGrades,
   availableSections,
@@ -87,8 +90,6 @@ export function ReportFiltersPanel({
   onDownloadPDF,
   canGenerate: canGenerateProp,
 }: ReportFiltersPanelProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-
   const activeFiltersCount = [
     filters.level,
     filters.grade,
@@ -109,62 +110,105 @@ export function ReportFiltersPanel({
   const bimesterValid = filters.period !== 'bimester' || !!filters.bimester;
   const canGenerate = canGenerateProp !== undefined ? canGenerateProp : bimesterValid;
 
-  const renderUserTypeSelector = () => (
-    <div className="space-y-2">
-      <label className="block text-sm font-medium text-text-primary dark:text-text-primary-dark">
-        Tipo de Usuario
-      </label>
-      <div className="grid grid-cols-2 gap-2">
-        {[
-          { value: 'student', label: 'Estudiantes', icon: Users },
-          { value: 'teacher', label: 'Docentes', icon: GraduationCap },
-        ].map((option) => {
-          const Icon = option.icon;
-          const isActive = filters.type === option.value;
-          return (
-            <button
-              key={option.value}
-              onClick={() =>
-                onFiltersChange({
-                  ...filters,
-                  type: option.value as 'student' | 'teacher',
-                  level: '',
-                  grade: undefined,
-                  section: '',
-                  shift: '',
-                })
-              }
-              className={`p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
-                isActive
-                  ? 'border-primary dark:border-primary-light bg-primary/10 dark:bg-primary-light/10'
-                  : 'border-border dark:border-border-dark hover:border-primary/50'
-              }`}
-            >
-              <Icon
-                className={`w-5 h-5 ${
+  const allTypeOptions = [
+    { value: 'student', label: 'Estudiantes', icon: Users },
+    { value: 'teacher', label: 'Docentes', icon: GraduationCap },
+    { value: 'user', label: 'Usuarios', icon: UserCog },
+  ];
+
+  const visibleTypeOptions = allTypeOptions.filter((opt) =>
+    allowedTypes.includes(opt.value as AttendableType)
+  );
+
+  const renderUserTypeSelector = () => {
+    if (visibleTypeOptions.length <= 1) return null;
+
+    return (
+      <div className="space-y-2">
+        <label className="block text-sm font-medium text-text-primary">
+          Tipo de Usuario
+        </label>
+        <div className={`grid gap-2 ${visibleTypeOptions.length === 2 ? 'grid-cols-2' : 'grid-cols-3'}`}>
+          {visibleTypeOptions.map((option) => {
+            const Icon = option.icon;
+            const isActive = filters.type === option.value;
+            return (
+              <button
+                key={option.value}
+                onClick={() =>
+                  onFiltersChange({
+                    ...filters,
+                    type: option.value as AttendableType,
+                    level: '',
+                    grade: undefined,
+                    section: '',
+                    shift: '',
+                  })
+                }
+                className={`cursor-pointer p-3 rounded-xl border-2 transition-all flex flex-col items-center gap-1 ${
                   isActive
-                    ? 'text-primary dark:text-primary-light'
-                    : 'text-text-secondary dark:text-text-secondary-dark'
-                }`}
-              />
-              <span
-                className={`text-xs font-medium ${
-                  isActive
-                    ? 'text-primary dark:text-primary-light'
-                    : 'text-text-secondary dark:text-text-secondary-dark'
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/50'
                 }`}
               >
-                {option.label}
-              </span>
-            </button>
-          );
-        })}
+                <Icon
+                  className={`w-5 h-5 ${
+                    isActive
+                      ? 'text-primary'
+                      : 'text-text-secondary'
+                  }`}
+                />
+                <span
+                  className={`text-xs font-medium ${
+                    isActive
+                      ? 'text-primary'
+                      : 'text-text-secondary'
+                  }`}
+                >
+                  {option.label}
+                </span>
+              </button>
+            );
+          })}
+        </div>
       </div>
+    );
+  };
+
+  const actions = (
+    <div className="pt-4 space-y-3 mt-4 border-t border-border">
+      <Button
+        variant="primary"
+        fullWidth
+        onClick={onGenerate}
+        disabled={isLoading || !canGenerate}
+        loading={isLoading}
+        icon={<Search size={24} />}
+        className="text-xl"
+      >
+        {isLoading ? 'Generando...' : 'Generar Reporte'}
+      </Button>
+
+      {hasSearched && onDownloadPDF && (
+        <Button
+          variant="outline"
+          fullWidth
+          onClick={onDownloadPDF}
+          icon={<Download size={24} />}
+          className="text-xl"
+        >
+          Descargar PDF
+        </Button>
+      )}
     </div>
   );
 
-  const renderFilters = () => (
-    <>
+  return (
+    <FilterPanel
+      activeCount={activeFiltersCount}
+      onClear={clearFilters}
+      actions={actions}
+    >
       <Select
         label="Periodo"
         value={filters.period}
@@ -265,113 +309,6 @@ export function ReportFiltersPanel({
           onChange={(v) => onFiltersChange({ ...filters, shift: String(v) })}
         />
       )}
-    </>
-  );
-
-  const renderActions = () => (
-    <div className="pt-4 space-y-3 border-t border-border dark:border-border-dark">
-      <Button
-        variant="primary"
-        fullWidth
-        onClick={onGenerate}
-        disabled={isLoading || !canGenerate}
-        loading={isLoading}
-        icon={<Search size={18} />}
-      >
-        {isLoading ? 'Generando...' : 'Generar Reporte'}
-      </Button>
-
-      {hasSearched && onDownloadPDF && (
-        <Button
-          variant="outline"
-          fullWidth
-          onClick={onDownloadPDF}
-          icon={<Download size={18} />}
-        >
-          Descargar PDF
-        </Button>
-      )}
-    </div>
-  );
-
-  return (
-    <>
-      <div className="lg:hidden">
-        <button
-          onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full flex items-center justify-between p-4 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm"
-        >
-          <div className="flex items-center gap-3">
-            <Filter size={18} className="text-text-secondary dark:text-text-secondary-dark" />
-            <span className="font-medium text-text-primary dark:text-text-primary-dark">
-              Filtros de Reporte
-            </span>
-            {activeFiltersCount > 0 && (
-              <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-primary text-white">
-                {activeFiltersCount}
-              </span>
-            )}
-          </div>
-          {isExpanded ? (
-            <ChevronUp size={18} className="text-text-secondary dark:text-text-secondary-dark" />
-          ) : (
-            <ChevronDown size={18} className="text-text-secondary dark:text-text-secondary-dark" />
-          )}
-        </button>
-
-        {isExpanded && (
-          <div className="mt-3 p-4 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm space-y-4">
-            {renderFilters()}
-            {activeFiltersCount > 0 && (
-              <button
-                onClick={clearFilters}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-danger hover:bg-danger/10 rounded-lg transition-colors"
-              >
-                <X size={16} />
-                Limpiar filtros
-              </button>
-            )}
-            {renderActions()}
-          </div>
-        )}
-      </div>
-
-      <div className="hidden lg:block">
-        <div className="sticky top-24 p-5 rounded-xl bg-surface dark:bg-surface-dark border border-border dark:border-border-dark shadow-sm">
-          <div className="flex items-center justify-between mb-5 pb-4 border-b border-border dark:border-border-dark">
-            <div className="flex items-center gap-2">
-              <Filter size={18} className="text-primary dark:text-primary-light" />
-              <span className="font-bold text-text-primary dark:text-text-primary-dark">
-                Filtros
-              </span>
-            </div>
-            {activeFiltersCount > 0 && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium text-danger hover:bg-danger/10 rounded-lg transition-colors"
-              >
-                <X size={14} />
-                Limpiar
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-4">
-            {renderFilters()}
-          </div>
-
-          {renderActions()}
-
-          {activeFiltersCount > 0 && (
-            <div className="mt-4 pt-4 border-t border-border dark:border-border-dark">
-              <p className="text-xs text-text-secondary dark:text-text-secondary-dark">
-                {activeFiltersCount} filtro{activeFiltersCount > 1 ? 's' : ''} activo
-                {activeFiltersCount > 1 ? 's' : ''}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
-    </>
+    </FilterPanel>
   );
 }

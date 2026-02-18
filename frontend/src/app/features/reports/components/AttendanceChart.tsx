@@ -25,13 +25,13 @@ export function AttendanceChart({ data }: AttendanceChartProps) {
       <div className="relative z-10 p-5 border-b border-border dark:border-border-dark bg-background">
         <div className="flex items-center gap-3">
           <div className="inline-flex p-2.5 rounded-xl bg-primary/10 text-primary dark:text-primary-light">
-            <PieChartIcon size={20} strokeWidth={2.5} />
+            <PieChartIcon size={30} strokeWidth={2.5} />
           </div>
           <div>
-            <h3 className="font-bold text-text-primary dark:text-text-primary-dark">
+            <h3 className="font-bold text-lg text-text-primary dark:text-text-primary-dark">
               Distribución de Asistencia
             </h3>
-            <p className="text-xs text-text-secondary dark:text-text-secondary-dark">
+            <p className="text-sm text-text-secondary dark:text-text-secondary-dark">
               Resumen del período seleccionado
             </p>
           </div>

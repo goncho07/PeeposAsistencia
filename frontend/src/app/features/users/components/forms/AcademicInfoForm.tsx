@@ -1,17 +1,15 @@
 import React from 'react';
 import { Input, Select } from '@/app/components/ui/base';
 import { Classroom } from '../../hooks/useFetchClassrooms';
-import { GraduationCap, Calendar, BookOpen } from 'lucide-react';
+import { GraduationCap, BookOpen } from 'lucide-react';
 
 interface AcademicInfoFormProps {
   data: {
     classroom_id?: number;
-    enrollment_date?: string;
     student_code?: string;
-    academic_year?: string;
     enrollment_status?: string;
     level?: string;
-    area?: string;
+    specialty?: string;
   };
   classrooms: Classroom[];
   onChange: (field: string, value: any) => void;
@@ -26,8 +24,6 @@ export function AcademicInfoForm({
   errors = {},
   userType,
 }: AcademicInfoFormProps) {
-  const currentYear = new Date().getFullYear();
-
   return (
     <div className="space-y-4">
       {userType === 'student' && (
@@ -56,27 +52,6 @@ export function AcademicInfoForm({
             placeholder="Ej: EST2024001"
             icon={<GraduationCap className="w-4 h-4" />}
             required
-          />
-
-          <Input
-            label="Fecha de Matrícula"
-            type="date"
-            value={data.enrollment_date || ''}
-            onChange={(v) => onChange('enrollment_date', v)}
-            error={errors.enrollment_date}
-            icon={<Calendar className="w-4 h-4" />}
-          />
-
-          <Select
-            label="Año Académico"
-            options={[
-              { value: String(currentYear - 1), label: String(currentYear - 1) },
-              { value: String(currentYear), label: String(currentYear) },
-              { value: String(currentYear + 1), label: String(currentYear + 1) },
-            ]}
-            value={data.academic_year || String(currentYear)}
-            onChange={(v) => onChange('academic_year', v as string)}
-            error={errors.academic_year}
           />
 
           <Select
@@ -111,11 +86,11 @@ export function AcademicInfoForm({
           />
 
           <Input
-            label="Área de Especialización"
+            label="Especialidad"
             type="text"
-            value={data.area || ''}
-            onChange={(v) => onChange('area', v)}
-            error={errors.area}
+            value={data.specialty || ''}
+            onChange={(v) => onChange('specialty', v)}
+            error={errors.specialty}
             placeholder="Ej: Matemáticas, Comunicación, Ciencias"
             icon={<BookOpen className="w-4 h-4" />}
           />

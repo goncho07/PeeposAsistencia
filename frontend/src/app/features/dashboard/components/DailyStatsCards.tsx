@@ -1,5 +1,5 @@
 'use client';
-import { CheckCircle2, XCircle, Clock, BarChart3, Timer, LineChart, UserX, UserCheck } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, Timer, UserX, UserCheck, Building } from 'lucide-react';
 import { DailyStats } from '../hooks/useDailyStats';
 
 interface DailyStatsCardsProps {
@@ -20,15 +20,24 @@ export function DailyStatsCards({ stats, loading }: DailyStatsCardsProps) {
 
   if (!stats) return null;
 
-  const totalPresent = stats.students.present + stats.teachers.present;
-  const totalLate = stats.students.late + stats.teachers.late;
-  const totalAbsent = stats.students.absent + stats.teachers.absent + stats.students.justified;
-  const totalRegistered = stats.students.total_registered + stats.teachers.total_registered;
-  const attendancePercentage = totalRegistered > 0 ? ((totalPresent + totalLate) / totalRegistered) * 100 : 0;
+  const groups = [stats.students, stats.teachers, stats.users].filter(Boolean);
+  const totalPresent = groups.reduce((sum, g) => sum + g!.present, 0);
+  const totalLate = groups.reduce((sum, g) => sum + g!.late, 0);
+  const totalAbsent = groups.reduce((sum, g) => sum + g!.absent + (g!.justified ?? 0), 0);
+  const totalRegistered = groups.reduce((sum, g) => sum + g!.total_registered, 0);
 
   const cards = [
     {
-      title: 'Asistencias',
+      title: 'Total Institución',
+      value: totalRegistered,
+      mainIcon: Building,
+      bgIcon: Building,
+      colorClass: 'text-primary',
+      bgLight: 'bg-primary/30',
+      borderColor: 'border-primary/30',
+    },
+    {
+      title: 'Total Presentes',
       value: totalPresent,
       mainIcon: CheckCircle2,
       bgIcon: UserCheck,
@@ -37,16 +46,7 @@ export function DailyStatsCards({ stats, loading }: DailyStatsCardsProps) {
       borderColor: 'border-success/30',
     },
     {
-      title: 'Inasistencias',
-      value: totalAbsent,
-      mainIcon: XCircle,
-      bgIcon: UserX,
-      colorClass: 'text-danger',
-      bgLight: 'bg-danger/30',
-      borderColor: 'border-danger/30',
-    },
-    {
-      title: 'Tardanzas',
+      title: 'Total Tardanzas',
       value: totalLate,
       mainIcon: Clock,
       bgIcon: Timer,
@@ -55,13 +55,13 @@ export function DailyStatsCards({ stats, loading }: DailyStatsCardsProps) {
       borderColor: 'border-warning/30',
     },
     {
-      title: 'Porcentaje',
-      value: `${attendancePercentage.toFixed(1)}%`,
-      mainIcon: BarChart3,
-      bgIcon: LineChart,
-      colorClass: 'text-primary',
-      bgLight: 'bg-primary/30',
-      borderColor: 'border-primary/30',
+      title: 'Total Faltas',
+      value: totalAbsent,
+      mainIcon: XCircle,
+      bgIcon: UserX,
+      colorClass: 'text-danger',
+      bgLight: 'bg-danger/30',
+      borderColor: 'border-danger/30',
     },
   ];
 
@@ -85,10 +85,10 @@ export function DailyStatsCards({ stats, loading }: DailyStatsCardsProps) {
             <div className="relative z-10 flex flex-col h-full justify-between">
               <div>
                 <div className={`inline-flex p-3 rounded-2xl ${card.bgLight} ${card.colorClass} mb-4 shadow-sm`}>
-                  <MainIcon size={28} strokeWidth={2.5} />
+                  <MainIcon size={32} strokeWidth={2.5} />
                 </div>
 
-                <h3 className="text-sm font-bold uppercase tracking-widest text-text-primary">
+                <h3 className="text-base font-bold uppercase tracking-widest text-text-primary">
                   {card.title}
                 </h3>
               </div>

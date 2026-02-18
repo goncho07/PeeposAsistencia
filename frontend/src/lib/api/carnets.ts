@@ -1,7 +1,8 @@
 import api from '../axios';
+import { ApiResponse } from './types';
 
 export interface CarnetFilters {
-    type: 'all' | 'student' | 'teacher';
+    type: 'all' | 'student' | 'teacher' | 'user';
     level?: string;
     grade?: string;
     section?: string;
@@ -30,7 +31,7 @@ export interface SSEErrorEvent {
 
 export const carnetsService = {
     async getCount(filters: CarnetFilters): Promise<number> {
-        const response = await api.post<{ data: { count: number } }>('/carnets/count', filters);
+        const response = await api.post<ApiResponse<{ count: number }>>('/carnets/count', filters);
         return response.data.data.count;
     },
 

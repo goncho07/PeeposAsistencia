@@ -8,14 +8,14 @@ export function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-lg transition-colors hover:bg-surface-hover active:scale-95"
+      className="p-2 rounded-lg transition-colors hover:bg-surface-hover active:scale-95 cursor-pointer"
       aria-label="Cambiar tema"
       title={theme === 'light' ? 'Modo oscuro' : 'Modo claro'}
     >
       {theme === 'light' ? (
-        <Moon className="w-5 h-5 text-text-secondary" />
+        <Moon className="w-7 h-7 text-text-secondary" />
       ) : (
-        <Sun className="w-5 h-5 text-text-secondary" />
+        <Sun className="w-7 h-7 text-text-secondary" />
       )}
     </button>
   );

@@ -7,8 +7,8 @@ import { UserKPICard, UserSearchBar, UserFilters } from '@/app/features/users/co
 import { UserDetailModal, UserEditModal, UserCreateModal, UserDeleteModal, CarnetGeneratorModal } from '@/app/features/users/components/modals';
 import { ToastContainer } from '@/app/components/ui/base/Toast';
 import { Users, GraduationCap, UserCircle, Shield, UsersRound, BookUser, ShieldCheck, UserCog } from 'lucide-react';
-import { EntityType } from '@/lib/api/users';
-import { useUsers, useUserModals, useUserSearch } from '@/app/features/users/hooks';
+import { EntityType, Student, Parent } from '@/lib/api/users';
+import { useUsers, useUserModals, useUserSearch, useFetchClassrooms } from '@/app/features/users/hooks';
 import { useToasts } from '@/app/hooks';
 
 const ENTITY_CONFIG = {
@@ -21,6 +21,7 @@ const ENTITY_CONFIG = {
     colorClass: 'text-primary',
     bgLight: 'bg-primary/30',
     borderColor: 'border-primary/30',
+    ringColor: 'ring-primary/30',
   },
   teacher: {
     title: 'Docentes',
@@ -31,6 +32,7 @@ const ENTITY_CONFIG = {
     colorClass: 'text-success',
     bgLight: 'bg-success/30',
     borderColor: 'border-success/30',
+    ringColor: 'ring-success/30',
   },
   parent: {
     title: 'Apoderados',
@@ -41,6 +43,7 @@ const ENTITY_CONFIG = {
     colorClass: 'text-secondary',
     bgLight: 'bg-secondary/30',
     borderColor: 'border-secondary/30',
+    ringColor: 'ring-secondary/30',
   },
   user: {
     title: 'Administrativos',
@@ -51,6 +54,7 @@ const ENTITY_CONFIG = {
     colorClass: 'text-warning',
     bgLight: 'bg-warning/30',
     borderColor: 'border-warning/30',
+    ringColor: 'ring-warning/30',
   },
 } as const;
 
@@ -60,6 +64,7 @@ export default function UsuariosPage() {
   const [activeType, setActiveType] = useState<EntityType>('student');
 
   const { entities, counts, loading, error, fetchAllData, deleteEntity } = useUsers();
+  const { classrooms } = useFetchClassrooms();
   const { selectedEntity, modals, open, close } = useUserModals();
   const {
     searchQuery,
@@ -104,7 +109,6 @@ export default function UsuariosPage() {
         title="Usuarios"
         subtitle="Gestiona estudiantes, docentes, apoderados y personal administrativo."
         icon={Users}
-        breadcrumbs={[{ label: 'Usuarios' }]}
       />
 
       {error && (
@@ -126,6 +130,7 @@ export default function UsuariosPage() {
               colorClass={cfg.colorClass}
               bgLight={cfg.bgLight}
               borderColor={cfg.borderColor}
+              ringColor={cfg.ringColor}
               active={activeType === type}
               loading={loading}
               onClick={() => setActiveType(type)}
@@ -134,31 +139,8 @@ export default function UsuariosPage() {
         })}
       </div>
 
-      <UserSearchBar
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onAddClick={open.create}
-        onCarnetClick={open.carnet}
-      />
-
-      <div className="lg:hidden mb-4">
-        <UserFilters
-          entityType={activeType}
-          entities={entities[activeType]}
-          filters={filters}
-          onFiltersChange={setFilters}
-        />
-      </div>
-
-      {!loading && (
-        <div className="mb-4 text-sm text-text-secondary">
-          Mostrando {paginatedEntities.length} de {totalFiltered} {config.label}s
-          {totalFiltered !== counts[activeType] && ` (filtrado de ${counts[activeType]} total)`}
-        </div>
-      )}
-
-      <div className="flex gap-6">
-        <div className="hidden lg:block">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        <div className="lg:col-span-1">
           <UserFilters
             entityType={activeType}
             entities={entities[activeType]}
@@ -167,17 +149,33 @@ export default function UsuariosPage() {
           />
         </div>
 
-        <UserTable
-          entities={paginatedEntities}
-          entityType={activeType}
-          onView={open.detail}
-          onEdit={open.edit}
-          onDelete={open.delete}
-          currentPage={currentPage}
-          totalPages={totalPages}
-          onPageChange={setCurrentPage}
-          loading={loading}
-        />
+        <div className="lg:col-span-3 min-w-0">
+          <UserSearchBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            onAddClick={open.create}
+            onCarnetClick={open.carnet}
+          />
+
+          {!loading && (
+            <div className="mb-4 text-sm text-text-secondary">
+              Mostrando {paginatedEntities.length} de {totalFiltered} {config.label}s
+              {totalFiltered !== counts[activeType] && ` (filtrado de ${counts[activeType]} total)`}
+            </div>
+          )}
+
+          <UserTable
+            entities={paginatedEntities}
+            entityType={activeType}
+            onView={open.detail}
+            onEdit={open.edit}
+            onDelete={open.delete}
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            loading={loading}
+          />
+        </div>
       </div>
 
       <UserDetailModal
@@ -187,13 +185,17 @@ export default function UsuariosPage() {
         entityType={activeType}
       />
 
-      <UserEditModal
-        isOpen={modals.edit}
-        onClose={close.edit}
-        onSuccess={handleEditSuccess}
-        entity={selectedEntity}
-        entityType={activeType}
-      />
+      {(activeType === 'student' || activeType === 'parent') && (
+        <UserEditModal
+          isOpen={modals.edit}
+          onClose={close.edit}
+          onSuccess={handleEditSuccess}
+          entity={selectedEntity as Student | Parent | null}
+          entityType={activeType}
+          allParents={entities.parent}
+          allStudents={entities.student}
+        />
+      )}
 
       <UserDeleteModal
         isOpen={modals.delete}
@@ -208,12 +210,16 @@ export default function UsuariosPage() {
         onClose={close.create}
         onSuccess={handleCreateSuccess}
         entityType={activeType}
+        classrooms={classrooms}
+        allParents={entities.parent}
+        allStudents={entities.student}
       />
 
       <CarnetGeneratorModal
         isOpen={modals.carnet}
         onClose={close.carnet}
         onSuccess={(message) => success('Carnets', message)}
+        classrooms={classrooms}
       />
 
       <ToastContainer toasts={toasts} onClose={removeToast} />

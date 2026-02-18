@@ -1,6 +1,8 @@
 import { useState, useMemo, useEffect } from 'react';
 import { usersService } from '@/lib/api/users';
+import { academicYearService } from '@/lib/api/academic-years';
 import { settingsService } from '@/lib/api/settings';
+import { AttendableType } from '@/lib/api/attendance';
 
 export interface Classroom {
   id: number;
@@ -13,7 +15,7 @@ export interface Classroom {
 
 export interface ReportFilters {
   period: 'daily' | 'monthly' | 'bimester';
-  type: 'student' | 'teacher';
+  type: AttendableType;
   level: string;
   grade?: number;
   section: string;
@@ -41,6 +43,7 @@ export function useReportFilters() {
   );
 
   const [classrooms, setClassrooms] = useState<Classroom[]>([]);
+  const [allowedTypes, setAllowedTypes] = useState<AttendableType[]>([]);
   const [bimesterDates, setBimesterDates] = useState<
     Record<number, { inicio: string; fin: string }>
   >({});
@@ -48,6 +51,7 @@ export function useReportFilters() {
   useEffect(() => {
     loadClassrooms();
     loadBimesterDates();
+    loadAllowedTypes();
   }, []);
 
   const loadClassrooms = async () => {
@@ -61,22 +65,31 @@ export function useReportFilters() {
 
   const loadBimesterDates = async () => {
     try {
-      const settings = await settingsService.getAll();
+      const academicYear = await academicYearService.getCurrent();
       const dates: Record<number, { inicio: string; fin: string }> = {};
-      for (let i = 1; i <= 4; i++) {
-        dates[i] = {
-          inicio:
-            settings.bimestres[
-              `bimestre_${i}_inicio` as keyof typeof settings.bimestres
-            ],
-          fin: settings.bimestres[
-            `bimestre_${i}_fin` as keyof typeof settings.bimestres
-          ],
+      for (const bimester of academicYear.bimesters) {
+        dates[bimester.number] = {
+          inicio: bimester.start_date,
+          fin: bimester.end_date,
         };
       }
       setBimesterDates(dates);
     } catch (err) {
       console.error('Error loading bimester dates:', err);
+    }
+  };
+
+  const loadAllowedTypes = async () => {
+    try {
+      const types = await settingsService.getAttendableTypes();
+      setAllowedTypes(types ?? ['student']);
+
+      if (!types.includes(filters.type)) {
+        setFilters((prev) => ({ ...prev, type: types[0] }));
+      }
+    } catch (err) {
+      console.error('Error loading allowed types:', err);
+      setAllowedTypes(['student']);
     }
   };
 
@@ -114,7 +127,6 @@ export function useReportFilters() {
   const getFiltersWithDates = (): ReportFilters => {
     const payload: ReportFilters = { ...filters };
 
-    // Para 'daily', no enviamos from/to - el backend usará now() con su timezone
     if (filters.period === 'monthly') {
       const year = selectedYear;
       const monthStr = (selectedMonth + 1).toString().padStart(2, '0');
@@ -138,6 +150,7 @@ export function useReportFilters() {
     selectedYear,
     setSelectedYear,
     bimesterDates,
+    allowedTypes,
     availableLevels,
     availableGrades,
     availableSections,
