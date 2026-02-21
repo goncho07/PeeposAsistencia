@@ -226,10 +226,29 @@ class CalendarEventSeeder extends Seeder
             ],
         ];
 
+        $count = 0;
         foreach ($events as $event) {
             CalendarEvent::updateOrCreate(array_merge($event, [
                 'tenant_id' => null,
             ]));
+            $count++;
         }
+
+        $this->command->info('');
+        $this->command->info('===================================');
+        $this->command->info('Resumen de Eventos del Calendario:');
+        $this->command->info('===================================');
+        
+        $this->command->table(
+            ['Tipo', 'Cantidad'],
+            CalendarEvent::whereNull('tenant_id')
+                ->selectRaw('type, COUNT(*) as total')
+                ->groupBy('type')
+                ->orderBy('type')
+                ->get()
+                ->map(fn($e) => [$e->type, $e->total])
+                ->toArray()
+        );
+        $this->command->info("Total: {$count} eventos globales creados.");
     }
 }

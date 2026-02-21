@@ -12,10 +12,10 @@
         "google-gemini-php/laravel": "^2.0",
         "laravel/framework": "^12.0",
         "laravel/sanctum": "^4.0",
+        "laravel/socialite": "^5.24",
         "laravel/tinker": "^2.10.1",
         "league/csv": "*",
-        "league/flysystem-google-cloud-storage": "^3.30",
-        "spatie/browsershot": "^5.2"
+        "league/flysystem-google-cloud-storage": "^3.30"
     },
     "require-dev": {
         "laravel/pail": "^1.2.2",

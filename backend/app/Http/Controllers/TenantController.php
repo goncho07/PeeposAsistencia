@@ -37,6 +37,7 @@ class TenantController extends Controller
                 'logo_url' => get_storage_url($tenant->logo_url),
                 'banner_url' => get_storage_url($tenant->banner_url),
                 'background_url' => get_storage_url($tenant->background_url),
+                'primary_color' => $tenant->primary_color,
             ]);
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $e) {
             return $this->error('Institución no encontrada', null, 404);

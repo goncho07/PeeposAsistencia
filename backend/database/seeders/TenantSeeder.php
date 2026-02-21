@@ -15,14 +15,14 @@ class TenantSeeder extends Seeder
         $tenants = [
             [
                 'modular_code' => '0325464',
-                'slug' => 'ieericardopalma',
+                'slug' => 'iericardopalma',
                 'ruc' => '20506159360',
                 'name' => 'I.E.E 6049 Ricardo Palma',
                 'director_name' => 'Hetwer Gumer Vega Villaorduña',
                 'founded_year' => '1948',
                 'institution_type' => 'ESTATAL',
                 'level' => 'MULTIPLE',
-                'email' => 'mesadepartes@ieericardopalma.edu.pe',
+                'email' => 'mesadepartes@iericardopalma.edu.pe',
                 'phone' => '016527062',
                 'address' => 'Av. Angamos Este S/N',
                 'department' => 'LIMA',
@@ -32,9 +32,10 @@ class TenantSeeder extends Seeder
                 'ubigeo' => '150141',
                 'timezone' => 'America/Lima',
                 'is_active' => true,
-                'logo_url' => 'tenants/ieericardopalma/logo.png',
-                'banner_url' => 'tenants/ieericardopalma/banner.png',
-                'background_url' => 'tenants/ieericardopalma/background.jpg',
+                'logo_url' => 'tenants/iericardopalma/logo.png',
+                'banner_url' => 'tenants/iericardopalma/banner.png',
+                'background_url' => 'tenants/iericardopalma/background.jpg',
+                'primary_color' => '#C62828',
             ],
             [
                 'modular_code' => '0325265',
@@ -77,7 +78,7 @@ class TenantSeeder extends Seeder
         $this->command->info('Resumen de Tenants Creados:');
         $this->command->info('================================');
         $this->command->table(
-            ['ID', 'Código', 'Nombre', 'Estado', 'Nivel'],
+            ['ID', 'Código', 'Nombre', 'Nivel'],
             Tenant::all()->map(fn($t) => [
                 $t->id,
                 $t->modular_code,

@@ -1,22 +1,28 @@
 # Usamos PHP 8.3 con Apache
 FROM php:8.3-apache
 
-# 1. Instalar dependencias + Node.js mínimo + Chromium
+# 1. Instalar dependencias del sistema (sin Chromium ni Node.js — ver carnet-service/)
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git curl libpng-dev libonig-dev libxml2-dev libzip-dev zip unzip \
-    default-mysql-client chromium chromium-sandbox fonts-liberation \
-    && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
-    && apt-get install -y nodejs \
+    default-mysql-client \
     && docker-php-ext-configure gd \
     && docker-php-ext-install -j$(nproc) pdo_mysql mbstring exif pcntl bcmath gd zip opcache \
     && apt-get purge -y --auto-remove -o APT::AutoRemove::RecommendsImportant=false \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/* /usr/share/{doc,man,locale}/*
 
-# 2. Instalar Puppeteer (sin Chromium bundled)
-RUN npm install -g puppeteer --no-optional \
-    && npm cache clean --force \
-    && rm -rf /root/.npm
+# 2. Configurar OPcache agresivo para producción
+RUN { \
+    echo 'opcache.enable=1'; \
+    echo 'opcache.memory_consumption=256'; \
+    echo 'opcache.interned_strings_buffer=16'; \
+    echo 'opcache.max_accelerated_files=20000'; \
+    echo 'opcache.validate_timestamps=0'; \
+    echo 'opcache.save_comments=1'; \
+    echo 'opcache.fast_shutdown=1'; \
+    echo 'opcache.jit=tracing'; \
+    echo 'opcache.jit_buffer_size=128M'; \
+} > /usr/local/etc/php/conf.d/opcache-prod.ini
 
 # 3. Configuración Apache
 RUN a2enmod rewrite \
@@ -53,27 +59,19 @@ COPY . .
 RUN composer dump-autoload --optimize --classmap-authoritative \
     && rm -rf /root/.composer/cache
 
-#8. Copiar .env.example
-COPY .env.example .env
-RUN if ! grep -q "APP_KEY=" .env; then \
-        APP_KEY=$(php artisan key:generate --show); \
-        echo "APP_KEY=$APP_KEY" >> .env; \
-    fi
-
-# 9. Permisos
+# 8. Permisos
 RUN chown -R www-data:www-data storage bootstrap/cache \
-    && chmod -R 775 storage bootstrap/cache \
-    && chmod 600 .env
-
-# 10. Variables de entorno
-ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium \
-    CHROMIUM_PATH=/usr/bin/chromium
+    && chmod -R 775 storage bootstrap/cache
 
 # Exponer el puerto 8080 para documentación (y para que Cloud Run sepa qué esperar si usa auto-detect)
 EXPOSE 8080
 
 COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Pre-cachear rutas y eventos en build time (sin .env real, solo estructura)
+# config:cache NO se hace en build porque necesita las env vars reales de runtime
+RUN php artisan route:cache --no-interaction || true \
+    && php artisan event:cache --no-interaction || true
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]

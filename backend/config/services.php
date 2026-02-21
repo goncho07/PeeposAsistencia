@@ -38,4 +38,15 @@ return [
         'base_ip' => env('WAHA_API_BASE_IP', '34.41.116.18'),
         'token' => env('WAHA_TOKEN', '1d08af99dbd14e87bc9a277175fdd338'),
     ],
+
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
+
+    'carnet' => [
+        'url'    => env('CARNET_SERVICE_URL'),
+        'secret' => env('CARNET_SERVICE_SECRET'),
+    ],
 ];

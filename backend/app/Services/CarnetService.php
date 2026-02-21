@@ -7,10 +7,11 @@ use App\Models\Student;
 use App\Models\Teacher;
 use App\Models\Tenant;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use BaconQrCode\Renderer\Image\SvgImageBackEnd;
-use Spatie\Browsershot\Browsershot;
 use BaconQrCode\Renderer\ImageRenderer;
 use BaconQrCode\Renderer\RendererStyle\RendererStyle;
 use BaconQrCode\Writer;
@@ -112,59 +113,61 @@ class CarnetService
         $filename = 'carnets_' . now()->format('Y-m-d_His') . '.html';
         $path = "carnets/{$tenant->id}/{$filename}";
 
-        Storage::disk('public')->put($path, $html);
+        $disk = config('filesystems.default');
+        Storage::disk($disk)->put($path, $html);
 
         return $path;
     }
 
     /**
-     * Generate PDF from HTML file
+     * Generate PDF from HTML file via carnet-service microservice.
+     * The HTML is read from GCS and the resulting PDF is stored back to GCS.
      */
     public function generatePDFFromHTML(string $htmlPath, Tenant $tenant): string
     {
-        $html = Storage::disk('public')->get($htmlPath);
-
-        $browsershot = Browsershot::html($html)
-            ->setChromePath(env('CHROMIUM_PATH', '/usr/bin/chromium'))
-            ->setNodeBinary(env('NODE_BINARY', '/usr/bin/node'))
-            ->setNpmBinary(env('NPM_BINARY', '/usr/bin/npm'))
-            ->setOption('args', [
-                '--no-sandbox',
-                '--disable-gpu',
-                '--disable-dev-shm-usage',
-                '--disable-software-rasterizer',
-                '--disable-extensions',
-                '--disable-background-timer-throttling',
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
-                '--disable-web-security',
-                '--disable-features=IsolateOrigins,site-per-process',
-            ])
-            ->timeout(600)
-            ->setOption('waitUntil', 'domcontentloaded')
-            ->setOption('protocolTimeout', 600000)
-            ->setOption('preferCSSPageSize', true)
-            ->showBackground()
-            ->format('A4')
-            ->margins(0, 0, 0, 0)
-            ->noSandbox()
-            ->dismissDialogs();
-
-        $pdfBinary = $browsershot->pdf();
-
         $filename = 'carnets_' . now()->format('Y-m-d_His') . '.pdf';
         $pdfPath = "carnets/{$tenant->id}/{$filename}";
+        $jobId = Str::uuid()->toString();
 
-        $disk = config('filesystems.default');
-        Storage::disk($disk)->put($pdfPath, $pdfBinary);
+        $carnetServiceUrl = rtrim(config('services.carnet.url'), '/');
+        $secret = config('services.carnet.secret');
 
-        Log::info('PDF guardado en storage', [
-            'path' => $pdfPath,
-            'disk' => $disk,
-            'size' => strlen($pdfBinary),
+        Log::info('Llamando a carnet-service para generación de PDF', [
+            'html_gcs_path' => $htmlPath,
+            'pdf_gcs_path'  => $pdfPath,
+            'job_id'        => $jobId,
         ]);
 
-        Storage::disk('public')->delete($htmlPath);
+        $response = Http::withHeaders([
+                'X-Carnet-Secret' => $secret,
+            ])
+            ->timeout(660)
+            ->post("{$carnetServiceUrl}/convert", [
+                'html_gcs_path' => $htmlPath,
+                'pdf_gcs_path'  => $pdfPath,
+                'tenant_id'     => $tenant->id,
+                'job_id'        => $jobId,
+            ]);
+
+        if (! $response->successful()) {
+            $error = $response->json('error') ?? $response->body();
+            Log::error('carnet-service retornó error', [
+                'status'  => $response->status(),
+                'error'   => $error,
+                'job_id'  => $jobId,
+            ]);
+            throw new \RuntimeException("Error al generar PDF: {$error}");
+        }
+
+        Log::info('PDF generado por carnet-service', [
+            'pdf_path'    => $pdfPath,
+            'duration_ms' => $response->json('duration_ms'),
+            'job_id'      => $jobId,
+        ]);
+
+        // Limpiar HTML temporal de GCS
+        $disk = config('filesystems.default');
+        Storage::disk($disk)->delete($htmlPath);
 
         return $pdfPath;
     }
@@ -406,12 +409,13 @@ class CarnetService
     public function getHTMLContent(): ?string
     {
         $path = $this->getHTMLPath();
+        $disk = config('filesystems.default');
 
-        if (!$path || !Storage::disk('public')->exists($path)) {
+        if (!$path || !Storage::disk($disk)->exists($path)) {
             return null;
         }
 
-        return Storage::disk('public')->get($path);
+        return Storage::disk($disk)->get($path);
     }
 
     /**

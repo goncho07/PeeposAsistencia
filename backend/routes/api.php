@@ -151,7 +151,7 @@ Route::middleware(['auth:sanctum', 'tenant.context', 'tenant.verify', 'tenant.ac
         });
     });
 
-    Route::prefix('scanner')->group(function () {
+    Route::prefix('scanner')->middleware('tenant.role:ESCANER')->group(function () {
         Route::post('/entry', [ScannerController::class, 'scanEntry']);
         Route::post('/exit', [ScannerController::class, 'scanExit']);
     });

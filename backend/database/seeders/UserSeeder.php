@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Tenant;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 
 class UserSeeder extends Seeder
 {
@@ -14,24 +15,27 @@ class UserSeeder extends Seeder
      */
     public function run(): void
     {
-        $superadmin = User::withoutGlobalScope('tenant')->updateOrCreate([
-            'tenant_id' => null,
-            'document_type' => 'DNI',
-            'document_number' => '00000000',
-            'name' => 'Peepos',
-            'paternal_surname' => 'Sistema',
-            'maternal_surname' => 'Intelicole',
-            'email' => 'admin@intelicole.pe',
-            'password' => Hash::make('marvelrivals123'),
-            'role' => 'SUPERADMIN',
-            'phone_number' => '999999999',
-            'status' => 'ACTIVO',
-            'email_verified_at' => now(),
-        ]);
+        $superadminPassword = $this->resolvePassword('SEED_SUPERADMIN_PASSWORD');
+        $directorPassword        = $this->resolvePassword('SEED_DIRECTOR_PASSWORD');
+        $scannerPassword    = $this->resolvePassword('SEED_SCANNER_PASSWORD');
 
-        $this->command->info("SUPERADMIN creado: {$superadmin->email}");
-        $this->command->warn("Password: marvelrivals123");
-        $this->command->info('');
+        $superadmin = User::withoutGlobalScope('tenant')->updateOrCreate(
+            ['document_number' => '00000000', 'tenant_id' => null],
+            [
+                'document_type'     => 'DNI',
+                'name'              => 'Peepos',
+                'paternal_surname'  => 'Sistema',
+                'maternal_surname'  => 'Intelicole',
+                'email'             => env('SEED_SUPERADMIN_EMAIL', 'intelicolelocambiatodo@gmail.com'),
+                'password'          => Hash::make($superadminPassword),
+                'role'              => 'SUPERADMIN',
+                'phone_number'      => '999999999',
+                'status'            => 'ACTIVO',
+                'email_verified_at' => now(),
+            ]
+        );
+
+        $this->command->info("SUPERADMIN: {$superadmin->email}");
 
         $tenants = Tenant::all();
 
@@ -43,67 +47,65 @@ class UserSeeder extends Seeder
         $tenant1 = $tenants->firstWhere('modular_code', '0325464');
 
         if ($tenant1) {
-            $users = [
+            User::withoutGlobalScope('tenant')->updateOrCreate(
+                ['tenant_id' => $tenant1->id, 'document_number' => '12345678'],
                 [
-                    'document_type' => 'DNI',
-                    'document_number' => '12345678',
-                    'name' => 'Ricardo',
-                    'paternal_surname' => 'Palma',
-                    'maternal_surname' => 'Soriano',
-                    'email' => 'ricardopalma@gmail.com',
-                    'password' => Hash::make('ricardopalma123'),
-                    'role' => 'DIRECTOR',
-                    'phone_number' => '987654321',
-                    'status' => 'ACTIVO',
-                ],
-            ];
+                    'document_type'     => 'DNI',
+                    'name'              => 'Ricardo',
+                    'paternal_surname'  => 'Palma',
+                    'maternal_surname'  => 'Soriano',
+                    'email'             => 'ricardopalma@' . $tenant1->slug . '.edu.pe',
+                    'password'          => Hash::make($directorPassword),
+                    'role'              => 'DIRECTOR',
+                    'phone_number'      => '987654321',
+                    'status'            => 'ACTIVO',
+                    'email_verified_at' => now(),
+                ]
+            );
 
-            foreach ($users as $userData) {
-                $userData['tenant_id'] = $tenant1->id;
-                $userData['email_verified_at'] = now();
-
-                User::updateOrCreate($userData);
-            }
-
-            $this->command->info(" Usuarios creados para: {$tenant1->name}");
+            $this->command->info("DIRECTOR creado para: {$tenant1->name}");
         }
 
         $tenant2 = $tenants->firstWhere('modular_code', '0325265');
 
         if ($tenant2) {
-            $users = [
+            User::withoutGlobalScope('tenant')->updateOrCreate(
+                ['tenant_id' => $tenant2->id, 'document_number' => '78901234'],
                 [
-                    'document_type' => 'DNI',
-                    'document_number' => '78901234',
-                    'name' => 'Francisco',
-                    'paternal_surname' => 'Bolognesi',
-                    'maternal_surname' => 'Cervantes',
-                    'email' => 'franciscobolognesi@gmail.com',
-                    'password' => Hash::make('bolognesi123'),
-                    'role' => 'DIRECTOR',
-                    'phone_number' => '976543210',
-                    'status' => 'ACTIVO',
-                ],
-            ];
+                    'document_type'     => 'DNI',
+                    'name'              => 'Francisco',
+                    'paternal_surname'  => 'Bolognesi',
+                    'maternal_surname'  => 'Cervantes',
+                    'email'             => 'franciscobolognesi@' . $tenant2->slug . '.edu.pe',
+                    'password'          => Hash::make($directorPassword),
+                    'role'              => 'DIRECTOR',
+                    'phone_number'      => '976543210',
+                    'status'            => 'ACTIVO',
+                    'email_verified_at' => now(),
+                ]
+            );
 
-            foreach ($users as $userData) {
-                $userData['tenant_id'] = $tenant2->id;
-                $userData['email_verified_at'] = now();
-
-                User::updateOrCreate($userData);
-            }
-
-            $this->command->info(" Usuarios creados para: {$tenant2->name}");
+            $this->command->info("DIRECTOR creado para: {$tenant2->name}");
         }
 
-        $this->command->info('');
-        $this->command->info('================================');
-        $this->command->info('Resumen de Usuarios Creados:');
-        $this->command->info('================================');
+        $this->seedScannerUsers($tenants, $scannerPassword);
 
-        $allUsers = User::withoutGlobalScope('tenant')
-            ->with('tenant')
-            ->get();
+        $this->command->info('');
+        $this->command->info('════════════════════════════════════════');
+        $this->command->info('  Credenciales generadas en este seed  ');
+        $this->command->info('════════════════════════════════════════');
+        $this->command->table(
+            ['Variable env', 'Password usada'],
+            [
+                ['SEED_SUPERADMIN_PASSWORD', $superadminPassword],
+                ['SEED_DIRECTOR_PASSWORD',        $directorPassword],
+                ['SEED_SCANNER_PASSWORD',    $scannerPassword],
+            ]
+        );
+        $this->command->warn('Guarda estas passwords si fueron generadas automáticamente.');
+        $this->command->info('');
+
+        $allUsers = User::withoutGlobalScope('tenant')->with('tenant')->get();
 
         $this->command->table(
             ['ID', 'Email', 'Rol', 'Tenant', 'Estado'],
@@ -115,5 +117,67 @@ class UserSeeder extends Seeder
                 $u->status,
             ])->toArray()
         );
+    }
+
+    private function resolvePassword(string $envKey): string
+    {
+        $value = env($envKey);
+
+        if (! $value) {
+            $value = Str::password(20, symbols: true);
+            $this->command->warn("{$envKey} no definida — password generada automáticamente.");
+        }
+
+        return $value;
+    }
+
+    private function seedScannerUsers($tenants, string $scannerPassword): void
+    {
+        $levelMap = [
+            'INICIAL'    => [['Inicial',    'I']],
+            'PRIMARIA'   => [['Primaria',   'P']],
+            'SECUNDARIA' => [['Secundaria', 'S']],
+            'MULTIPLE'   => [
+                ['Inicial',    'I'],
+                ['Primaria',   'P'],
+                ['Secundaria', 'S'],
+            ],
+        ];
+
+        $this->command->info('');
+        $this->command->info('Creando usuarios ESCANER...');
+
+        foreach ($tenants as $tenant) {
+            $scanners = $levelMap[$tenant->level] ?? [];
+
+            if (empty($scanners)) {
+                $this->command->warn("Tenant {$tenant->name}: nivel '{$tenant->level}' no reconocido, sin escaners.");
+                continue;
+            }
+
+            foreach ($scanners as [$levelLabel, $levelCode]) {
+                $docNumber = 'SCN-' . $tenant->modular_code . '-' . $levelCode;
+
+                User::withoutGlobalScope('tenant')->updateOrCreate(
+                    [
+                        'tenant_id'       => $tenant->id,
+                        'document_number' => $docNumber,
+                    ],
+                    [
+                        'document_type'     => 'DNI',
+                        'name'              => 'Escáner',
+                        'paternal_surname'  => $levelLabel,
+                        'maternal_surname'  => '',
+                        'email'             => 'escaner.' . strtolower($levelLabel) . '@' . $tenant->slug . '.scan',
+                        'password'          => Hash::make($scannerPassword),
+                        'role'             => 'ESCANER',
+                        'status'           => 'ACTIVO',
+                        'email_verified_at' => now(),
+                    ]
+                );
+
+                $this->command->line("  Escáner {$levelLabel} → {$tenant->name}");
+            }
+        }
     }
 }
